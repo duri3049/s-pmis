@@ -969,7 +969,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "calc(100vh - 56px)", background: "#FAFAFA" }}>
+    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100vh", background: "#FAFAFA" }}>
       <div style={{ background: NAVY, color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 30, height: 30, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: NAVY }}>{user.name[0]}</div>
