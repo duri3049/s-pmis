@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 const NAVY = "#1A2332";
 const YELLOW = "#FFB800";
-const TODAY = new Date("2026-05-20");
+const TODAY = new Date();
+TODAY.setHours(0, 0, 0, 0);
 
 const SB_URL = "https://movvrcrbuokoahhiydtt.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vdnZyY3JidW9rb2FoaGl5ZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDkxMjIsImV4cCI6MjA5NDg4NTEyMn0.zK_GlKCXhKxa-xd0HpxAGURMwzyXr6cbm7xi-rYZUVE";
@@ -11,19 +12,19 @@ const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY;
 const sb = {
   async get(table, params = "") {
     const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}&order=id.asc${params ? "&" + params : ""}`;
-    const r = await fetch(url, { headers: { "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json" } });
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" } });
     if (!r.ok) { const t = await r.text(); throw new Error(`GET ${table} ${r.status}: ${t}`); }
     return r.json();
   },
   async post(table, body) {
     const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}`;
-    const r = await fetch(url, { method: "POST", headers: { "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" }, body: JSON.stringify(body) });
+    const r = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(body) });
     if (!r.ok) { const t = await r.text(); throw new Error(`POST ${table} ${r.status}: ${t}`); }
     return r.json();
   },
   async patch(table, id, body) {
     const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}&id=eq.${id}`;
-    const r = await fetch(url, { method: "PATCH", headers: { "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" }, body: JSON.stringify(body) });
+    const r = await fetch(url, { method: "PATCH", headers: { Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(body) });
     if (!r.ok) { const t = await r.text(); throw new Error(`PATCH ${table} ${r.status}: ${t}`); }
     return r.json();
   },
@@ -39,16 +40,6 @@ const claudeComplete = async (prompt) => {
   return data.content[0].text;
 };
 
-// ── Today target ─────────────────────────────────────────────────────
-function calcTodayTarget(a) {
-  const rem_days = Math.max(1, diffDays(a.pf, TODAY));
-  const rem_qty = Math.max(0, a.plan_qty - a.done_qty);
-  const daily_target = Math.round(rem_qty / rem_days);
-  const plan_daily = Math.round(a.plan_qty / Math.max(1, a.orig_dur));
-  return { daily_target, plan_daily, rem_qty, rem_days };
-}
-
-// ── Calc helpers ──────────────────────────────────────────────────────
 const diffDays = (a, b) => Math.round((new Date(a) - new Date(b)) / 86400000);
 const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10); };
 const fmtM = n => `${(n / 1000000).toFixed(1)}M`;
@@ -56,8 +47,16 @@ const pct = n => `${Math.round(n)}%`;
 const cpiColor = v => v >= 1 ? "#10B981" : v >= 0.9 ? "#F59E0B" : "#EF4444";
 const statusColor = s => s === "완료" ? "#10B981" : s === "진행" ? "#F59E0B" : "#9CA3AF";
 const riskBg = r => r === "고" ? "#FEE2E2" : r === "중" ? "#FEF3C7" : "#F0FDF4";
-const riskColor = r => r === "고" ? "#991B1B" : r === "중" ? "#92400E" : "#166534";
+const riskColor = r => r === "고" ? "#991B1B" : r === "중" ? "#92400E" : "#166634";
 const sevColor = s => s === "긴급" ? "#EF4444" : s === "높음" ? "#F59E0B" : "#6B7280";
+const msIcon = type => type === "gate" ? "🔷" : type === "inspection" ? "🔍" : type === "equipment" ? "🏗" : "★";
+const msColor = status => status === "achieved" ? "#10B981" : status === "delayed" ? "#EF4444" : "#F59E0B";
+const dayStr = d => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+};
 
 function calcAct(a) {
   const phys = a.plan_qty > 0 ? Math.round((a.done_qty / a.plan_qty) * 100) : 0;
@@ -67,73 +66,74 @@ function calcAct(a) {
   const ev = Math.round(a.pv_budget * phys / 100);
   const ac = Number(a.ac) || 0;
   const cv = ev - ac, sv = ev - pv;
-  const cpi = ac > 0 ? (ev / ac) : 1, spi = pv > 0 ? (ev / pv) : 1;
+  const cpi = ac > 0 ? ev / ac : 1;
+  const spi = pv > 0 ? ev / pv : 1;
   const eac = cpi > 0 ? Math.round(a.pv_budget / cpi) : a.pv_budget;
   const total_float = a.critical ? 0 : Math.max(0, diffDays(a.pf, TODAY));
   const rem_dur = Math.max(0, diffDays(a.pf, TODAY));
   const slip = a.as_ ? diffDays(a.as_, a.ps) : 0;
   const status = phys === 100 ? "완료" : a.as_ ? "진행" : "예정";
-  const steps = typeof a.steps === "string" ? JSON.parse(a.steps) : (a.steps || []);
-  const predecessors = typeof a.predecessors === "string" ? JSON.parse(a.predecessors) : (a.predecessors || []);
-  const delay_days = a.delay_days || 0;
-  return { ...a, phys, plan_pct, pv, ev, ac, cv, sv, cpi, spi, eac, total_float, rem_dur, slip, status, steps, predecessors, delay_days };
+  const steps = typeof a.steps === "string" ? JSON.parse(a.steps) : a.steps || [];
+  const predecessors = typeof a.predecessors === "string" ? JSON.parse(a.predecessors) : a.predecessors || [];
+  return { ...a, phys, plan_pct, pv, ev, ac, cv, sv, cpi, spi, eac, total_float, rem_dur, slip, status, steps, predecessors, delay_days: a.delay_days || 0 };
 }
 
-// ── CPM 재계산 ────────────────────────────────────────────────────────
+function calcTodayTarget(a) {
+  const rem_days = Math.max(1, diffDays(a.pf, TODAY));
+  const rem_qty = Math.max(0, a.plan_qty - a.done_qty);
+  const daily_target = Math.round(rem_qty / rem_days);
+  const plan_daily = Math.round(a.plan_qty / Math.max(1, a.orig_dur));
+  return { daily_target, plan_daily, rem_qty, rem_days };
+}
+
 function recalcCPM(activities, changedId, delayDays) {
   const actMap = {};
-  activities.forEach(a => actMap[a.id] = { ...a });
-
-  // 지연된 공정 업데이트
+  activities.forEach(a => { actMap[a.id] = { ...a }; });
   const changed = actMap[changedId];
   if (!changed) return activities;
   changed.pf = addDays(changed.pf, delayDays);
   changed.delay_days = (changed.delay_days || 0) + delayDays;
-
-  // 위상 정렬로 후행 공정 재계산
   const visited = new Set();
   const propagate = (id) => {
     if (visited.has(id)) return;
     visited.add(id);
     activities.forEach(a => {
-      const preds = typeof a.predecessors === "string" ? JSON.parse(a.predecessors) : (a.predecessors || []);
+      const preds = typeof a.predecessors === "string" ? JSON.parse(a.predecessors) : a.predecessors || [];
       const pred = preds.find(p => p.id === id);
       if (!pred) return;
-      const src = actMap[id];
-      const tgt = actMap[a.id];
+      const src = actMap[id], tgt = actMap[a.id];
       let newStart;
       if (pred.type === "FS") newStart = addDays(src.pf, pred.lag || 0);
       else if (pred.type === "SS") newStart = addDays(src.ps, pred.lag || 0);
       else if (pred.type === "FF") newStart = addDays(src.pf, (pred.lag || 0) - tgt.orig_dur);
       else newStart = addDays(src.ps, pred.lag || 0);
-
       if (newStart > tgt.ps) {
         const shift = diffDays(newStart, tgt.ps);
-        tgt.ps = newStart;
-        tgt.pf = addDays(tgt.pf, shift);
+        tgt.ps = newStart; tgt.pf = addDays(tgt.pf, shift);
         tgt.delay_days = (tgt.delay_days || 0) + shift;
         propagate(a.id);
       }
     });
   };
   propagate(changedId);
-
   return activities.map(a => calcAct(actMap[a.id] || a));
 }
 
-// ── Rollup ────────────────────────────────────────────────────────────
 function rollup(group, acts) {
   const tb = acts.reduce((s, a) => s + a.pv_budget, 0);
-  const phys = Math.round(acts.reduce((s, a) => s + (a.phys * a.pv_budget), 0) / Math.max(tb, 1));
-  const plan_pct = Math.round(acts.reduce((s, a) => s + (a.plan_pct * a.pv_budget), 0) / Math.max(tb, 1));
-  const pv = acts.reduce((s, a) => s + a.pv, 0), ev = acts.reduce((s, a) => s + a.ev, 0), ac = acts.reduce((s, a) => s + a.ac, 0);
-  const cpi = ac > 0 ? (ev / ac) : 1, spi = pv > 0 ? (ev / pv) : 1;
+  const phys = Math.round(acts.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(tb, 1));
+  const plan_pct = Math.round(acts.reduce((s, a) => s + a.plan_pct * a.pv_budget, 0) / Math.max(tb, 1));
+  const pv = acts.reduce((s, a) => s + a.pv, 0);
+  const ev = acts.reduce((s, a) => s + a.ev, 0);
+  const ac = acts.reduce((s, a) => s + a.ac, 0);
+  const cpi = ac > 0 ? ev / ac : 1;
+  const spi = pv > 0 ? ev / pv : 1;
   const eac = acts.reduce((s, a) => s + a.eac, 0);
-  const done = acts.every(a => a.phys === 100), inprog = acts.some(a => a.as_ && a.phys < 100);
+  const done = acts.every(a => a.phys === 100);
+  const inprog = acts.some(a => a.as_ && a.phys < 100);
   return { group, acts, phys, plan_pct, pv, ev, ac, eac, cpi, spi, total_budget: tb, has_critical: acts.some(a => a.critical), status: done ? "완료" : inprog ? "진행" : "예정" };
 }
 
-// ── Constants ─────────────────────────────────────────────────────────
 const SUBCONS = ["한일건설", "동방페인트", "대성콘크리트", "삼성방수", "신성타일", "기타"];
 const RESPS = ["이기사", "최대리", "박기사", "홍차장", "김반장"];
 const GROUPS_PRESET = ["외벽 도장", "균열 보수", "내부 도장", "콘크리트 양생", "방수공사", "타일공사", "창호공사"];
@@ -145,7 +145,6 @@ const CHAIN_NAMES = ["이기사", "최대리", "박정수", "홍차장", "오부
 const ISSUE_TYPES = ["공기지연", "품질불량", "자재부족", "안전", "기타"];
 const SEVERITIES = ["긴급", "높음", "보통"];
 
-// ── UI Components ─────────────────────────────────────────────────────
 function Badge({ label, bg, color }) {
   return <span style={{ background: bg, color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{label}</span>;
 }
@@ -165,66 +164,41 @@ function Toast({ msg, onDone }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────
 function Dashboard({ activities, progressReports, issues }) {
-  const totalPhys = Math.round(activities.reduce((s, a) => s + (a.phys * a.pv_budget), 0) / Math.max(activities.reduce((s, a) => s + a.pv_budget, 0), 1));
+  const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
+  const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalEV = activities.reduce((s, a) => s + a.ev, 0);
   const totalPV = activities.reduce((s, a) => s + a.pv, 0);
   const totalAC = activities.reduce((s, a) => s + a.ac, 0);
-  const totalBAC = activities.reduce((s, a) => s + a.pv_budget, 0);
-  const gCPI = totalAC > 0 ? (totalEV / totalAC) : 1;
-  const gSPI = totalPV > 0 ? (totalEV / totalPV) : 1;
-  const critCount = activities.filter(a => a.critical && a.phys < 100).length;
+  const gCPI = totalAC > 0 ? totalEV / totalAC : 1;
+  const gSPI = totalPV > 0 ? totalEV / totalPV : 1;
   const delayedCount = activities.filter(a => a.delay_days > 0).length;
   const openIssues = issues.filter(i => i.status !== "closed").length;
-
-  // 협력사별 실적
   const subconMap = {};
   activities.forEach(a => {
     if (!subconMap[a.subcon]) subconMap[a.subcon] = { acts: [], ev: 0, pv: 0, ac: 0, budget: 0 };
     subconMap[a.subcon].acts.push(a);
-    subconMap[a.subcon].ev += a.ev;
-    subconMap[a.subcon].pv += a.pv;
-    subconMap[a.subcon].ac += a.ac;
-    subconMap[a.subcon].budget += a.pv_budget;
+    subconMap[a.subcon].ev += a.ev; subconMap[a.subcon].pv += a.pv;
+    subconMap[a.subcon].ac += a.ac; subconMap[a.subcon].budget += a.pv_budget;
   });
   const subcons = Object.entries(subconMap).map(([name, d]) => ({
     name, count: d.acts.length,
-    phys: Math.round(d.acts.reduce((s, a) => s + (a.phys * a.pv_budget), 0) / Math.max(d.budget, 1)),
-    cpi: d.ac > 0 ? (d.ev / d.ac) : 1,
-    spi: d.pv > 0 ? (d.ev / d.pv) : 1,
-    budget: d.budget,
+    phys: Math.round(d.acts.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(d.budget, 1)),
+    cpi: d.ac > 0 ? d.ev / d.ac : 1, spi: d.pv > 0 ? d.ev / d.pv : 1, budget: d.budget,
   }));
-
-  // Look-ahead (7일)
-  const lookahead = activities.filter(a => {
-    const start = new Date(a.ps), end = new Date(a.pf);
-    const in7 = new Date(TODAY); in7.setDate(in7.getDate() + 7);
-    return a.phys < 100 && start <= in7 && end >= TODAY;
-  }).sort((a, b) => new Date(a.ps) - new Date(b.ps));
-
-  // Critical Path
+  const in7 = new Date(TODAY); in7.setDate(in7.getDate() + 7);
+  const lookahead = activities.filter(a => a.phys < 100 && new Date(a.ps) <= in7 && new Date(a.pf) >= TODAY).sort((a, b) => new Date(a.ps) - new Date(b.ps));
   const criticals = activities.filter(a => a.critical && a.phys < 100);
-
-  // S-Curve (간단한 월별 누적)
-  const months = ["5/10", "5/13", "5/16", "5/19", "5/20"];
-  const sCurve = months.map((m, i) => {
-    const ratio = (i + 1) / months.length;
-    return { m, pv: Math.round(totalBAC * ratio * 0.9), ev: Math.round(totalEV * ratio) };
-  });
-
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      {/* KPI */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`계획 대비 ${gSPI >= 1 ? "+" : ""}${Math.round((gSPI - 1) * 100)}%`} />
+        <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`SPI ${gSPI.toFixed(2)}`} />
         <KPI label="CPI" value={gCPI.toFixed(2)} color={cpiColor(gCPI)} sub={gCPI >= 1 ? "비용 효율" : "비용 초과"} />
         <KPI label="SPI" value={gSPI.toFixed(2)} color={cpiColor(gSPI)} sub={gSPI >= 1 ? "일정 양호" : "일정 지연"} />
         <KPI label="EV" value={fmtM(totalEV)} sub={`AC ${fmtM(totalAC)}`} />
         <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" />
         <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" />
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        {/* 협력사별 실적 */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>협력사별 실적</div>
           {subcons.map(s => (
@@ -246,8 +220,6 @@ function Dashboard({ activities, progressReports, issues }) {
             </div>
           ))}
         </div>
-
-        {/* Look-ahead */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>향후 7일 예정 공종</div>
           {lookahead.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>예정된 공종이 없습니다</div>}
@@ -258,17 +230,15 @@ function Dashboard({ activities, progressReports, issues }) {
                 <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div>
                 <div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf} · {a.subcon}</div>
               </div>
-              {a.delay_days > 0 && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일 지연</span>}
+              {a.delay_days > 0 && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일</span>}
               <Badge label={pct(a.phys)} bg={statusColor(a.status) + "22"} color={statusColor(a.status)} />
             </div>
           ))}
         </div>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {/* Critical Path */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>⚠️ Critical Path 공종</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>⚠️ Critical Path</div>
           {criticals.length === 0 && <div style={{ color: "#10B981", fontSize: 13 }}>크리티컬 공종 없음</div>}
           {criticals.map(a => (
             <div key={a.id} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
@@ -277,27 +247,19 @@ function Dashboard({ activities, progressReports, issues }) {
                 <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>Float 0일</span>
               </div>
               <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6B7280" }}>
-                <span>완료일 {a.pf}</span>
-                <span>잔여 {a.rem_dur}일</span>
+                <span>완료일 {a.pf}</span><span>잔여 {a.rem_dur}일</span>
                 {a.delay_days > 0 && <span style={{ color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일 지연</span>}
               </div>
-              {a.predecessors && a.predecessors.length > 0 && (
-                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
-                  선행: {a.predecessors.map(p => `ID ${p.id}(${p.type})`).join(", ")}
-                </div>
-              )}
             </div>
           ))}
         </div>
-
-        {/* 최근 이슈 */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>최근 이슈</div>
           {issues.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
           {issues.slice(0, 4).map(issue => (
             <div key={issue.id} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), flexShrink: 0, display: "inline-block" }} />
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block", flexShrink: 0 }} />
                 <span style={{ fontWeight: 600, fontSize: 13, color: NAVY, flex: 1 }}>{issue.title}</span>
                 <Badge label={issue.status} bg={issue.status === "closed" ? "#F0FDF4" : "#FEF3C7"} color={issue.status === "closed" ? "#166534" : "#92400E"} />
               </div>
@@ -310,207 +272,290 @@ function Dashboard({ activities, progressReports, issues }) {
   );
 }
 
-// ── Issue Tracker ─────────────────────────────────────────────────────
-function IssueTracker({ issues, setIssues, activities, setActivities, setToast }) {
+// ── 3W View (간트 막대 방식) ──────────────────────────────────────────
+function ThreeWeekView({ activities, milestones, setMilestones }) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", activity_id: "", issue_type: "공기지연", severity: "보통", cause: "", action_plan: "", delay_days: 0, assignee: "", created_by: "박정수" });
+  const [form, setForm] = useState({ title: "", milestone_date: "", type: "complete", zone: "", status: "planned" });
   const [saving, setSaving] = useState(false);
-  const [affectedPreview, setAffectedPreview] = useState([]);
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const DAYS = 21;
+  const COL_W = 44;
+  const LEFT_W = 200;
+  const BAR_H = 12;
+  const ROW_H = 58;
 
-  // 후행 공정 미리보기
-  useEffect(() => {
-    if (!form.activity_id || form.delay_days <= 0) { setAffectedPreview([]); return; }
-    const affected = [];
-    const findSuccessors = (id) => {
-      activities.forEach(a => {
-        const preds = a.predecessors || [];
-        if (preds.find(p => p.id === Number(id))) {
-          affected.push(a);
-          findSuccessors(a.id);
-        }
-      });
-    };
-    findSuccessors(form.activity_id);
-    setAffectedPreview([...new Map(affected.map(a => [a.id, a])).values()]);
-  }, [form.activity_id, form.delay_days]);
+  const days = [];
+  for (let i = 0; i < DAYS; i++) {
+    const d = new Date(TODAY);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+  const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+  const dayName = d => "일월화수목금토"[d.getDay()];
+  const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+  const isTodayFn = d => d.toDateString() === TODAY.toDateString();
+  const startDateStr = dayStr(days[0]);
+
+  const dateToX = (ds) => {
+    const diff = diffDays(ds, startDateStr);
+    return Math.max(0, Math.min(diff * COL_W, DAYS * COL_W));
+  };
+
+  const active = activities.filter(a => a.done_qty < a.plan_qty && new Date(a.pf) >= TODAY);
 
   const handleSave = async () => {
-    if (!form.title || !form.activity_id) return;
+    if (!form.title || !form.milestone_date) return;
     setSaving(true);
     try {
-      const affected_ids = affectedPreview.map(a => a.id);
-      const payload = { ...form, activity_id: Number(form.activity_id), delay_days: Number(form.delay_days), affected_activities: affected_ids, status: "open" };
-      const [saved] = await sb.post("issues", payload);
-      setIssues(p => [saved, ...p]);
-
-      // CPM 재계산
-      if (Number(form.delay_days) > 0) {
-        const recalced = recalcCPM(activities, Number(form.activity_id), Number(form.delay_days));
-        // DB 업데이트
-        for (const act of recalced) {
-          const orig = activities.find(a => a.id === act.id);
-          if (orig && (orig.ps !== act.ps || orig.pf !== act.pf)) {
-            await sb.patch("activities", act.id, { ps: act.ps, pf: act.pf, delay_days: act.delay_days });
-          }
-        }
-        setActivities(recalced);
-        setToast(`⚠️ CPM 재계산 완료 · ${affected_ids.length}개 후행 공정 일정 업데이트`);
-      } else {
-        setToast("✅ 이슈가 등록되었습니다");
-      }
+      const [saved] = await sb.post("milestones", form);
+      setMilestones(p => [...p, saved].sort((a, b) => a.milestone_date.localeCompare(b.milestone_date)));
       setShowForm(false);
-      setForm({ title: "", activity_id: "", issue_type: "공기지연", severity: "보통", cause: "", action_plan: "", delay_days: 0, assignee: "", created_by: "박정수" });
-    } catch (err) {
-      alert("저장 실패: " + err.message);
-    }
+      setForm({ title: "", milestone_date: "", type: "complete", zone: "", status: "planned" });
+    } catch (err) { alert("저장 실패: " + err.message); }
     setSaving(false);
   };
 
-  const handleClose = async (issue) => {
-    await sb.patch("issues", issue.id, { status: "closed" });
-    setIssues(p => p.map(i => i.id === issue.id ? { ...i, status: "closed" } : i));
-    setToast("이슈가 종결되었습니다");
+  const handleStatusToggle = async (m) => {
+    const newStatus = m.status === "achieved" ? "planned" : "achieved";
+    try {
+      await sb.patch("milestones", m.id, { status: newStatus });
+      setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: newStatus } : x));
+    } catch {}
   };
 
-  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" };
   const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+  const totalW = LEFT_W + DAYS * COL_W;
+  const todayX = dateToX(dayStr(TODAY));
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>⚠️ 이슈 트래커</div>
-        <button onClick={() => setShowForm(true)} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>+ 이슈 등록</button>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 3주 공정표</div>
+        <button onClick={() => setShowForm(true)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤 등록</button>
       </div>
 
-      {/* 이슈 등록 폼 */}
       {showForm && (
         <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 16 }}>신규 이슈 등록</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 16 }}>신규 마일스톤 등록</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div style={{ gridColumn: "1/-1" }}>
-              <label style={labelStyle}>이슈 제목 *</label>
-              <input value={form.title} onChange={e => set("title", e.target.value)} placeholder="예: 402호 균열 보수 작업 지연" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>연결 공정 *</label>
-              <select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={inputStyle}>
-                <option value="">선택하세요</option>
-                {activities.filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>이슈 유형</label>
-              <select value={form.issue_type} onChange={e => set("issue_type", e.target.value)} style={inputStyle}>
-                {ISSUE_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>심각도</label>
-              <select value={form.severity} onChange={e => set("severity", e.target.value)} style={inputStyle}>
-                {SEVERITIES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>공기 지연일수</label>
-              <input type="number" value={form.delay_days} onChange={e => set("delay_days", e.target.value)} min={0} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: "1/-1" }}>
-              <label style={labelStyle}>원인</label>
-              <input value={form.cause} onChange={e => set("cause", e.target.value)} placeholder="예: 우천으로 인한 외부 작업 중단" style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: "1/-1" }}>
-              <label style={labelStyle}>조치 계획</label>
-              <input value={form.action_plan} onChange={e => set("action_plan", e.target.value)} placeholder="예: 인력 추가 투입으로 2일 만회 예정" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>담당자</label>
-              <select value={form.assignee} onChange={e => set("assignee", e.target.value)} style={inputStyle}>
-                <option value="">선택</option>
-                {RESPS.map(r => <option key={r}>{r}</option>)}
-              </select>
-            </div>
+            <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>마일스톤 제목 *</label><input value={form.title} onChange={e => setF("title", e.target.value)} placeholder="예: Zone A 굴착 착수" style={inputStyle} /></div>
+            <div><label style={labelStyle}>날짜 *</label><input type="date" value={form.milestone_date} onChange={e => setF("milestone_date", e.target.value)} style={inputStyle} /></div>
+            <div><label style={labelStyle}>유형</label><select value={form.type} onChange={e => setF("type", e.target.value)} style={inputStyle}><option value="complete">★ 완료</option><option value="gate">🔷 Gate</option><option value="inspection">🔍 검사</option><option value="equipment">🏗 장비</option></select></div>
+            <div><label style={labelStyle}>Zone / 위치</label><input value={form.zone} onChange={e => setF("zone", e.target.value)} placeholder="예: Zone A" style={inputStyle} /></div>
+            <div><label style={labelStyle}>상태</label><select value={form.status} onChange={e => setF("status", e.target.value)} style={inputStyle}><option value="planned">예정</option><option value="achieved">달성</option><option value="delayed">지연</option></select></div>
           </div>
-
-          {/* 후행 공정 영향 미리보기 */}
-          {affectedPreview.length > 0 && (
-            <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: "#991B1B", marginBottom: 8 }}>
-                ⚠️ CPM 재계산 — {affectedPreview.length}개 후행 공정이 영향받습니다
-              </div>
-              {affectedPreview.map(a => (
-                <div key={a.id} style={{ fontSize: 12, color: "#374151", padding: "4px 0", borderBottom: "1px solid #FECACA", display: "flex", justifyContent: "space-between" }}>
-                  <span>{a.name}</span>
-                  <span style={{ color: "#EF4444", fontWeight: 600 }}>
-                    {a.pf} → {addDays(a.pf, Number(form.delay_days))} (+{form.delay_days}일)
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button onClick={() => setShowForm(false)} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
-            <button onClick={handleSave} disabled={saving} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-              {saving ? "등록 중..." : "✅ 이슈 등록 + CPM 재계산"}
-            </button>
+            <button onClick={handleSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
           </div>
         </div>
       )}
 
-      {/* 이슈 목록 */}
-      {issues.length === 0 && !showForm && <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>등록된 이슈가 없습니다</div>}
-      {issues.map(issue => {
-        const act = activities.find(a => a.id === issue.activity_id);
-        const affected = issue.affected_activities || [];
-        return (
-          <div key={issue.id} style={{ background: "#fff", border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block" }} />
-                  <span style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{issue.title}</span>
+      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: 16 }}>
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ minWidth: totalW }}>
+
+            {/* 날짜 헤더 */}
+            <div style={{ display: "flex", borderBottom: "2px solid #334155" }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, background: NAVY, color: "#fff", padding: "10px 16px", fontWeight: 600, fontSize: 12 }}>공정명</div>
+              {days.map((d, i) => (
+                <div key={i} style={{ width: COL_W, flexShrink: 0, background: isTodayFn(d) ? YELLOW : isWeekend(d) ? "#374151" : NAVY, color: isTodayFn(d) ? NAVY : isWeekend(d) ? "#9CA3AF" : "#fff", textAlign: "center", padding: "6px 0", borderLeft: "1px solid rgba(255,255,255,0.08)", fontWeight: isTodayFn(d) ? 800 : 400 }}>
+                  <div style={{ fontSize: 11 }}>{fmt(d)}</div>
+                  <div style={{ fontSize: 9, opacity: 0.7 }}>{dayName(d)}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <Badge label={issue.issue_type} bg="#F3F4F6" color="#374151" />
-                  <Badge label={issue.severity} bg={sevColor(issue.severity) + "22"} color={sevColor(issue.severity)} />
-                  <Badge label={issue.status} bg={issue.status === "closed" ? "#F0FDF4" : "#FEF3C7"} color={issue.status === "closed" ? "#166534" : "#92400E"} />
-                  {issue.delay_days > 0 && <Badge label={`+${issue.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
-                </div>
-              </div>
-              {issue.status !== "closed" && (
-                <button onClick={() => handleClose(issue)} style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Close</button>
-              )}
+              ))}
             </div>
-            {act && <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>연결 공정: <strong>{act.name}</strong></div>}
-            {issue.cause && <div style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>원인: {issue.cause}</div>}
-            {issue.action_plan && <div style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>조치 계획: {issue.action_plan}</div>}
-            {affected.length > 0 && (
-              <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>
-                영향받은 공정 {affected.length}개: {affected.map(id => activities.find(a => a.id === id)?.name).filter(Boolean).join(", ")}
+
+            {/* 마일스톤 행 */}
+            <div style={{ display: "flex", borderBottom: "2px solid #E2E8F0", background: "#1E293B", height: 36, position: "relative" }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, color: YELLOW, fontWeight: 700, fontSize: 12, padding: "0 16px", display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ flex: 1, position: "relative" }}>
+                {days.map((d, i) => isWeekend(d) && (
+                  <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: COL_W, height: 36, background: "rgba(255,255,255,0.03)" }} />
+                ))}
+                <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: 36, background: YELLOW, zIndex: 3 }} />
+                {milestones.map(m => {
+                  const x = dateToX(m.milestone_date);
+                  if (diffDays(m.milestone_date, startDateStr) < 0 || diffDays(m.milestone_date, startDateStr) >= DAYS) return null;
+                  return (
+                    <div key={m.id} title={`${m.title} (${m.milestone_date})`} onClick={() => handleStatusToggle(m)}
+                      style={{ position: "absolute", left: x + COL_W / 2 - 10, top: 7, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, cursor: "pointer", opacity: m.status === "achieved" ? 0.35 : 1, zIndex: 2 }}>
+                      {msIcon(m.type)}
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
+
+            {/* 공정 행 */}
+            {active.map((a, ri) => {
+              const { daily_target, plan_daily } = calcTodayTarget(a);
+              const isDelayed = a.delay_days > 0;
+              const isCritical = a.critical;
+
+              const planStartX = dateToX(a.ps);
+              const planEndX = dateToX(a.pf);
+              const planW = Math.max(planEndX - planStartX, 4);
+
+              const actualStartX = a.as_ ? dateToX(a.as_) : null;
+              const actualEndStr = a.af ? a.af : dayStr(TODAY);
+              const actualEndX = a.as_ ? Math.min(dateToX(actualEndStr), planEndX) : null;
+              const actualW = actualStartX !== null ? Math.max(actualEndX - actualStartX, 4) : 0;
+
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #F1F5F9", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", height: ROW_H, position: "relative" }}>
+                  {/* 공정명 열 */}
+                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "0 16px", borderRight: "2px solid #E5E7EB", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {isCritical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
+                      {isDelayed && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: isCritical ? "#DC2626" : NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
+                    <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon} · {a.status === "예정" ? `계획 ${plan_daily}${a.unit}/일` : `목표 ${daily_target}${a.unit}/일`}</div>
+                  </div>
+
+                  {/* 막대 영역 */}
+                  <div style={{ flex: 1, position: "relative", height: ROW_H }}>
+                    {/* 주말 음영 */}
+                    {days.map((d, i) => isWeekend(d) && (
+                      <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: COL_W, height: ROW_H, background: "rgba(0,0,0,0.025)" }} />
+                    ))}
+                    {/* 격자선 */}
+                    {days.map((_, i) => (
+                      <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: 1, height: ROW_H, background: "#F1F5F9" }} />
+                    ))}
+                    {/* 오늘 세로선 */}
+                    <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: ROW_H, background: YELLOW, zIndex: 3 }} />
+
+                    {/* 계획 막대 (위) */}
+                    <div style={{
+                      position: "absolute", left: planStartX, top: ROW_H / 2 - BAR_H - 4,
+                      width: planW, height: BAR_H,
+                      background: isDelayed ? "#FECACA" : "#BFDBFE",
+                      borderRadius: 3, zIndex: 1,
+                      display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden",
+                    }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: isDelayed ? "#991B1B" : "#1E40AF", whiteSpace: "nowrap" }}>
+                        계획 {a.status === "예정" ? plan_daily : daily_target}{a.unit}
+                      </span>
+                    </div>
+
+                    {/* 실적 막대 (아래) */}
+                    {a.as_ && actualW > 0 && (
+                      <div style={{
+                        position: "absolute", left: actualStartX, top: ROW_H / 2 + 4,
+                        width: actualW, height: BAR_H,
+                        background: "#6EE7B7",
+                        borderRadius: 3, zIndex: 1,
+                        display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden",
+                      }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#065F46", whiteSpace: "nowrap" }}>
+                          실적 {daily_target}{a.unit}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 미착수 표시 */}
+                    {!a.as_ && a.status === "예정" && (
+                      <div style={{ position: "absolute", left: planStartX + 4, top: ROW_H / 2 + 4, height: BAR_H, display: "flex", alignItems: "center" }}>
+                        <span style={{ fontSize: 9, color: "#9CA3AF" }}>미착수</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* 범례 */}
+            <div style={{ display: "flex", gap: 20, padding: "10px 16px", borderTop: "1px solid #E5E7EB", background: "#F9FAFB", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#BFDBFE", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#6EE7B7", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#FECACA", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>지연</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 2, height: 14, background: YELLOW }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
+            </div>
           </div>
-        );
-      })}
+        </div>
+      </div>
+
+      {/* 마일스톤 목록 */}
+      <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 12 }}>마일스톤 목록</div>
+        {milestones.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 마일스톤이 없습니다</div>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {[...milestones]
+            .sort((a, b) => {
+              if (a.status === "achieved" && b.status !== "achieved") return 1;
+              if (a.status !== "achieved" && b.status === "achieved") return -1;
+              return a.milestone_date.localeCompare(b.milestone_date);
+            })
+            .map((m, idx, arr) => {
+              const daysLeft = diffDays(m.milestone_date, TODAY);
+              const prevAchieved = idx > 0 && arr[idx - 1].status !== "achieved" && m.status === "achieved";
+              return (
+                <React.Fragment key={m.id}>
+                  {prevAchieved && (
+                    <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
+                      <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+                      <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap" }}>완료된 마일스톤</span>
+                      <div style={{ flex: 1, height: 1, background: "#E5E7EB" }} />
+                    </div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: m.status === "achieved" ? "#F9FAFB" : "#fff", borderRadius: 10, border: `1.5px solid ${msColor(m.status)}44`, borderLeft: `4px solid ${msColor(m.status)}`, opacity: m.status === "achieved" ? 0.65 : 1 }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{msIcon(m.type)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: m.status === "achieved" ? "line-through" : "none" }}>{m.title}</div>
+                      <div style={{ fontSize: 11, color: "#6B7280" }}>{m.milestone_date}{m.zone ? ` · ${m.zone}` : ""}</div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <Badge label={m.status === "achieved" ? "✓ 달성" : m.status === "delayed" ? "지연" : "예정"} bg={msColor(m.status) + "22"} color={msColor(m.status)} />
+                      <div style={{ fontSize: 11, fontWeight: 700, color: msColor(m.status), marginTop: 4 }}>
+                        {daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? "오늘" : `D+${Math.abs(daysLeft)}`}
+                      </div>
+                    </div>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── Gantt Panel ───────────────────────────────────────────────────────
-function GanttPanel({ activities, progressReports, onRegister }) {
+function GanttPanel({ activities, progressReports, milestones, onRegister }) {
   const [open, setOpen] = useState(null);
   const groups = {};
   activities.forEach(a => { if (!groups[a.group_name]) groups[a.group_name] = []; groups[a.group_name].push(a); });
   const gl = Object.entries(groups).map(([g, acts]) => rollup(g, acts));
-
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>공정 현황</div>
         <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
       </div>
+      {milestones.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "#6B7280", marginBottom: 8 }}>마일스톤</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[...milestones].sort((a, b) => a.milestone_date.localeCompare(b.milestone_date)).map(m => {
+              const daysLeft = diffDays(m.milestone_date, TODAY);
+              return (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", border: `1.5px solid ${msColor(m.status)}`, borderRadius: 10, padding: "8px 14px" }}>
+                  <span style={{ fontSize: 16 }}>{msIcon(m.type)}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{m.title}</div>
+                    <div style={{ fontSize: 10, color: "#6B7280" }}>{m.milestone_date} · {daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? "오늘" : `D+${Math.abs(daysLeft)}`}</div>
+                  </div>
+                  <Badge label={m.status === "achieved" ? "✓ 달성" : m.status === "delayed" ? "지연" : "예정"} bg={msColor(m.status) + "22"} color={msColor(m.status)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {gl.map(g => {
         const isOpen = open === g.group;
         const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
@@ -555,32 +600,18 @@ function GanttPanel({ activities, progressReports, onRegister }) {
                       </div>
                       <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
                     </div>
-                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>
-                      물량: <strong style={{ color: NAVY }}>{a.done_qty} {a.unit}</strong> / {a.plan_qty} {a.unit}
-                    </div>
-                    {/* 오늘 목표 */}
+                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>물량: <strong style={{ color: NAVY }}>{a.done_qty} {a.unit}</strong> / {a.plan_qty} {a.unit}</div>
                     {a.phys < 100 && a.as_ && (() => {
                       const { daily_target, plan_daily, rem_days } = calcTodayTarget(a);
                       const isAhead = daily_target <= plan_daily;
                       return (
                         <div style={{ background: isAhead ? "#F0FDF4" : "#FEF3C7", border: `1px solid ${isAhead ? "#6EE7B7" : "#FCD34D"}`, borderRadius: 8, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 12 }}>
-                          <div>
-                            <div style={{ fontSize: 10, color: "#6B7280" }}>오늘 목표</div>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: isAhead ? "#065F46" : "#92400E" }}>{daily_target} {a.unit}</div>
-                          </div>
+                          <div><div style={{ fontSize: 10, color: "#6B7280" }}>오늘 목표</div><div style={{ fontSize: 16, fontWeight: 800, color: isAhead ? "#065F46" : "#92400E" }}>{daily_target} {a.unit}</div></div>
                           <div style={{ width: 1, height: 32, background: "#E5E7EB" }} />
-                          <div>
-                            <div style={{ fontSize: 10, color: "#6B7280" }}>일일 계획</div>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{plan_daily} {a.unit}</div>
-                          </div>
+                          <div><div style={{ fontSize: 10, color: "#6B7280" }}>일일 계획</div><div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{plan_daily} {a.unit}</div></div>
                           <div style={{ width: 1, height: 32, background: "#E5E7EB" }} />
-                          <div>
-                            <div style={{ fontSize: 10, color: "#6B7280" }}>잔여</div>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{rem_days}일</div>
-                          </div>
-                          <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: isAhead ? "#10B981" : "#F59E0B" }}>
-                            {isAhead ? "✓ 정상" : "⚠ 만회 필요"}
-                          </div>
+                          <div><div style={{ fontSize: 10, color: "#6B7280" }}>잔여</div><div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{rem_days}일</div></div>
+                          <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: isAhead ? "#10B981" : "#F59E0B" }}>{isAhead ? "✓ 정상" : "⚠ 만회 필요"}</div>
                         </div>
                       );
                     })()}
@@ -642,13 +673,11 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
   const removeStep = i => setForm(p => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }));
   const setStepField = (i, k, v) => setForm(p => ({ ...p, steps: p.steps.map((s, j) => j === i ? { ...s, [k]: v } : s) }));
   const totalW = form.steps.reduce((s, st) => s + (Number(st.w) || 0), 0);
-
-  const togglePred = (id, type = "FS") => {
+  const togglePred = (id) => {
     const exists = form.predecessors.find(p => p.id === id);
     if (exists) setForm(p => ({ ...p, predecessors: p.predecessors.filter(x => x.id !== id) }));
-    else setForm(p => ({ ...p, predecessors: [...p.predecessors, { id, type, lag: 0 }] }));
+    else setForm(p => ({ ...p, predecessors: [...p.predecessors, { id, type: "FS", lag: 0 }] }));
   };
-
   const validate = () => {
     const e = {};
     const g = form.group === "직접입력" ? form.group_custom : form.group;
@@ -662,7 +691,6 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
     if (totalW !== 100) e.steps = `가중치 합계 ${totalW}% (100%여야 합니다)`;
     return e;
   };
-
   const handleSave = async () => {
     const e = validate();
     setErrors(e);
@@ -686,11 +714,9 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
     } catch (err) { alert("저장 실패: " + err.message); }
     setSaving(false);
   };
-
   const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" };
   const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
   const errStyle = { fontSize: 11, color: "#EF4444", marginTop: 3 };
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 580, maxHeight: "90vh", overflowY: "auto" }}>
@@ -736,6 +762,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
                 <div><label style={labelStyle}>계획 완료일 *</label><input type="date" value={form.pf} onChange={e => set("pf", e.target.value)} style={inputStyle} /></div>
               </div>
               {errors.date && <div style={errStyle}>{errors.date}</div>}
+              {form.ps && form.pf && form.ps <= form.pf && <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#065F46" }}>📅 계획 기간: {diffDays(form.pf, form.ps)}일</div>}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                 <div><label style={labelStyle}>리스크</label><select value={form.risk} onChange={e => set("risk", e.target.value)} style={inputStyle}>{["저", "중", "고"].map(r => <option key={r}>{r}</option>)}</select></div>
                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, paddingTop: 20 }}><input type="checkbox" checked={form.weather} onChange={e => set("weather", e.target.checked)} />☁ 기상영향</label>
@@ -749,7 +776,12 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
                 <div><label style={labelStyle}>계획 물량 *</label><input type="number" value={form.plan_qty} onChange={e => set("plan_qty", e.target.value)} style={inputStyle} />{errors.plan_qty && <div style={errStyle}>{errors.plan_qty}</div>}</div>
                 <div><label style={labelStyle}>단위</label><select value={form.unit} onChange={e => set("unit", e.target.value)} style={inputStyle}>{UNITS.map(u => <option key={u}>{u}</option>)}</select></div>
               </div>
-              <div><label style={labelStyle}>예산 (만원) *</label><input type="number" value={form.pv_budget} onChange={e => set("pv_budget", e.target.value)} style={inputStyle} />{errors.pv_budget && <div style={errStyle}>{errors.pv_budget}</div>}{form.pv_budget > 0 && <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>{Number(form.pv_budget).toLocaleString()}만원{form.plan_qty > 0 ? ` · 단가 ${Math.round(Number(form.pv_budget) * 10000 / Number(form.plan_qty)).toLocaleString()}원/${form.unit}` : ""}</div>}</div>
+              <div>
+                <label style={labelStyle}>예산 (만원) *</label>
+                <input type="number" value={form.pv_budget} onChange={e => set("pv_budget", e.target.value)} style={inputStyle} />
+                {errors.pv_budget && <div style={errStyle}>{errors.pv_budget}</div>}
+                {form.pv_budget > 0 && <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>{Number(form.pv_budget).toLocaleString()}만원{form.plan_qty > 0 ? ` · 단가 ${Math.round(Number(form.pv_budget) * 10000 / Number(form.plan_qty)).toLocaleString()}원/${form.unit}` : ""}</div>}
+              </div>
             </div>
           )}
           {step === 3 && (
@@ -777,7 +809,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
           )}
           {step === 4 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ fontSize: 13, color: "#374151", marginBottom: 4 }}>이 공정의 선행 공정을 선택하세요 (완료되어야 시작 가능한 공정)</div>
+              <div style={{ fontSize: 13, color: "#374151", marginBottom: 4 }}>이 공정의 선행 공정을 선택하세요</div>
               {activities.filter(a => a.name !== form.name).map(a => {
                 const selected = form.predecessors.find(p => p.id === a.id);
                 return (
@@ -795,11 +827,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
                   </div>
                 );
               })}
-              {form.predecessors.length > 0 && (
-                <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#065F46" }}>
-                  ✓ 선행 공정 {form.predecessors.length}개 선택됨
-                </div>
-              )}
+              {form.predecessors.length > 0 && <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#065F46" }}>✓ 선행 공정 {form.predecessors.length}개 선택됨</div>}
             </div>
           )}
         </div>
@@ -809,11 +837,129 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
             <button onClick={onClose} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
             {step < 4
               ? <button onClick={() => setStep(s => s + 1)} style={{ background: NAVY, border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer" }}>다음 →</button>
-              : <button onClick={handleSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 공정 등록"}</button>
-            }
+              : <button onClick={handleSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 공정 등록"}</button>}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Issue Tracker ─────────────────────────────────────────────────────
+function IssueTracker({ issues, setIssues, activities, setActivities, setToast }) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: "", activity_id: "", issue_type: "공기지연", severity: "보통", cause: "", action_plan: "", delay_days: 0, assignee: "", created_by: "박정수" });
+  const [saving, setSaving] = useState(false);
+  const [affectedPreview, setAffectedPreview] = useState([]);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  useEffect(() => {
+    if (!form.activity_id || form.delay_days <= 0) { setAffectedPreview([]); return; }
+    const affected = [];
+    const findSuccessors = (id) => {
+      activities.forEach(a => {
+        const preds = a.predecessors || [];
+        if (preds.find(p => p.id === Number(id))) { affected.push(a); findSuccessors(a.id); }
+      });
+    };
+    findSuccessors(form.activity_id);
+    setAffectedPreview([...new Map(affected.map(a => [a.id, a])).values()]);
+  }, [form.activity_id, form.delay_days]);
+
+  const handleSave = async () => {
+    if (!form.title || !form.activity_id) return;
+    setSaving(true);
+    try {
+      const affected_ids = affectedPreview.map(a => a.id);
+      const [saved] = await sb.post("issues", { ...form, activity_id: Number(form.activity_id), delay_days: Number(form.delay_days), affected_activities: affected_ids, status: "open" });
+      setIssues(p => [saved, ...p]);
+      if (Number(form.delay_days) > 0) {
+        const recalced = recalcCPM(activities, Number(form.activity_id), Number(form.delay_days));
+        for (const act of recalced) {
+          const orig = activities.find(a => a.id === act.id);
+          if (orig && (orig.ps !== act.ps || orig.pf !== act.pf)) await sb.patch("activities", act.id, { ps: act.ps, pf: act.pf, delay_days: act.delay_days });
+        }
+        setActivities(recalced);
+        setToast(`⚠️ CPM 재계산 완료 · ${affected_ids.length}개 후행 공정 일정 업데이트`);
+      } else setToast("✅ 이슈가 등록되었습니다");
+      setShowForm(false);
+      setForm({ title: "", activity_id: "", issue_type: "공기지연", severity: "보통", cause: "", action_plan: "", delay_days: 0, assignee: "", created_by: "박정수" });
+    } catch (err) { alert("저장 실패: " + err.message); }
+    setSaving(false);
+  };
+
+  const handleClose = async (issue) => {
+    await sb.patch("issues", issue.id, { status: "closed" });
+    setIssues(p => p.map(i => i.id === issue.id ? { ...i, status: "closed" } : i));
+    setToast("이슈가 종결되었습니다");
+  };
+
+  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+
+  return (
+    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>⚠️ 이슈 트래커</div>
+        <button onClick={() => setShowForm(true)} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>+ 이슈 등록</button>
+      </div>
+      {showForm && (
+        <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 16 }}>신규 이슈 등록</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>이슈 제목 *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="예: 402호 균열 보수 작업 지연" style={inputStyle} /></div>
+            <div><label style={labelStyle}>연결 공정 *</label><select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={inputStyle}><option value="">선택하세요</option>{activities.filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <div><label style={labelStyle}>이슈 유형</label><select value={form.issue_type} onChange={e => set("issue_type", e.target.value)} style={inputStyle}>{ISSUE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+            <div><label style={labelStyle}>심각도</label><select value={form.severity} onChange={e => set("severity", e.target.value)} style={inputStyle}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select></div>
+            <div><label style={labelStyle}>공기 지연일수</label><input type="number" value={form.delay_days} onChange={e => set("delay_days", e.target.value)} min={0} style={inputStyle} /></div>
+            <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>원인</label><input value={form.cause} onChange={e => set("cause", e.target.value)} placeholder="예: 우천으로 인한 외부 작업 중단" style={inputStyle} /></div>
+            <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>조치 계획</label><input value={form.action_plan} onChange={e => set("action_plan", e.target.value)} placeholder="예: 인력 추가 투입으로 2일 만회 예정" style={inputStyle} /></div>
+            <div><label style={labelStyle}>담당자</label><select value={form.assignee} onChange={e => set("assignee", e.target.value)} style={inputStyle}><option value="">선택</option>{RESPS.map(r => <option key={r}>{r}</option>)}</select></div>
+          </div>
+          {affectedPreview.length > 0 && (
+            <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#991B1B", marginBottom: 8 }}>⚠️ CPM 재계산 — {affectedPreview.length}개 후행 공정 영향</div>
+              {affectedPreview.map(a => (
+                <div key={a.id} style={{ fontSize: 12, color: "#374151", padding: "4px 0", borderBottom: "1px solid #FECACA", display: "flex", justifyContent: "space-between" }}>
+                  <span>{a.name}</span>
+                  <span style={{ color: "#EF4444", fontWeight: 600 }}>{a.pf} → {addDays(a.pf, Number(form.delay_days))} (+{form.delay_days}일)</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button onClick={() => setShowForm(false)} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
+            <button onClick={handleSave} disabled={saving} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>{saving ? "등록 중..." : "✅ 이슈 등록 + CPM 재계산"}</button>
+          </div>
+        </div>
+      )}
+      {issues.length === 0 && !showForm && <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>등록된 이슈가 없습니다</div>}
+      {issues.map(issue => {
+        const act = activities.find(a => a.id === issue.activity_id);
+        const affected = issue.affected_activities || [];
+        return (
+          <div key={issue.id} style={{ background: "#fff", border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block" }} />
+                  <span style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{issue.title}</span>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Badge label={issue.issue_type} bg="#F3F4F6" color="#374151" />
+                  <Badge label={issue.severity} bg={sevColor(issue.severity) + "22"} color={sevColor(issue.severity)} />
+                  <Badge label={issue.status} bg={issue.status === "closed" ? "#F0FDF4" : "#FEF3C7"} color={issue.status === "closed" ? "#166534" : "#92400E"} />
+                  {issue.delay_days > 0 && <Badge label={`+${issue.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
+                </div>
+              </div>
+              {issue.status !== "closed" && <button onClick={() => handleClose(issue)} style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Close</button>}
+            </div>
+            {act && <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>연결 공정: <strong>{act.name}</strong></div>}
+            {issue.cause && <div style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>원인: {issue.cause}</div>}
+            {issue.action_plan && <div style={{ fontSize: 12, color: "#374151", marginBottom: 4 }}>조치 계획: {issue.action_plan}</div>}
+            {affected.length > 0 && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>영향받은 공정 {affected.length}개: {affected.map(id => activities.find(a => a.id === id)?.name).filter(Boolean).join(", ")}</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -831,43 +977,19 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
       const act = activities.find(a => a.id === report.activity_id);
       if (act) {
         await sb.patch("activities", act.id, { done_qty: report.new_done_qty });
-        let updatedActivities = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: report.new_done_qty }) : a);
-
-        // 지연 감지 시 CPM 재계산
+        let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: report.new_done_qty }) : a);
         if (report.delay_days > 0) {
-          updatedActivities = recalcCPM(updatedActivities, report.activity_id, report.delay_days);
-          // 영향받은 공정 DB 업데이트
-          for (const updated of updatedActivities) {
-            const orig = activities.find(a => a.id === updated.id);
-            if (orig && (orig.ps !== updated.ps || orig.pf !== updated.pf)) {
-              await sb.patch("activities", updated.id, { ps: updated.ps, pf: updated.pf, delay_days: updated.delay_days });
-            }
+          updated = recalcCPM(updated, report.activity_id, report.delay_days);
+          for (const u of updated) {
+            const orig = activities.find(a => a.id === u.id);
+            if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days });
           }
-          // 이슈 트래커 자동 등록
-          const affectedIds = updatedActivities.filter(a => {
-            const orig = activities.find(o => o.id === a.id);
-            return orig && orig.pf !== a.pf && a.id !== report.activity_id;
-          }).map(a => a.id);
-          const issuePayload = {
-            activity_id: report.activity_id,
-            title: `[자동등록] ${act.name} ${report.delay_days}일 지연`,
-            issue_type: "공기지연",
-            severity: report.delay_days >= 5 ? "높음" : "보통",
-            cause: report.delay_reason || report.special_note || "작업 보고에서 감지됨",
-            action_plan: "",
-            delay_days: report.delay_days,
-            assignee: "박정수",
-            status: "open",
-            affected_activities: affectedIds,
-            created_by: "시스템",
-          };
-          const [savedIssue] = await sb.post("issues", issuePayload);
+          const affectedIds = updated.filter(a => { const o = activities.find(x => x.id === a.id); return o && o.pf !== a.pf && a.id !== report.activity_id; }).map(a => a.id);
+          const [savedIssue] = await sb.post("issues", { activity_id: report.activity_id, title: `[자동등록] ${act.name} ${report.delay_days}일 지연`, issue_type: "공기지연", severity: report.delay_days >= 5 ? "높음" : "보통", cause: report.delay_reason || report.special_note || "작업 보고에서 감지됨", action_plan: "", delay_days: report.delay_days, assignee: "박정수", status: "open", affected_activities: affectedIds, created_by: "시스템" });
           setIssues(p => [savedIssue, ...p]);
-          setToast(`⚠️ CPM 재계산 완료 · ${affectedIds.length}개 후행 공정 일정 업데이트 · 이슈 자동 등록`);
-        } else {
-          setToast(`✅ 공정표 업데이트 · ${report.new_done_qty}${report.unit} 반영`);
-        }
-        setActivities(updatedActivities);
+          setToast(`⚠️ CPM 재계산 완료 · ${affectedIds.length}개 후행 공정 업데이트`);
+        } else setToast(`✅ 공정표 업데이트 · ${report.new_done_qty}${report.unit} 반영`);
+        setActivities(updated);
       }
       setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "approved" } : r));
     } catch (err) { alert("승인 실패: " + err.message); }
@@ -883,13 +1005,16 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>결재 라인</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>✅ 결재 라인</div>
       {pending.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>대기 중인 결재가 없습니다</div>}
       {pending.map(report => {
         const act = activities.find(a => a.id === report.activity_id);
         const flash = flashId === report.id;
         const newPct = Math.round((report.new_done_qty / report.plan_qty) * 100);
         const oldPct = Math.round((report.prev_done_qty / report.plan_qty) * 100);
+        const { daily_target } = act ? calcTodayTarget(act) : { daily_target: 0 };
+        const today_qty = report.new_done_qty - report.prev_done_qty;
+        const shortage = daily_target - today_qty;
         return (
           <div key={report.id} style={{ background: flash ? "#D1FAE5" : "#fff", border: `1.5px solid ${flash ? "#10B981" : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14, transition: "background 0.3s" }}>
             <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>내가 결재할 건</div>
@@ -900,7 +1025,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 <span style={{ fontSize: 13, color: "#6B7280" }}>{report.prev_done_qty}{report.unit}</span>
                 <span style={{ color: "#9CA3AF" }}>→</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{report.new_done_qty}{report.unit}</span>
-                <span style={{ color: "#10B981", fontWeight: 700 }}>+{report.new_done_qty - report.prev_done_qty}</span>
+                <span style={{ color: "#10B981", fontWeight: 700 }}>+{today_qty}</span>
               </div>
               <div style={{ background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
                 <div style={{ position: "absolute", left: 0, top: 0, width: `${oldPct}%`, height: "100%", background: "#D1D5DB", borderRadius: 4 }} />
@@ -910,23 +1035,20 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 <span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: NAVY }}>승인 후 {newPct}%</span>
               </div>
             </div>
+            {today_qty > 0 && shortage > 0 && (
+              <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E" }}>⚠️ 일일 목표 미달 — 검토 필요</div>
+                <div style={{ fontSize: 11, color: "#78350f", marginTop: 2 }}>목표 {daily_target}{report.unit} 대비 {shortage}{report.unit} 부족</div>
+              </div>
+            )}
+            {report.delay_days > 0 && (
+              <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연 감지: +{report.delay_days}일</div>
+                {report.delay_reason && <div style={{ fontSize: 11, color: "#EF4444", marginTop: 2 }}>원인: {report.delay_reason}</div>}
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>승인 시 후행 공정 일정 자동 업데이트</div>
+              </div>
+            )}
             {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
-            {/* 일일 목표 미달 경고 */}
-            {(() => {
-              if (!act) return null;
-              const { daily_target } = calcTodayTarget(act);
-              const today_qty = report.new_done_qty - report.prev_done_qty;
-              const shortage = daily_target - today_qty;
-              if (today_qty > 0 && shortage > 0) return (
-                <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E" }}>⚠️ 일일 목표 미달 — 검토 필요</div>
-                  <div style={{ fontSize: 11, color: "#78350f", marginTop: 2 }}>
-                    목표 {daily_target}{report.unit} 대비 {shortage}{report.unit} 부족
-                  </div>
-                </div>
-              );
-              return null;
-            })()}
             <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{report.ai_summary}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
               {CHAIN_ROLES.map((rank, i) => {
@@ -960,23 +1082,15 @@ function ChatPanel({ channelId, channelName }) {
   const [input, setInput] = useState("");
   const bottom = useRef(null);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  useEffect(() => {
-    sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {});
-  }, [channelId]);
-
+  useEffect(() => { sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {}); }, [channelId]);
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg) return;
     setInput("");
     const myMsg = { channel: channelId, user_name: "박정수", user_role: "공무과장", avatar: "박", is_me: true, content: msg };
-    try {
-      const [saved] = await sb.post("chat_messages", myMsg);
-      setMsgs(p => [...p, saved]);
-    } catch {
-      setMsgs(p => [...p, { ...myMsg, id: Date.now() }]);
-    }
+    try { const [saved] = await sb.post("chat_messages", myMsg); setMsgs(p => [...p, saved]); }
+    catch { setMsgs(p => [...p, { ...myMsg, id: Date.now() }]); }
   };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid #E5E7EB", fontWeight: 700, fontSize: 16, color: NAVY }}># {channelName}</div>
@@ -1009,32 +1123,18 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const [chatChannel, setChatChannel] = useState("general");
   const [channelMsgs, setChannelMsgs] = useState({ general: [], quality: [], material: [] });
   const [chatInput, setChatInput] = useState("");
-  const [aiTyping, setAiTyping] = useState(false);
   const reportBottom = useRef(null);
   const chatBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
-  useEffect(() => { chatBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [channelMsgs, aiTyping]);
-  useEffect(() => {
-    sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {});
-  }, [chatChannel]);
+  useEffect(() => { chatBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [channelMsgs]);
+  useEffect(() => { sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {}); }, [chatChannel]);
 
   const CHIPS = ["402호 외벽 도장 오늘 85㎡ 완료, 도장공 3명", "균열 보수 4개소 완료", "3층 슬래브 양생 6일차 완료"];
 
   const callAI = async (msg) => {
     const ctx = `한국 건설 현장 AI. 작업 보고 파싱. JSON만 출력.
-공정: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(' / ')}
-JSON: {
-  "matched_activity_id":<숫자|null>,
-  "new_done_qty":<숫자>,
-  "workers":<숫자>,
-  "special_note":"<특이사항>",
-  "delay_days":<지연일수 숫자, 지연 언급 없으면 0>,
-  "delay_reason":"<지연 원인, 없으면 빈 문자열>",
-  "summary":"<한줄>",
-  "ai_message":"<응답>",
-  "needs_clarification":false
-}
-지연일수 감지 예시: "3일 지연" → delay_days: 3, "일주일 늦어질 것 같아요" → delay_days: 7`;
+공정: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(" / ")}
+JSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수,없으면0>,"delay_reason":"<지연원인,없으면빈문자열>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":false}`;
     const r = await claudeComplete(`${ctx}\n보고: "${msg}"\nJSON:`);
     const m = r.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("parse");
@@ -1058,12 +1158,10 @@ JSON: {
       } else {
         setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message }]);
         setPendingReport({ activity: matched, new_done_qty: res.new_done_qty || matched.done_qty, workers: res.workers, special_note: res.special_note, delay_days: res.delay_days || 0, delay_reason: res.delay_reason || "", summary: res.summary, raw: msg, sent: false });
-        // 일일 목표 미달 체크
         const { daily_target } = calcTodayTarget(matched);
         const today_qty = (res.new_done_qty || matched.done_qty) - matched.done_qty;
         if (today_qty > 0 && today_qty < daily_target) {
-          const shortage = daily_target - today_qty;
-          setChatMessages(p => [...p, { id: uid + 3, role: "ai", content: `⚠️ 오늘 목표 대비 ${shortage}${matched.unit} 미달입니다. 누적되면 공기 지연으로 이어질 수 있어요.` }]);
+          setChatMessages(p => [...p, { id: uid + 3, role: "ai", content: `⚠️ 오늘 목표 대비 ${daily_target - today_qty}${matched.unit} 미달입니다. 누적되면 공기 지연으로 이어질 수 있어요.` }]);
         }
       }
     } catch {
@@ -1076,9 +1174,8 @@ JSON: {
   const handleSendReport = async () => {
     if (!pendingReport || pendingReport.sent) return;
     const a = pendingReport.activity;
-          const payload = { activity_id: a.id, reporter: "김반장", reporter_company: "한일건설", raw_input: pendingReport.raw, new_done_qty: pendingReport.new_done_qty, workers: pendingReport.workers, special_note: pendingReport.special_note, delay_days: pendingReport.delay_days || 0, delay_reason: pendingReport.delay_reason || "", prev_done_qty: a.done_qty, plan_qty: a.plan_qty, unit: a.unit, ai_summary: pendingReport.summary, status: "pending" };
     try {
-      const [saved] = await sb.post("progress_reports", payload);
+      const [saved] = await sb.post("progress_reports", { activity_id: a.id, reporter: "김반장", reporter_company: "한일건설", raw_input: pendingReport.raw, new_done_qty: pendingReport.new_done_qty, workers: pendingReport.workers, special_note: pendingReport.special_note, delay_days: pendingReport.delay_days || 0, delay_reason: pendingReport.delay_reason || "", prev_done_qty: a.done_qty, plan_qty: a.plan_qty, unit: a.unit, ai_summary: pendingReport.summary, status: "pending" });
       setProgressReports(p => [...p, saved]);
       setPendingReport(p => ({ ...p, sent: true }));
       setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 박정수 공무과장님께 전달되었습니다" }]);
@@ -1090,12 +1187,8 @@ JSON: {
     if (!msg) return;
     setChatInput("");
     const myMsg = { channel: chatChannel, user_name: "김반장", user_role: "한일건설 반장", avatar: "김", is_me: false, content: msg };
-    try {
-      const [saved] = await sb.post("chat_messages", myMsg);
-      setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], saved] }));
-    } catch {
-      setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], { ...myMsg, id: Date.now() }] }));
-    }
+    try { const [saved] = await sb.post("chat_messages", myMsg); setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], saved] })); }
+    catch { setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], { ...myMsg, id: Date.now() }] })); }
   };
 
   return (
@@ -1112,7 +1205,6 @@ JSON: {
       {tab === "report" ? (
         <>
           <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* 오늘 목표 요약 카드 */}
             <div style={{ background: NAVY, borderRadius: 14, padding: "14px 16px" }}>
               <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 8, fontWeight: 600 }}>📅 오늘 목표 현황</div>
               <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
@@ -1126,9 +1218,7 @@ JSON: {
                     </div>
                   );
                 })}
-                {activities.filter(a => a.phys < 100 && a.as_).length === 0 && (
-                  <div style={{ fontSize: 12, color: "#6B7280" }}>진행 중인 공정이 없습니다</div>
-                )}
+                {activities.filter(a => a.phys < 100 && a.as_).length === 0 && <div style={{ fontSize: 12, color: "#6B7280" }}>진행 중인 공정이 없습니다</div>}
               </div>
             </div>
             {chatMessages.map(m => {
@@ -1152,9 +1242,8 @@ JSON: {
                   <div style={{ background: "#E5E7EB", borderRadius: 4, height: 8, overflow: "hidden" }}>
                     <div style={{ width: `${Math.round((pendingReport.new_done_qty / pendingReport.activity.plan_qty) * 100)}%`, height: "100%", background: YELLOW, borderRadius: 4 }} />
                   </div>
+                  <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3 }}>{Math.round((pendingReport.new_done_qty / pendingReport.activity.plan_qty) * 100)}% / 계획 {pendingReport.activity.plan_qty}{pendingReport.activity.unit}</div>
                 </div>
-                {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 6 }}>⚠️ {pendingReport.special_note}</div>}
-                {/* 일일 목표 미달 경고 */}
                 {(() => {
                   const { daily_target } = calcTodayTarget(pendingReport.activity);
                   const today_qty = pendingReport.new_done_qty - pendingReport.activity.done_qty;
@@ -1162,10 +1251,7 @@ JSON: {
                   if (today_qty > 0 && shortage > 0) return (
                     <div style={{ background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E" }}>⚠️ 일일 목표 미달</div>
-                      <div style={{ fontSize: 11, color: "#78350f", marginTop: 2 }}>
-                        오늘 목표 {daily_target}{pendingReport.activity.unit} 대비 {shortage}{pendingReport.activity.unit} 부족
-                      </div>
-                      <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 2 }}>누적 미달 시 공기 지연 위험 — 관리자 검토 필요</div>
+                      <div style={{ fontSize: 11, color: "#78350f", marginTop: 2 }}>오늘 목표 {daily_target}{pendingReport.activity.unit} 대비 {shortage}{pendingReport.activity.unit} 부족</div>
                     </div>
                   );
                   return null;
@@ -1177,6 +1263,7 @@ JSON: {
                     <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>승인 시 후행 공정 일정이 자동으로 업데이트됩니다</div>
                   </div>
                 )}
+                {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {pendingReport.special_note}</div>}
                 <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{pendingReport.summary}</div>
                 {!pendingReport.sent
                   ? <div style={{ display: "flex", gap: 8 }}>
@@ -1211,12 +1298,11 @@ JSON: {
                 </div>
               </div>
             ))}
-            {aiTyping && <div style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>입력 중...</div>}
             <div ref={chatBottom} />
           </div>
           <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
             <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleChatSend()} placeholder={`# ${CHANNELS.find(c => c.id === chatChannel)?.name}에 메시지`} style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 14, outline: "none", background: "#fff" }} />
-            <button onClick={handleChatSend} disabled={aiTyping} style={{ background: NAVY, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer", minHeight: 48 }}>전송</button>
+            <button onClick={handleChatSend} style={{ background: NAVY, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer", minHeight: 48 }}>전송</button>
           </div>
         </>
       )}
@@ -1228,6 +1314,7 @@ JSON: {
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "📊 대시보드", type: "page" },
   { id: "gantt", label: "📋 공정 현황", type: "page" },
+  { id: "3w", label: "📅 3주 공정표", type: "page" },
   { id: "general", label: "공정-협의", type: "channel" },
   { id: "quality", label: "품질-안전", type: "channel" },
   { id: "material", label: "자재-반입", type: "channel" },
@@ -1235,20 +1322,17 @@ const SIDEBAR_ITEMS = [
   { id: "approval", label: "✅ 결재 라인", type: "page" },
 ];
 
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones }) {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [showModal, setShowModal] = useState(false);
   const [toast, setToast] = useState(null);
   const pendingCount = progressReports.filter(r => r.status === "pending").length;
   const openIssueCount = issues.filter(i => i.status !== "closed").length;
   const existingGroups = [...new Set(activities.map(a => a.group_name))];
-
   return (
     <div style={{ display: "flex", height: "calc(100vh - 56px)", background: "#F3F4F6", overflow: "hidden" }}>
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
       {showModal && <ActivityFormModal onClose={() => setShowModal(false)} onSave={act => { setActivities(p => [...p, act]); setShowModal(false); setToast(`✅ "${act.name}" 공정 등록 완료`); }} activities={activities} existingGroups={existingGroups} />}
-
-      {/* Sidebar */}
       <div style={{ width: 220, background: NAVY, color: "#fff", flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 0" }}>
         <div style={{ padding: "0 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 3 }}>워크스페이스</div>
@@ -1276,11 +1360,10 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           </div>
         </div>
       </div>
-
-      {/* Main content */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
-        {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} onRegister={() => setShowModal(true)} />}
+        {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} />}
+        {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
         {activeMenu === "general" && <ChatPanel channelId="general" channelName="공정-협의" />}
         {activeMenu === "quality" && <ChatPanel channelId="quality" channelName="품질-안전" />}
         {activeMenu === "material" && <ChatPanel channelId="material" channelName="자재-반입" />}
@@ -1297,21 +1380,20 @@ export default function App() {
   const [activities, setActivities] = useState([]);
   const [progressReports, setProgressReports] = useState([]);
   const [issues, setIssues] = useState([]);
+  const [milestones, setMilestones] = useState([]);
   const [chatMessages, setChatMessages] = useState([{ id: 0, role: "system", content: "안녕하세요 김반장님 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
-    Promise.all([
-      sb.get("activities"),
-      sb.get("progress_reports"),
-      sb.get("issues"),
-    ]).then(([acts, reports, iss]) => {
-      setActivities(acts.map(calcAct));
-      setProgressReports(reports);
-      setIssues(iss.reverse());
-      setDbLoading(false);
-    }).catch(err => { setDbError(err.message); setDbLoading(false); });
+    Promise.all([sb.get("activities"), sb.get("progress_reports"), sb.get("issues"), sb.get("milestones")])
+      .then(([acts, reports, iss, ms]) => {
+        setActivities(acts.map(calcAct));
+        setProgressReports(reports);
+        setIssues(iss.reverse());
+        setMilestones(ms);
+        setDbLoading(false);
+      }).catch(err => { setDbError(err.message); setDbLoading(false); });
   }, []);
 
   const pendingCount = progressReports.filter(r => r.status === "pending").length;
@@ -1350,7 +1432,7 @@ export default function App() {
       </div>
       {view === "mobile"
         ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} />}
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} />}
     </div>
   );
 }
