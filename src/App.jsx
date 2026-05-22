@@ -1061,33 +1061,50 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   );
 }
 
+// ── 알림 헬퍼 ─────────────────────────────────────────────────────────
+function requestNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+function sendNotification(title, body) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(title, { body, icon: "/favicon.ico" });
+  }
+}
+
 // ── Chat Panel (Realtime) ─────────────────────────────────────────────
 function ChatPanel({ channelId, channelName, user }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const bottom = useRef(null);
+  const sending = useRef(false); // 내가 보내는 중인지 추적
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  // 초기 메시지 로드 + Realtime 구독
   useEffect(() => {
-    // 기존 메시지 불러오기
+    requestNotificationPermission();
+    // 초기 메시지 로드
     sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {});
 
-    // Realtime 구독
+    // Realtime 구독 — 낙관적 업데이트 없이 Realtime만으로 처리
     const channel = supabase
-      .channel(`chat-${channelId}`)
+      .channel(`chat-${channelId}-${user.name}`)
       .on("postgres_changes", {
         event: "INSERT",
         schema: "public",
         table: "chat_messages",
         filter: `channel=eq.${channelId}`,
       }, (payload) => {
+        const newMsg = payload.new;
         setMsgs(p => {
-          // 중복 방지 (내가 보낸 메시지는 이미 낙관적 업데이트됨)
-          if (p.find(m => m.id === payload.new.id)) return p;
-          return [...p, payload.new];
+          if (p.find(m => m.id === newMsg.id)) return p;
+          return [...p, newMsg];
         });
+        // 다른 사람 메시지일 때만 알림
+        if (newMsg.user_name !== user.name) {
+          sendNotification(`${newMsg.user_name} (${channelName})`, newMsg.content);
+        }
       })
       .subscribe();
 
@@ -1096,24 +1113,23 @@ function ChatPanel({ channelId, channelName, user }) {
 
   const handleSend = async () => {
     const msg = input.trim();
-    if (!msg) return;
+    if (!msg || sending.current) return;
+    sending.current = true;
     setInput("");
-    const myMsg = {
-      channel: channelId,
-      user_name: user.name,
-      user_role: user.role,
-      avatar: user.name[0],
-      is_me: true,
-      content: msg,
-    };
-    // 낙관적 업데이트 (즉시 화면에 표시)
-    const tempId = Date.now();
-    setMsgs(p => [...p, { ...myMsg, id: tempId }]);
     try {
-      await sb.post("chat_messages", myMsg);
+      // DB에만 저장 → Realtime이 받아서 화면에 추가 (중복 방지)
+      await sb.post("chat_messages", {
+        channel: channelId,
+        user_name: user.name,
+        user_role: user.role,
+        avatar: user.name[0],
+        is_me: true,
+        content: msg,
+      });
     } catch {
-      // 실패 시 임시 메시지 제거
-      setMsgs(p => p.filter(m => m.id !== tempId));
+      setInput(msg); // 실패 시 입력창 복원
+    } finally {
+      sending.current = false;
     }
   };
 
@@ -1161,15 +1177,22 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   useEffect(() => { chatBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [channelMsgs]);
   // Realtime 구독 (모바일 채팅)
   useEffect(() => {
+    requestNotificationPermission();
     sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {});
     const ch = supabase
-      .channel(`mobile-chat-${chatChannel}`)
+      .channel(`mobile-chat-${chatChannel}-${user.name}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel=eq.${chatChannel}` },
-        (payload) => setChannelMsgs(p => {
-          const cur = p[chatChannel] || [];
-          if (cur.find(m => m.id === payload.new.id)) return p;
-          return { ...p, [chatChannel]: [...cur, payload.new] };
-        })
+        (payload) => {
+          const newMsg = payload.new;
+          setChannelMsgs(p => {
+            const cur = p[chatChannel] || [];
+            if (cur.find(m => m.id === newMsg.id)) return p;
+            return { ...p, [chatChannel]: [...cur, newMsg] };
+          });
+          if (newMsg.user_name !== user.name) {
+            sendNotification(`${newMsg.user_name}`, newMsg.content);
+          }
+        }
       ).subscribe();
     return () => supabase.removeChannel(ch);
   }, [chatChannel]);
@@ -1334,15 +1357,18 @@ JSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<�
             {CHANNELS.map(ch => <button key={ch.id} onClick={() => setChatChannel(ch.id)} style={{ whiteSpace: "nowrap", border: "none", borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: chatChannel === ch.id ? 700 : 400, background: chatChannel === ch.id ? NAVY : "#F3F4F6", color: chatChannel === ch.id ? "#fff" : "#374151", cursor: "pointer" }}># {ch.name}</button>)}
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {(channelMsgs[chatChannel] || []).map(m => (
-              <div key={m.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{m.avatar}</div>
-                <div>
-                  <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 3 }}>{m.user_name} · {m.user_role}</div>
-                  <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: "18px 18px 18px 4px", padding: "10px 14px", fontSize: 14 }}>{m.content}</div>
+            {(channelMsgs[chatChannel] || []).map(m => {
+              const isMe = m.user_name === user.name;
+              return (
+                <div key={m.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: isMe ? YELLOW : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0, color: isMe ? NAVY : "#374151" }}>{m.avatar || m.user_name?.[0]}</div>
+                  <div style={{ maxWidth: "70%" }}>
+                    {!isMe && <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 3 }}>{m.user_name} · {m.user_role}</div>}
+                    <div style={{ background: isMe ? NAVY : "#fff", color: isMe ? "#fff" : "#374151", border: isMe ? "none" : "1px solid #E5E7EB", borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 14px", fontSize: 14 }}>{m.content}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={chatBottom} />
           </div>
           <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
