@@ -1061,53 +1061,73 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   );
 }
 
-// ── 알림 헬퍼 ─────────────────────────────────────────────────────────
-function requestNotificationPermission() {
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
+// ── 인앱 알림 훅 ──────────────────────────────────────────────────────
+function useInAppNotifications() {
+  const [notifications, setNotifications] = useState([]);
+  const timerRef = useRef(null);
+
+  const addNotification = (from, role, content, channel) => {
+    const id = Date.now();
+    // 기존 알림 전부 지우고 새 알림만 표시
+    setNotifications([{ id, from, role, content, channel }]);
+    // 기존 타이머 취소 후 새 타이머 시작
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setNotifications([]), 4000);
+  };
+
+  const dismiss = (id) => {
+    setNotifications(p => p.filter(n => n.id !== id));
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
+  return { notifications, addNotification, dismiss };
 }
-function sendNotification(title, body) {
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(title, { body, icon: "/favicon.ico" });
-  }
+
+function InAppNotifications({ notifications, dismiss }) {
+  if (notifications.length === 0) return null;
+  return (
+    <div style={{ position: "fixed", top: 68, right: 16, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8, pointerEvents: "none" }}>
+      {notifications.map((n, i) => (
+        <div key={n.id} style={{ background: "#fff", border: `1.5px solid ${YELLOW}`, borderRadius: 14, padding: "12px 16px", minWidth: 280, maxWidth: 340, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", display: "flex", gap: 10, alignItems: "flex-start", pointerEvents: "all", animation: "slideIn 0.2s ease" }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: YELLOW, flexShrink: 0 }}>{n.from[0]}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>{n.from}</span>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{n.role}</span>
+              <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "1px 6px", marginLeft: "auto" }}># {n.channel}</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.content}</div>
+          </div>
+          <button onClick={() => dismiss(n.id)} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
+        </div>
+      ))}
+      <style>{`@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+    </div>
+  );
 }
 
 // ── Chat Panel (Realtime) ─────────────────────────────────────────────
-function ChatPanel({ channelId, channelName, user }) {
+function ChatPanel({ channelId, channelName, user, onNotify }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const bottom = useRef(null);
-  const sending = useRef(false); // 내가 보내는 중인지 추적
+  const sending = useRef(false);
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   useEffect(() => {
-    requestNotificationPermission();
-    // 초기 메시지 로드
     sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {});
-
-    // Realtime 구독 — 낙관적 업데이트 없이 Realtime만으로 처리
     const channel = supabase
       .channel(`chat-${channelId}-${user.name}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "chat_messages",
-        filter: `channel=eq.${channelId}`,
-      }, (payload) => {
-        const newMsg = payload.new;
-        setMsgs(p => {
-          if (p.find(m => m.id === newMsg.id)) return p;
-          return [...p, newMsg];
-        });
-        // 다른 사람 메시지일 때만 알림
-        if (newMsg.user_name !== user.name) {
-          sendNotification(`${newMsg.user_name} (${channelName})`, newMsg.content);
-        }
-      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel=eq.${channelId}` },
+        (payload) => {
+          const newMsg = payload.new;
+          setMsgs(p => { if (p.find(m => m.id === newMsg.id)) return p; return [...p, newMsg]; });
+          if (newMsg.user_name !== user.name) {
+            onNotify(newMsg.user_name, newMsg.user_role, newMsg.content, channelName);
+          }
+        })
       .subscribe();
-
     return () => supabase.removeChannel(channel);
   }, [channelId]);
 
@@ -1163,7 +1183,7 @@ function ChatPanel({ channelId, channelName, user }) {
 }
 
 // ── Mobile View ───────────────────────────────────────────────────────
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify }) {
   const [tab, setTab] = useState("report");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1175,9 +1195,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const chatBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
   useEffect(() => { chatBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [channelMsgs]);
-  // Realtime 구독 (모바일 채팅)
   useEffect(() => {
-    requestNotificationPermission();
     sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {});
     const ch = supabase
       .channel(`mobile-chat-${chatChannel}-${user.name}`)
@@ -1190,7 +1208,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
             return { ...p, [chatChannel]: [...cur, newMsg] };
           });
           if (newMsg.user_name !== user.name) {
-            sendNotification(`${newMsg.user_name}`, newMsg.content);
+            onNotify(newMsg.user_name, newMsg.user_role, newMsg.content, CHANNELS.find(c => c.id === chatChannel)?.name || chatChannel);
           }
         }
       ).subscribe();
@@ -1482,9 +1500,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
         {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} />}
         {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
-        {activeMenu === "general" && <ChatPanel channelId="general" channelName="공정-협의" user={user} />}
-        {activeMenu === "quality" && <ChatPanel channelId="quality" channelName="품질-안전" user={user} />}
-        {activeMenu === "material" && <ChatPanel channelId="material" channelName="자재-반입" user={user} />}
+        {activeMenu === "general" && <ChatPanel channelId="general" channelName="공정-협의" user={user} onNotify={addNotification} />}
+        {activeMenu === "quality" && <ChatPanel channelId="quality" channelName="품질-안전" user={user} onNotify={addNotification} />}
+        {activeMenu === "material" && <ChatPanel channelId="material" channelName="자재-반입" user={user} onNotify={addNotification} />}
         {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
         {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
       </div>
@@ -1506,6 +1524,7 @@ export default function App() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
+  const { notifications, addNotification, dismiss } = useInAppNotifications();
   const handleLogin = (u) => setUser(u);
   const handleLogout = () => { sessionStorage.removeItem("spmis_user"); setUser(null); };
 
@@ -1543,6 +1562,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
+      <InAppNotifications notifications={notifications} dismiss={dismiss} />
       <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 56 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ background: YELLOW, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: NAVY }}>S</div>
@@ -1559,7 +1579,7 @@ export default function App() {
         <div style={{ width: 140, fontSize: 12, color: "#6B7280", textAlign: "right" }}>스카이라인 플라자</div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} />
         : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} />}
     </div>
   );
