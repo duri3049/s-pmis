@@ -1362,7 +1362,7 @@ function LoginScreen({ onLogin }) {
   const handleLogin = () => {
     if (!name.trim()) return;
     const user = { name: name.trim(), role };
-    localStorage.setItem("spmis_user", JSON.stringify(user));
+    sessionStorage.setItem("spmis_user", JSON.stringify(user));
     onLogin(user);
   };
   return (
@@ -1469,7 +1469,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("spmis_user")) || null; } catch { return null; }
+    try { return JSON.parse(sessionStorage.getItem("spmis_user")) || null; } catch { return null; }
   });
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
@@ -1481,7 +1481,7 @@ export default function App() {
   const [dbError, setDbError] = useState(null);
 
   const handleLogin = (u) => setUser(u);
-  const handleLogout = () => { localStorage.removeItem("spmis_user"); setUser(null); };
+  const handleLogout = () => { sessionStorage.removeItem("spmis_user"); setUser(null); };
 
   useEffect(() => {
     if (!user) return;
