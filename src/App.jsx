@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 const NAVY = "#1A2332";
 const YELLOW = "#FFB800";
@@ -9,6 +10,12 @@ const SB_URL = "https://movvrcrbuokoahhiydtt.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vdnZyY3JidW9rb2FoaGl5ZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDkxMjIsImV4cCI6MjA5NDg4NTEyMn0.zK_GlKCXhKxa-xd0HpxAGURMwzyXr6cbm7xi-rYZUVE";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY;
 
+// Supabase 클라이언트 (Realtime용)
+const supabase = createClient(SB_URL, SB_KEY);
+
+const ROLES = ["공무과장", "현장소장", "안전관리자", "협력사 반장", "기사", "대리", "기타"];
+
+// 기존 fetch 기반 헬퍼 (채팅 외 용도)
 const sb = {
   async get(table, params = "") {
     const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}&order=id.asc${params ? "&" + params : ""}`;
@@ -272,8 +279,10 @@ function Dashboard({ activities, progressReports, issues }) {
   );
 }
 
-// ── 3W View (간트 막대 방식) ──────────────────────────────────────────
+// ── 3W View ───────────────────────────────────────────────────────────
 function ThreeWeekView({ activities, milestones, setMilestones }) {
+  // ✅ 수정: weekOffset state 추가
+  const [weekOffset, setWeekOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", milestone_date: "", type: "complete", zone: "", status: "planned" });
   const [saving, setSaving] = useState(false);
@@ -285,12 +294,16 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
   const BAR_H = 12;
   const ROW_H = 58;
 
+  // ✅ 수정: weekOffset 반영한 days 배열 생성
   const days = [];
+  const baseDate = new Date(TODAY);
+  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
   for (let i = 0; i < DAYS; i++) {
-    const d = new Date(TODAY);
+    const d = new Date(baseDate);
     d.setDate(d.getDate() + i);
     days.push(d);
   }
+
   const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
   const dayName = d => "일월화수목금토"[d.getDay()];
   const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
@@ -302,7 +315,7 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
     return Math.max(0, Math.min(diff * COL_W, DAYS * COL_W));
   };
 
-  const active = activities.filter(a => a.done_qty < a.plan_qty && new Date(a.pf) >= TODAY);
+  const active = activities.filter(a => a.done_qty < a.plan_qty && diffDays(a.pf, TODAY) >= 0);
 
   const handleSave = async () => {
     if (!form.title || !form.milestone_date) return;
@@ -333,6 +346,15 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 3주 공정표</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>←</button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 140, textAlign: "center" }}>
+            {fmt(days[0])} ~ {fmt(days[DAYS - 1])}
+            {weekOffset === 0 && <span style={{ fontSize: 11, color: YELLOW, marginLeft: 6, fontWeight: 700 }}>오늘</span>}
+          </div>
+          <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
+          <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
+        </div>
         <button onClick={() => setShowForm(true)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤 등록</button>
       </div>
 
@@ -356,8 +378,6 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
       <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: 16 }}>
         <div style={{ overflowX: "auto" }}>
           <div style={{ minWidth: totalW }}>
-
-            {/* 날짜 헤더 */}
             <div style={{ display: "flex", borderBottom: "2px solid #334155" }}>
               <div style={{ width: LEFT_W, flexShrink: 0, background: NAVY, color: "#fff", padding: "10px 16px", fontWeight: 600, fontSize: 12 }}>공정명</div>
               {days.map((d, i) => (
@@ -368,7 +388,6 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
               ))}
             </div>
 
-            {/* 마일스톤 행 */}
             <div style={{ display: "flex", borderBottom: "2px solid #E2E8F0", background: "#1E293B", height: 36, position: "relative" }}>
               <div style={{ width: LEFT_W, flexShrink: 0, color: YELLOW, fontWeight: 700, fontSize: 12, padding: "0 16px", display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ flex: 1, position: "relative" }}>
@@ -389,24 +408,19 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
               </div>
             </div>
 
-            {/* 공정 행 */}
             {active.map((a, ri) => {
               const { daily_target, plan_daily } = calcTodayTarget(a);
               const isDelayed = a.delay_days > 0;
               const isCritical = a.critical;
-
               const planStartX = dateToX(a.ps);
               const planEndX = dateToX(a.pf);
               const planW = Math.max(planEndX - planStartX, 4);
-
               const actualStartX = a.as_ ? dateToX(a.as_) : null;
               const actualEndStr = a.af ? a.af : dayStr(TODAY);
               const actualEndX = a.as_ ? Math.min(dateToX(actualEndStr), planEndX) : null;
               const actualW = actualStartX !== null ? Math.max(actualEndX - actualStartX, 4) : 0;
-
               return (
                 <div key={a.id} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #F1F5F9", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", height: ROW_H, position: "relative" }}>
-                  {/* 공정명 열 */}
                   <div style={{ width: LEFT_W, flexShrink: 0, padding: "0 16px", borderRight: "2px solid #E5E7EB", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
                     <div style={{ display: "flex", gap: 4 }}>
                       {isCritical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
@@ -415,49 +429,22 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
                     <div style={{ fontWeight: 600, fontSize: 12, color: isCritical ? "#DC2626" : NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
                     <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon} · {a.status === "예정" ? `계획 ${plan_daily}${a.unit}/일` : `목표 ${daily_target}${a.unit}/일`}</div>
                   </div>
-
-                  {/* 막대 영역 */}
                   <div style={{ flex: 1, position: "relative", height: ROW_H }}>
-                    {/* 주말 음영 */}
                     {days.map((d, i) => isWeekend(d) && (
                       <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: COL_W, height: ROW_H, background: "rgba(0,0,0,0.025)" }} />
                     ))}
-                    {/* 격자선 */}
                     {days.map((_, i) => (
                       <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: 1, height: ROW_H, background: "#F1F5F9" }} />
                     ))}
-                    {/* 오늘 세로선 */}
                     <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: ROW_H, background: YELLOW, zIndex: 3 }} />
-
-                    {/* 계획 막대 (위) */}
-                    <div style={{
-                      position: "absolute", left: planStartX, top: ROW_H / 2 - BAR_H - 4,
-                      width: planW, height: BAR_H,
-                      background: isDelayed ? "#FECACA" : "#BFDBFE",
-                      borderRadius: 3, zIndex: 1,
-                      display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden",
-                    }}>
-                      <span style={{ fontSize: 9, fontWeight: 600, color: isDelayed ? "#991B1B" : "#1E40AF", whiteSpace: "nowrap" }}>
-                        계획 {a.status === "예정" ? plan_daily : daily_target}{a.unit}
-                      </span>
+                    <div style={{ position: "absolute", left: planStartX, top: ROW_H / 2 - BAR_H - 4, width: planW, height: BAR_H, background: isDelayed ? "#FECACA" : "#BFDBFE", borderRadius: 3, zIndex: 1, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, color: isDelayed ? "#991B1B" : "#1E40AF", whiteSpace: "nowrap" }}>계획 {a.status === "예정" ? plan_daily : daily_target}{a.unit}</span>
                     </div>
-
-                    {/* 실적 막대 (아래) */}
                     {a.as_ && actualW > 0 && (
-                      <div style={{
-                        position: "absolute", left: actualStartX, top: ROW_H / 2 + 4,
-                        width: actualW, height: BAR_H,
-                        background: "#6EE7B7",
-                        borderRadius: 3, zIndex: 1,
-                        display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden",
-                      }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "#065F46", whiteSpace: "nowrap" }}>
-                          실적 {daily_target}{a.unit}
-                        </span>
+                      <div style={{ position: "absolute", left: actualStartX, top: ROW_H / 2 + 4, width: actualW, height: BAR_H, background: "#6EE7B7", borderRadius: 3, zIndex: 1, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "#065F46", whiteSpace: "nowrap" }}>실적 {daily_target}{a.unit}</span>
                       </div>
                     )}
-
-                    {/* 미착수 표시 */}
                     {!a.as_ && a.status === "예정" && (
                       <div style={{ position: "absolute", left: planStartX + 4, top: ROW_H / 2 + 4, height: BAR_H, display: "flex", alignItems: "center" }}>
                         <span style={{ fontSize: 9, color: "#9CA3AF" }}>미착수</span>
@@ -468,7 +455,6 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
               );
             })}
 
-            {/* 범례 */}
             <div style={{ display: "flex", gap: 20, padding: "10px 16px", borderTop: "1px solid #E5E7EB", background: "#F9FAFB", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#BFDBFE", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#6EE7B7", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
@@ -479,7 +465,6 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
         </div>
       </div>
 
-      {/* 마일스톤 목록 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 12 }}>마일스톤 목록</div>
         {milestones.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 마일스톤이 없습니다</div>}
@@ -1076,34 +1061,81 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   );
 }
 
-// ── Chat Panel ────────────────────────────────────────────────────────
-function ChatPanel({ channelId, channelName }) {
+// ── Chat Panel (Realtime) ─────────────────────────────────────────────
+function ChatPanel({ channelId, channelName, user }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const bottom = useRef(null);
+
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
-  useEffect(() => { sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {}); }, [channelId]);
+
+  // 초기 메시지 로드 + Realtime 구독
+  useEffect(() => {
+    // 기존 메시지 불러오기
+    sb.get("chat_messages", `channel=eq.${channelId}`).then(setMsgs).catch(() => {});
+
+    // Realtime 구독
+    const channel = supabase
+      .channel(`chat-${channelId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "chat_messages",
+        filter: `channel=eq.${channelId}`,
+      }, (payload) => {
+        setMsgs(p => {
+          // 중복 방지 (내가 보낸 메시지는 이미 낙관적 업데이트됨)
+          if (p.find(m => m.id === payload.new.id)) return p;
+          return [...p, payload.new];
+        });
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [channelId]);
+
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg) return;
     setInput("");
-    const myMsg = { channel: channelId, user_name: "박정수", user_role: "공무과장", avatar: "박", is_me: true, content: msg };
-    try { const [saved] = await sb.post("chat_messages", myMsg); setMsgs(p => [...p, saved]); }
-    catch { setMsgs(p => [...p, { ...myMsg, id: Date.now() }]); }
+    const myMsg = {
+      channel: channelId,
+      user_name: user.name,
+      user_role: user.role,
+      avatar: user.name[0],
+      is_me: true,
+      content: msg,
+    };
+    // 낙관적 업데이트 (즉시 화면에 표시)
+    const tempId = Date.now();
+    setMsgs(p => [...p, { ...myMsg, id: tempId }]);
+    try {
+      await sb.post("chat_messages", myMsg);
+    } catch {
+      // 실패 시 임시 메시지 제거
+      setMsgs(p => p.filter(m => m.id !== tempId));
+    }
   };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid #E5E7EB", fontWeight: 700, fontSize: 16, color: NAVY }}># {channelName}</div>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #E5E7EB", fontWeight: 700, fontSize: 16, color: NAVY, display: "flex", alignItems: "center", gap: 8 }}>
+        # {channelName}
+        <span style={{ fontSize: 11, color: "#10B981", background: "rgba(16,185,129,0.1)", borderRadius: 6, padding: "2px 8px", fontWeight: 500 }}>● 실시간</span>
+      </div>
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {msgs.map(m => (
-          <div key={m.id} style={{ display: "flex", flexDirection: m.is_me ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: m.is_me ? YELLOW : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: m.is_me ? NAVY : "#374151", flexShrink: 0 }}>{m.avatar}</div>
-            <div style={{ maxWidth: "65%" }}>
-              {!m.is_me && <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>{m.user_name} · {m.user_role}</div>}
-              <div style={{ background: m.is_me ? NAVY : "#F9FAFB", color: m.is_me ? "#fff" : "#374151", borderRadius: m.is_me ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 16px", fontSize: 14, lineHeight: 1.6, border: m.is_me ? "none" : "1px solid #E5E7EB" }}>{m.content}</div>
+        {msgs.map(m => {
+          const isMe = m.user_name === user.name;
+          return (
+            <div key={m.id} style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: isMe ? YELLOW : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: isMe ? NAVY : "#374151", flexShrink: 0 }}>{m.avatar || m.user_name?.[0]}</div>
+              <div style={{ maxWidth: "65%" }}>
+                {!isMe && <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>{m.user_name} · {m.user_role}</div>}
+                <div style={{ background: isMe ? NAVY : "#F9FAFB", color: isMe ? "#fff" : "#374151", borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 16px", fontSize: 14, lineHeight: 1.6, border: isMe ? "none" : "1px solid #E5E7EB" }}>{m.content}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottom} />
       </div>
       <div style={{ padding: "12px 20px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8 }}>
@@ -1115,7 +1147,7 @@ function ChatPanel({ channelId, channelName }) {
 }
 
 // ── Mobile View ───────────────────────────────────────────────────────
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user }) {
   const [tab, setTab] = useState("report");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1127,7 +1159,20 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const chatBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
   useEffect(() => { chatBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [channelMsgs]);
-  useEffect(() => { sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {}); }, [chatChannel]);
+  // Realtime 구독 (모바일 채팅)
+  useEffect(() => {
+    sb.get("chat_messages", `channel=eq.${chatChannel}`).then(data => setChannelMsgs(p => ({ ...p, [chatChannel]: data }))).catch(() => {});
+    const ch = supabase
+      .channel(`mobile-chat-${chatChannel}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `channel=eq.${chatChannel}` },
+        (payload) => setChannelMsgs(p => {
+          const cur = p[chatChannel] || [];
+          if (cur.find(m => m.id === payload.new.id)) return p;
+          return { ...p, [chatChannel]: [...cur, payload.new] };
+        })
+      ).subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [chatChannel]);
 
   const CHIPS = ["402호 외벽 도장 오늘 85㎡ 완료, 도장공 3명", "균열 보수 4개소 완료", "3층 슬래브 양생 6일차 완료"];
 
@@ -1186,7 +1231,7 @@ JSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<�
     const msg = chatInput.trim();
     if (!msg) return;
     setChatInput("");
-    const myMsg = { channel: chatChannel, user_name: "김반장", user_role: "한일건설 반장", avatar: "김", is_me: false, content: msg };
+          const myMsg = { channel: chatChannel, user_name: user.name, user_role: user.role, avatar: user.name[0], is_me: true, content: msg };
     try { const [saved] = await sb.post("chat_messages", myMsg); setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], saved] })); }
     catch { setChannelMsgs(p => ({ ...p, [chatChannel]: [...p[chatChannel], { ...myMsg, id: Date.now() }] })); }
   };
@@ -1194,8 +1239,8 @@ JSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<�
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "calc(100vh - 56px)", background: "#FAFAFA" }}>
       <div style={{ background: NAVY, color: "#fff", padding: "12px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: NAVY }}>김</div>
-        <div><div style={{ fontWeight: 600, fontSize: 15 }}>김반장 · 한일건설</div><div style={{ fontSize: 11, color: "#FFD166" }}>스카이라인 플라자</div></div>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: NAVY }}>{user.name[0]}</div>
+        <div><div style={{ fontWeight: 600, fontSize: 15 }}>{user.name} · {user.role}</div><div style={{ fontSize: 11, color: "#FFD166" }}>스카이라인 플라자</div></div>
       </div>
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #E5E7EB" }}>
         {[{ id: "report", label: "📋 작업 보고" }, { id: "chat", label: "💬 팀 채팅" }].map(t => (
@@ -1310,6 +1355,49 @@ JSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<�
   );
 }
 
+// ── Login Screen ──────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [name, setName] = useState("");
+  const [role, setRole] = useState(ROLES[0]);
+  const handleLogin = () => {
+    if (!name.trim()) return;
+    const user = { name: name.trim(), role };
+    localStorage.setItem("spmis_user", JSON.stringify(user));
+    onLogin(user);
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
+          <div style={{ background: YELLOW, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: NAVY }}>S</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>S-PMIS Collab</div>
+            <div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div>
+          </div>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>이름 *</label>
+          <input
+            value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleLogin()}
+            placeholder="예: 김철수"
+            style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+          />
+        </div>
+        <div style={{ marginBottom: 28 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 6 }}>역할 *</label>
+          <select value={role} onChange={e => setRole(e.target.value)} style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 14, outline: "none", background: "#fff" }}>
+            {ROLES.map(r => <option key={r}>{r}</option>)}
+          </select>
+        </div>
+        <button onClick={handleLogin} disabled={!name.trim()} style={{ width: "100%", background: name.trim() ? YELLOW : "#E5E7EB", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 15, color: name.trim() ? NAVY : "#9CA3AF", cursor: name.trim() ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
+          입장하기 →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Desktop View ──────────────────────────────────────────────────────
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "📊 대시보드", type: "page" },
@@ -1322,7 +1410,7 @@ const SIDEBAR_ITEMS = [
   { id: "approval", label: "✅ 결재 라인", type: "page" },
 ];
 
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout }) {
   const [activeMenu, setActiveMenu] = useState("dashboard");
   const [showModal, setShowModal] = useState(false);
   const [toast, setToast] = useState(null);
@@ -1355,8 +1443,12 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         </div>
         <div style={{ padding: "12px 18px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 30, height: 30, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: NAVY, fontSize: 13 }}>박</div>
-            <div><div style={{ fontSize: 13, fontWeight: 600 }}>박정수</div><div style={{ fontSize: 10, color: "#9CA3AF" }}>공무과장</div></div>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: NAVY, fontSize: 13 }}>{user.name[0]}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</div>
+              <div style={{ fontSize: 10, color: "#9CA3AF" }}>{user.role}</div>
+            </div>
+            <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 6, color: "#9CA3AF", fontSize: 11, padding: "4px 8px", cursor: "pointer" }}>로그아웃</button>
           </div>
         </div>
       </div>
@@ -1364,9 +1456,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
         {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} />}
         {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
-        {activeMenu === "general" && <ChatPanel channelId="general" channelName="공정-협의" />}
-        {activeMenu === "quality" && <ChatPanel channelId="quality" channelName="품질-안전" />}
-        {activeMenu === "material" && <ChatPanel channelId="material" channelName="자재-반입" />}
+        {activeMenu === "general" && <ChatPanel channelId="general" channelName="공정-협의" user={user} />}
+        {activeMenu === "quality" && <ChatPanel channelId="quality" channelName="품질-안전" user={user} />}
+        {activeMenu === "material" && <ChatPanel channelId="material" channelName="자재-반입" user={user} />}
         {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
         {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
       </div>
@@ -1376,16 +1468,23 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("spmis_user")) || null; } catch { return null; }
+  });
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
   const [progressReports, setProgressReports] = useState([]);
   const [issues, setIssues] = useState([]);
   const [milestones, setMilestones] = useState([]);
-  const [chatMessages, setChatMessages] = useState([{ id: 0, role: "system", content: "안녕하세요 김반장님 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
+  const [chatMessages, setChatMessages] = useState([{ id: 0, role: "system", content: "안녕하세요 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
 
+  const handleLogin = (u) => setUser(u);
+  const handleLogout = () => { localStorage.removeItem("spmis_user"); setUser(null); };
+
   useEffect(() => {
+    if (!user) return;
     Promise.all([sb.get("activities"), sb.get("progress_reports"), sb.get("issues"), sb.get("milestones")])
       .then(([acts, reports, iss, ms]) => {
         setActivities(acts.map(calcAct));
@@ -1394,7 +1493,10 @@ export default function App() {
         setMilestones(ms);
         setDbLoading(false);
       }).catch(err => { setDbError(err.message); setDbLoading(false); });
-  }, []);
+  }, [user]);
+
+  // 로그인 안 된 경우
+  if (!user) return <LoginScreen onLogin={handleLogin} />;
 
   const pendingCount = progressReports.filter(r => r.status === "pending").length;
 
@@ -1431,8 +1533,8 @@ export default function App() {
         <div style={{ width: 140, fontSize: 12, color: "#6B7280", textAlign: "right" }}>스카이라인 플라자</div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} />}
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} />
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} />}
     </div>
   );
 }
