@@ -154,7 +154,7 @@ function Toast({ msg, onDone }) {
   return <div style={{ position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)", background: NAVY, color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 500, fontSize: 14, zIndex: 9999, pointerEvents: "none" }}>{msg}</div>;
 }
 
-// ── 인앱 알림 ─────────────────────────────────────────────────────────
+// ── 인앱 알림 (가운데 정렬 수정) ──────────────────────────────────────
 function useInAppNotifications() {
   const [notifications, setNotifications] = useState([]);
   const timerRef = useRef(null);
@@ -171,10 +171,10 @@ function useInAppNotifications() {
 function InAppNotifications({ notifications, dismiss, onClickRoom }) {
   if (notifications.length === 0) return null;
   return (
-    <div style={{ position: "fixed", top: 68, right: 16, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ position: "fixed", top: 68, left: "50%", transform: "translateX(-50%)", width: "calc(100vw - 32px)", maxWidth: 360, zIndex: 9999, display: "flex", flexDirection: "column", gap: 8 }}>
       {notifications.map(n => (
         <div key={n.id} onClick={() => { onClickRoom && onClickRoom(n.roomId); dismiss(n.id); }}
-          style={{ background: "#fff", border: `1.5px solid ${YELLOW}`, borderRadius: 14, padding: "12px 16px", minWidth: 280, maxWidth: 340, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+          style={{ background: "#fff", border: `1.5px solid ${YELLOW}`, borderRadius: 14, padding: "12px 16px", width: "100%", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", boxSizing: "border-box" }}>
           <div style={{ width: 32, height: 32, borderRadius: "50%", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: YELLOW, flexShrink: 0 }}>{n.from[0]}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
@@ -223,7 +223,8 @@ function AuthScreen({ onAuth }) {
     setLoading(false);
   };
 
-  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 12 };
+  // 모바일 확대 방지 위해 fontSize 16px 적용
+  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 12 };
 
   return (
     <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -335,19 +336,20 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   const handleSend = async () => {
-    const msg = input.trim();
-    if (!msg || sending.current) return;
+    const msgText = input.trim();
+    if (!msgText || sending.current) return;
     sending.current = true;
     setInput("");
     try {
-      await supabase.from("chat_messages").insert({ room_id: room.id, user_id: user.id, user_name: user.name, user_role: user.role, avatar: user.name[0], content: msg, channel: room.name || "direct" });
-    } catch { setInput(msg); }
+      await supabase.from("chat_messages").insert({ room_id: room.id, user_id: user.id, user_name: user.name, user_role: user.role, avatar: user.name[0], content: msgText, channel: room.name || "direct" });
+    } catch { setInput(msgText); }
     sending.current = false;
   };
 
   const renderMessages = () => {
     let lastDate = null;
     return msgs.map(m => {
+      // 본인이 보낸 메시지인지 판단 (DB의 user_id 기준)
       const isMe = m.user_id === user.id;
       const msgDate = m.created_at ? new Date(m.created_at).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }) : null;
       const showDate = msgDate && msgDate !== lastDate;
@@ -389,7 +391,7 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
         <div ref={bottom} />
       </div>
       <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8, background: "#fff" }}>
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 22, padding: "10px 16px", fontSize: 14, outline: "none", background: "#F9FAFB" }} />
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 22, padding: "10px 16px", fontSize: 16, outline: "none", background: "#F9FAFB" }} />
         <button onClick={handleSend} style={{ background: YELLOW, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer" }}>↑</button>
       </div>
     </div>
@@ -526,7 +528,7 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
     const newStatus = m.status === "achieved" ? "planned" : "achieved";
     try { await sb.patch("milestones", m.id, { status: newStatus }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: newStatus } : x)); } catch {}
   };
-  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" };
+  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box", background: "#fff" };
   const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
@@ -693,7 +695,9 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
   const togglePred = (id) => { const exists = form.predecessors.find(p => p.id === id); if (exists) setForm(p => ({ ...p, predecessors: p.predecessors.filter(x => x.id !== id) })); else setForm(p => ({ ...p, predecessors: [...p.predecessors, { id, type: "FS", lag: 0 }] })); };
   const validate = () => { const e = {}, g = form.group === "직접입력" ? form.group_custom : form.group; if (!g) e.group = "공종 그룹을 선택하세요"; if (!form.name) e.name = "공정명을 입력하세요"; if (!form.loc) e.loc = "위치를 입력하세요"; if (!form.ps || !form.pf) e.date = "착수/완료일을 입력하세요"; if (form.ps && form.pf && form.ps > form.pf) e.date = "완료일이 착수일보다 빠릅니다"; if (!form.plan_qty || Number(form.plan_qty) <= 0) e.plan_qty = "계획 물량을 입력하세요"; if (!form.pv_budget || Number(form.pv_budget) <= 0) e.pv_budget = "예산을 입력하세요"; if (totalW !== 100) e.steps = `가중치 합계 ${totalW}%`; return e; };
   const handleSave = async () => { const e = validate(); setErrors(e); if (Object.keys(e).length > 0) return; setSaving(true); const g = form.group === "직접입력" ? form.group_custom : form.group; try { const [saved] = await sb.post("activities", { group_name: g, wbs: autoWBS(), name: form.name, floor: form.floor, loc: form.loc, subcon: form.subcon, resp: form.resp, ps: form.ps, pf: form.pf, as_: null, af: null, bl_s: form.ps, bl_f: form.pf, original_ps: form.ps, original_pf: form.pf, orig_dur: diffDays(form.pf, form.ps), plan_qty: Number(form.plan_qty), done_qty: 0, unit: form.unit, steps: form.steps.map(s => ({ ...s, done: false })), predecessors: form.predecessors, pv_budget: Number(form.pv_budget) * 10000, ac: 0, risk: form.risk, weather: form.weather, critical: form.critical, delay_days: 0 }); onSave(calcAct(saved)); } catch (err) { alert("저장 실패: " + err.message); } setSaving(false); };
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" };
+  
+  // 모바일 확대 방지 위해 fontSize 16px
+  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box", background: "#fff" };
   const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
   const es = { fontSize: 11, color: "#EF4444", marginTop: 3 };
   return (
@@ -798,7 +802,9 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
     } catch (err) { alert("저장 실패: " + err.message); } setSaving(false);
   };
   const handleClose = async (issue) => { await sb.patch("issues", issue.id, { status: "closed" }); setIssues(p => p.map(i => i.id === issue.id ? { ...i, status: "closed" } : i)); setToast("이슈가 종결되었습니다"); };
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box" };
+  
+  // 모바일 확대 방지 위해 fontSize 16px
+  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box" };
   const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
@@ -919,12 +925,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 }
 
 // ── Mobile View ───────────────────────────────────────────────────────
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, profiles }) {
-  const [tab, setTab] = useState("report");
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, profiles, tab, setTab, activeRoom, setActiveRoom }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
-  const [activeRoom, setActiveRoom] = useState(null);
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
 
@@ -971,11 +975,12 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
           <div style={{ width: 30, height: 30, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13, color: NAVY }}>{user.name[0]}</div>
           <div><div style={{ fontWeight: 600, fontSize: 14 }}>{user.name} · {user.role}</div><div style={{ fontSize: 10, color: "#FFD166" }}>스카이라인 플라자</div></div>
         </div>
+        {/* 로그아웃 버튼 복구됨 */}
         <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", fontSize: 12, padding: "5px 10px", cursor: "pointer" }}>로그아웃</button>
       </div>
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #E5E7EB" }}>
         {[{ id: "report", label: "📋 작업 보고" }, { id: "chat", label: "💬 채팅" }].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "11px 0", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 400, fontSize: 13, color: tab === t.id ? NAVY : "#6B7280", borderBottom: tab === t.id ? `2px solid ${YELLOW}` : "2px solid transparent", cursor: "pointer" }}>{t.label}</button>
+          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "11px 0", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 400, fontSize: 14, color: tab === t.id ? NAVY : "#6B7280", borderBottom: tab === t.id ? `2px solid ${YELLOW}` : "2px solid transparent", cursor: "pointer" }}>{t.label}</button>
         ))}
       </div>
 
@@ -1018,11 +1023,11 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
             <div ref={reportBottom} />
           </div>
           <div style={{ padding: "6px 12px 4px", display: "flex", gap: 6, overflowX: "auto" }}>
-            {CHIPS.map((c, i) => <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer" }}>{c}</button>)}
+            {CHIPS.map((c, i) => <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 13, color: NAVY, cursor: "pointer" }}>{c}</button>)}
           </div>
           <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 14, outline: "none", background: "#fff" }} />
-            <button onClick={handleReportSubmit} disabled={loading} style={{ background: YELLOW, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer", minHeight: 48 }}>전송</button>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 16, outline: "none", background: "#fff" }} />
+            <button onClick={handleReportSubmit} disabled={loading} style={{ background: YELLOW, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer", minHeight: 48 }}>전송</button>
           </div>
         </>
       ) : (
@@ -1034,42 +1039,62 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   );
 }
 
-// ── Desktop View ──────────────────────────────────────────────────────
+// ── Desktop View (관리자 화면 햄버거 메뉴 적용) ────────────────────────
 const SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "📊 대시보드", type: "page" },
-  { id: "gantt", label: "📋 공정 현황", type: "page" },
-  { id: "3w", label: "📅 3주 공정표", type: "page" },
-  { id: "chat", label: "💬 채팅", type: "page" },
-  { id: "issues", label: "⚠️ 이슈 트래커", type: "page" },
-  { id: "approval", label: "✅ 결재 라인", type: "page" },
+  { id: "dashboard", label: "📊 대시보드" },
+  { id: "gantt", label: "📋 공정 현황" },
+  { id: "3w", label: "📅 3주 공정표" },
+  { id: "chat", label: "💬 채팅" },
+  { id: "issues", label: "⚠️ 이슈 트래커" },
+  { id: "approval", label: "✅ 결재 라인" },
 ];
 
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles }) {
-  const [activeMenu, setActiveMenu] = useState("dashboard");
-  const [activeRoom, setActiveRoom] = useState(null);
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
   const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileScreen(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
   const openIssueCount = (issues || []).filter(i => i.status !== "closed").length;
   const existingGroups = [...new Set((activities || []).map(a => a.group_name))];
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 56px)", background: "#F3F4F6", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 56px)", background: "#F3F4F6", overflow: "hidden", position: "relative" }}>
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
       {showModal && <ActivityFormModal onClose={() => setShowModal(false)} onSave={act => { setActivities(p => [...p, act]); setShowModal(false); setToast(`✅ "${act.name}" 공정 등록 완료`); }} activities={activities} existingGroups={existingGroups} />}
-      <div style={{ width: 220, background: NAVY, color: "#fff", flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 0" }}>
-        <div style={{ padding: "0 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 3 }}>워크스페이스</div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>스카이라인 플라자</div>
-          <div style={{ fontSize: 10, color: "#10B981", marginTop: 4 }}>● Supabase 연결됨</div>
+
+      {isMobileScreen && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998 }} />
+      )}
+
+      <div style={{ 
+        width: 220, background: NAVY, color: "#fff", flexShrink: 0, display: "flex", flexDirection: "column", padding: "20px 0",
+        position: isMobileScreen ? "absolute" : "relative",
+        height: "100%", zIndex: 999, transition: "transform 0.3s ease",
+        transform: isMobileScreen && !sidebarOpen ? "translateX(-100%)" : "translateX(0)"
+      }}>
+        <div style={{ padding: "0 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 3 }}>워크스페이스</div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>스카이라인 플라자</div>
+          </div>
+          {isMobileScreen && <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 20 }}>✕</button>}
         </div>
         <div style={{ padding: "14px 12px", flex: 1 }}>
           {SIDEBAR_ITEMS.map(item => {
             const isActive = activeMenu === item.id;
             const badge = item.id === "approval" ? pendingCount : item.id === "issues" ? openIssueCount : 0;
             return (
-              <div key={item.id} onClick={() => { setActiveMenu(item.id); setActiveRoom(null); }} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, marginBottom: 2, background: isActive ? "rgba(255,184,0,0.18)" : "transparent", cursor: "pointer" }}>
-                <span style={{ fontSize: 13, color: isActive ? YELLOW : "#D1D5DB" }}>{item.label}</span>
+              <div key={item.id} onClick={() => { setActiveMenu(item.id); setActiveRoom(null); if (isMobileScreen) setSidebarOpen(false); }} 
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", borderRadius: 8, marginBottom: 2, background: isActive ? "rgba(255,184,0,0.18)" : "transparent", cursor: "pointer" }}>
+                <span style={{ fontSize: 14, color: isActive ? YELLOW : "#D1D5DB" }}>{item.label}</span>
                 {badge > 0 && <span style={{ background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 6px", fontWeight: 700 }}>{badge}</span>}
               </div>
             );
@@ -1083,23 +1108,35 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           </div>
         </div>
       </div>
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
-        {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} />}
-        {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
-        {activeMenu === "chat" && (
-          activeRoom
-            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} />
-            : <RoomList rooms={rooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
+
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {isMobileScreen && (
+          <div style={{ padding: "12px 16px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => setSidebarOpen(true)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: NAVY }}>☰</button>
+            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>
+              {SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}
+            </span>
+          </div>
         )}
-        {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
-        {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
+        
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
+          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} />}
+          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
+          {activeMenu === "chat" && (
+            activeRoom
+              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} profiles={profiles} />
+              : <RoomList rooms={rooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
+          )}
+          {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
+          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Root ──────────────────────────────────────────────────────────────
+// ── Root (최상위 App 상태 관리) ──────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("mobile");
@@ -1113,7 +1150,21 @@ export default function App() {
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
   const [dataReady, setDataReady] = useState(false);
+
+  const [activeRoom, setActiveRoom] = useState(null);
+  const [mobileTab, setMobileTab] = useState("report");
+  const [desktopMenu, setDesktopMenu] = useState("dashboard");
+
   const { notifications, addNotification, dismiss } = useInAppNotifications();
+
+  const handleRoomClick = (roomId) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (room) {
+      setActiveRoom(room);
+      if (view === "mobile") setMobileTab("chat");
+      else setDesktopMenu("chat");
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -1172,27 +1223,29 @@ export default function App() {
 
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
 
+  // ── 이 return 부분이 2번에서 교체하려던 메인 화면 구조입니다 ──
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
-      <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={() => {}} />
-      <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px", height: 56 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      
+      <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
+      
+      <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ background: YELLOW, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: NAVY }}>S</div>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>S-PMIS</span>
-          <span style={{ fontSize: 10, color: "#10B981", background: "rgba(16,185,129,0.15)", borderRadius: 6, padding: "2px 8px" }}>● Supabase</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>S-PMIS</span>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>📱 현장</button>
-          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer", position: "relative" }}>
+          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>📱 현장</button>
+          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 600, fontSize: 13, cursor: "pointer", position: "relative" }}>
             💻 관리자
             {pendingCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700 }}>{pendingCount}</span>}
           </button>
         </div>
-        <div style={{ fontSize: 12, color: "#6B7280" }}>스카이라인 플라자</div>
       </div>
+      
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} />}
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} />
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} />}
     </div>
   );
 }
