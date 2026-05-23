@@ -1172,6 +1172,28 @@ export default function App() {
     }
   };
 
+  // 글로벌 채팅 구독 — 어느 화면에 있어도 알림 수신
+  useEffect(() => {
+    if (!user || rooms.length === 0) return;
+    const channels = rooms.map(room => {
+      const roomName = room.type === "group" ? room.name : "채팅";
+      return supabase
+        .channel(`global-room-${room.id}`)
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `room_id=eq.${room.id}`,
+        }, (payload) => {
+          if (payload.new.user_id === user.id) return; // 내 메시지 제외
+          if (activeRoom?.id === room.id) return; // 현재 보고 있는 방 제외
+          addNotification(payload.new.user_name, payload.new.user_role, payload.new.content, roomName, room.id);
+        })
+        .subscribe();
+    });
+    return () => channels.forEach(ch => supabase.removeChannel(ch));
+  }, [user, rooms]);
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
