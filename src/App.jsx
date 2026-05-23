@@ -1080,47 +1080,155 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 }
 
 // ── Mobile View ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// 아래는 App.jsx에서 MobileView 함수 전체를 아래 코드로 교체하면 됩니다.
+// WeeklyReport 포함 나머지 코드는 그대로 유지하세요.
+// ─────────────────────────────────────────────────────────────────────
+
 function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
+  // ✅ 추가: AI 멀티턴 대화 히스토리
+  const [conversationHistory, setConversationHistory] = useState([]);
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
 
-  const CHIPS = ["402호 외벽 도장 오늘 85㎡ 완료, 도장공 3명", "균열 보수 4개소 완료", "3층 슬래브 양생 6일차 완료"];
+  // ✅ 변경: 질문형 칩으로 교체
+  const CHIPS = ["이번 주 공정 어때?", "오늘 뭐 했어?", "지연 있어?"];
 
-  const callAI = async (msg) => {
-    const ctx = `한국 건설 현장 AI. 작업 보고 파싱. JSON만 출력.\n공정: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(" / ")}\nJSON: {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수,없으면0>,"delay_reason":"<지연원인,없으면빈문자열>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":false}`;
-    const r = await claudeComplete(`${ctx}\n보고: "${msg}"\nJSON:`);
-    const m = r.match(/\{[\s\S]*\}/); if (!m) throw new Error("parse"); return JSON.parse(m[0]);
+  // ✅ 변경: conversationHistory를 누적해서 Claude API에 넘기는 진짜 멀티턴
+  const callAI = async (userMsg, history) => {
+    const systemPrompt = `한국 건설 현장 AI 어시스턴트야. 현장 반장과 대화하며 작업 보고를 파싱해.
+공정 목록: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(" / ")}
+
+보고 파싱이 가능하면 반드시 JSON으로 응답해:
+{"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수,없으면0>,"delay_reason":"<지연원인,없으면빈문자열>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>}
+
+보고 내용이 불충분하면 needs_clarification:true로 하고 ai_message로 부족한 정보를 자연스럽게 물어봐.
+일반 질문(공정 현황, 날씨 영향 등)은 JSON 없이 자연스럽게 한국어로 답변해.
+답변은 항상 2~3문장 이내로 짧게 해. JSON 응답도 불필요한 설명 없이 바로 출력해.`;
+
+    const messages = [
+      ...history,
+      { role: "user", content: userMsg }
+    ];
+
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 400,
+        system: systemPrompt,
+        messages
+      })
+    });
+    const data = await r.json();
+    return data.content[0].text;
   };
 
   const handleReportSubmit = async () => {
-    const msg = input.trim(); if (!msg || loading) return; setInput("");
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setInput("");
+
     const uid = Date.now();
-    setChatMessages(p => [...p, { id: uid, role: "user", content: msg }, { id: uid + 1, role: "loading", content: "AI 분석 중..." }]);
+    setChatMessages(p => [...p,
+      { id: uid, role: "user", content: msg },
+      { id: uid + 1, role: "loading", content: "AI 분석 중..." }
+    ]);
     setLoading(true);
+
+    // ✅ 히스토리에 유저 메시지 추가
+    const newHistory = [...conversationHistory, { role: "user", content: msg }];
+
     try {
-      const res = await callAI(msg);
+      const rawResponse = await callAI(msg, conversationHistory);
+
+      // ✅ 히스토리에 AI 응답 추가 (누적)
+      setConversationHistory([...newHistory, { role: "assistant", content: rawResponse }]);
+
       setChatMessages(p => p.filter(m => m.id !== uid + 1));
-      const matched = res.matched_activity_id ? activities.find(a => a.id === res.matched_activity_id) : null;
-      if (res.needs_clarification || !matched) { setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || "공정을 찾지 못했습니다." }]); }
-      else {
-        setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message }]);
-        setPendingReport({ activity: matched, new_done_qty: res.new_done_qty || matched.done_qty, workers: res.workers, special_note: res.special_note, delay_days: res.delay_days || 0, delay_reason: res.delay_reason || "", summary: res.summary, raw: msg, sent: false });
+
+      // JSON 파싱 시도
+      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const res = JSON.parse(jsonMatch[0]);
+          const matched = res.matched_activity_id
+            ? activities.find(a => a.id === res.matched_activity_id)
+            : null;
+
+          setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+
+          if (!res.needs_clarification && matched) {
+            setPendingReport({
+              activity: matched,
+              new_done_qty: res.new_done_qty || matched.done_qty,
+              workers: res.workers,
+              special_note: res.special_note,
+              delay_days: res.delay_days || 0,
+              delay_reason: res.delay_reason || "",
+              summary: res.summary,
+              raw: msg,
+              sent: false
+            });
+          }
+        } catch {
+          // JSON 파싱 실패 → 일반 텍스트로
+          setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
+        }
+      } else {
+        // JSON 없음 → 일반 대화 응답
+        setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
       }
-    } catch { setChatMessages(p => [...p.filter(m => m.id !== uid + 1), { id: uid + 2, role: "ai", content: "오류가 발생했습니다." }]); }
+    } catch {
+      setChatMessages(p => [...p.filter(m => m.id !== uid + 1),
+        { id: uid + 2, role: "ai", content: "오류가 발생했습니다. 다시 시도해주세요." }
+      ]);
+    }
     setLoading(false);
+  };
+
+  // ✅ 추가: 대화 초기화
+  const handleReset = () => {
+    setChatMessages([{ id: 0, role: "system", content: "안녕하세요 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
+    setConversationHistory([]);
+    setPendingReport(null);
   };
 
   const handleSendReport = async () => {
     if (!pendingReport || pendingReport.sent) return;
     const a = pendingReport.activity;
     try {
-      const [saved] = await sb.post("progress_reports", { activity_id: a.id, reporter: user.name, reporter_company: user.role, raw_input: pendingReport.raw, new_done_qty: pendingReport.new_done_qty, workers: pendingReport.workers, special_note: pendingReport.special_note, delay_days: pendingReport.delay_days || 0, delay_reason: pendingReport.delay_reason || "", prev_done_qty: a.done_qty, plan_qty: a.plan_qty, unit: a.unit, ai_summary: pendingReport.summary, status: "pending" });
-      setProgressReports(p => [...p, saved]); setPendingReport(p => ({ ...p, sent: true }));
+      const [saved] = await sb.post("progress_reports", {
+        activity_id: a.id,
+        reporter: user.name,
+        reporter_company: user.role,
+        raw_input: pendingReport.raw,
+        new_done_qty: pendingReport.new_done_qty,
+        workers: pendingReport.workers,
+        special_note: pendingReport.special_note,
+        delay_days: pendingReport.delay_days || 0,
+        delay_reason: pendingReport.delay_reason || "",
+        prev_done_qty: a.done_qty,
+        plan_qty: a.plan_qty,
+        unit: a.unit,
+        ai_summary: pendingReport.summary,
+        status: "pending"
+      });
+      setProgressReports(p => [...p, saved]);
+      setPendingReport(p => ({ ...p, sent: true }));
       setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 관리자에게 전달되었습니다" }]);
-    } catch (err) { alert("전송 실패: " + err.message); }
+    } catch (err) {
+      alert("전송 실패: " + err.message);
+    }
   };
 
   return (
@@ -1150,7 +1258,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
       {/* 콘텐츠 영역 */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         {tab === "report" ? (
-          // ✅ 수정: flex column 구조로 입력창이 항상 하단에 고정되도록
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             {/* 스크롤 가능한 메시지 영역 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1195,6 +1302,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
                     </div>
                   </div>
                   {pendingReport.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{pendingReport.delay_days}일</div></div>}
+                  {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {pendingReport.special_note}</div>}
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{pendingReport.summary}</div>
                   {!pendingReport.sent
                     ? <div style={{ display: "flex", gap: 8 }}>
@@ -1209,8 +1317,12 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
 
             {/* 하단 고정 입력창 */}
             <div style={{ flexShrink: 0, background: "#fff", borderTop: "1px solid #E5E7EB" }}>
-              <div style={{ padding: "6px 12px 4px", display: "flex", gap: 6, overflowX: "auto" }}>
-                {CHIPS.map((c, i) => <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer" }}>{c}</button>)}
+              <div style={{ padding: "6px 12px 4px", display: "flex", gap: 6, overflowX: "auto", alignItems: "center" }}>
+                {CHIPS.map((c, i) => (
+                  <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer" }}>{c}</button>
+                ))}
+                {/* ✅ 추가: 대화 초기화 버튼 */}
+                <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 20, padding: "5px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", marginLeft: "auto" }}>🔄 초기화</button>
               </div>
               <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
                 <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 16, outline: "none", background: "#fff" }} />
