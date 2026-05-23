@@ -1647,6 +1647,7 @@ function LiftingManager({ user, weather }) {
   const [selectedDate, setSelectedDate] = useState(dayStr(TODAY));
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'approval'
+  const [showFullView, setShowFullView] = useState(false);  
   const [form, setForm] = useState({
     equipment_id: "", company: "", purpose: "", floor: "",
     material_type: "", material_weight: "", date: dayStr(TODAY),
@@ -1732,11 +1733,21 @@ function LiftingManager({ user, weather }) {
   const pendingCount = reservations.filter(r => r.status === "pending").length;
 
   // 타임라인 렌더링
-  const HOURS = Array.from({ length: 11 }, (_, i) => i + 7); // 07:00 ~ 17:00
+  const now = new Date();
+  const startHour = selectedDate === dayStr(TODAY) ? Math.max(7, now.getHours() - 1) : 7;
+  const HOURS = Array.from({ length: 13 }, (_, i) => startHour + i); // 13시간 표시
+
   const timeToX = (time) => {
-    const [h, m] = time.split(":").map(Number);
-    return ((h - 7) * 60 + m) / (10 * 60) * 100;
-  };
+   const [h, m] = time.split(":").map(Number);
+   return ((h - startHour) * 60 + m) / (12 * 60) * 100; // 12시간 기준
+};
+
+// 시간 표시 포맷 (24 넘으면 다음날 표시)
+const fmtHour = (h) => {
+  if (h >= 24) return `+1일 ${String(h - 24).padStart(2,"0")}:00`;
+  return `${String(h).padStart(2,"0")}:00`;
+};
+
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
@@ -1775,16 +1786,25 @@ function LiftingManager({ user, weather }) {
 
       {activeTab === "schedule" && (
         <>
-          {/* 타임라인 */}
+         {/* 타임라인 */}
           <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, overflowX: "auto" }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>장비별 타임라인</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>장비별 타임라인</div>
+              <button onClick={() => setShowFullView(true)}
+                style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "5px 12px", fontSize: 12, color: "#374151", cursor: "pointer" }}>
+                🔍 전체 보기
+              </button>
+            </div>
             <div style={{ minWidth: 600 }}>
               {/* 시간 헤더 */}
               <div style={{ display: "flex", marginLeft: 120, marginBottom: 8 }}>
                 {HOURS.map(h => (
-                  <div key={h} style={{ flex: 1, fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>{h}:00</div>
+                  <div key={h} style={{ flex: 1, fontSize: 10, color: h >= 24 ? "#EF4444" : "#9CA3AF", textAlign: "center", whiteSpace: "nowrap" }}>
+                    {fmtHour(h)}
+                  </div>
                 ))}
               </div>
+              {/* 장비별 행 */}
               {equipment.map(eq => {
                 const eqRes = reservations.filter(r => r.equipment_id === eq.id && r.status !== "rejected");
                 return (
@@ -1793,10 +1813,9 @@ function LiftingManager({ user, weather }) {
                       {typeIcon(eq.type)} {eq.name}
                     </div>
                     <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 6, height: 36, position: "relative" }}>
-                      {/* 현재 시간 선 */}
                       {selectedDate === dayStr(TODAY) && (() => {
-                        const now = new Date();
-                        const x = ((now.getHours() - 7) * 60 + now.getMinutes()) / (10 * 60) * 100;
+                        const nowTime = new Date();
+                        const x = ((nowTime.getHours() - startHour) * 60 + nowTime.getMinutes()) / (12 * 60) * 100;
                         return x >= 0 && x <= 100 ? (
                           <div style={{ position: "absolute", left: `${x}%`, top: 0, width: 2, height: "100%", background: YELLOW, zIndex: 3 }} />
                         ) : null;
@@ -1806,7 +1825,7 @@ function LiftingManager({ user, weather }) {
                         const w = timeToX(r.end_time) - x;
                         return (
                           <div key={r.id} style={{
-                            position: "absolute", left: `${x}%`, width: `${w}%`, top: 4, height: 28,
+                            position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(w, 2)}%`, top: 4, height: 28,
                             background: r.status === "approved" ? "#BFDBFE" : r.status === "completed" ? "#D1FAE5" : "#FEF3C7",
                             border: `1px solid ${r.status === "approved" ? "#3B82F6" : r.status === "completed" ? "#10B981" : "#F59E0B"}`,
                             borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden"
@@ -1895,6 +1914,105 @@ function LiftingManager({ user, weather }) {
         </div>
       )}
 
+
+{showFullView && (
+  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {selectedDate} 양중 전체 현황</div>
+        <button onClick={() => setShowFullView(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>✕ 닫기</button>
+      </div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        {[
+          { label: "전체 예약", value: reservations.length },
+          { label: "승인", value: reservations.filter(r => r.status === "approved").length, color: "#10B981" },
+          { label: "대기", value: reservations.filter(r => r.status === "pending").length, color: "#F59E0B" },
+          { label: "완료", value: reservations.filter(r => r.status === "completed").length, color: "#6B7280" },
+        ].map(k => (
+          <div key={k.label} style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ fontSize: 11, color: "#9CA3AF" }}>{k.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: k.color || NAVY }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginBottom: 20, overflowX: "auto" }}>
+        <div style={{ minWidth: 700 }}>
+          <div style={{ display: "flex", marginLeft: 140, marginBottom: 8 }}>
+            {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
+              <div key={h} style={{ flex: 1, fontSize: 10, color: "#9CA3AF", textAlign: "center" }}>
+                {String(h).padStart(2, "0")}:00
+              </div>
+            ))}
+          </div>
+          {equipment.map(eq => {
+            const eqRes = reservations.filter(r => r.equipment_id === eq.id);
+            return (
+              <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ width: 140, flexShrink: 0, fontSize: 13, fontWeight: 600, color: NAVY }}>
+                  {typeIcon(eq.type)} {eq.name}
+                </div>
+                <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 8, height: 44, position: "relative" }}>
+                  {Array.from({ length: 16 }, (_, i) => (
+                    <div key={i} style={{ position: "absolute", left: `${(i / 15) * 100}%`, top: 0, width: 1, height: "100%", background: "#E5E7EB" }} />
+                  ))}
+                  {eqRes.map(r => {
+                    const [sh, sm] = r.start_time.split(":").map(Number);
+                    const [eh, em] = r.end_time.split(":").map(Number);
+                    const x = ((sh - 7) * 60 + sm) / (15 * 60) * 100;
+                    const w = ((eh - sh) * 60 + (em - sm)) / (15 * 60) * 100;
+                    const bgMap = { approved: "#BFDBFE", pending: "#FEF3C7", completed: "#D1FAE5", rejected: "#F3F4F6" };
+                    const borderMap = { approved: "#3B82F6", pending: "#F59E0B", completed: "#10B981", rejected: "#D1D5DB" };
+                    return (
+                      <div key={r.id} style={{
+                        position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.min(w, 100 - Math.max(0, x))}%`,
+                        top: 4, height: 36, background: bgMap[r.status] || "#F3F4F6",
+                        border: `1.5px solid ${borderMap[r.status] || "#D1D5DB"}`,
+                        borderRadius: 6, padding: "2px 6px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center"
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.company}</div>
+                        <div style={{ fontSize: 10, color: "#6B7280", whiteSpace: "nowrap" }}>{r.start_time}~{r.end_time} · {r.floor}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: NAVY, color: "#fff" }}>
+            {["장비", "협력사", "층", "자재", "중량", "시간", "목적", "상태"].map(h => (
+              <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map((r, i) => {
+            const eq = equipment.find(e => e.id === r.equipment_id);
+            return (
+              <tr key={r.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                <td style={{ padding: "8px 12px" }}>{eq?.name}</td>
+                <td style={{ padding: "8px 12px" }}>{r.company}</td>
+                <td style={{ padding: "8px 12px" }}>{r.floor}</td>
+                <td style={{ padding: "8px 12px" }}>{r.material_type}</td>
+                <td style={{ padding: "8px 12px" }}>{r.material_weight > 0 ? `${r.material_weight}kg` : "-"}</td>
+                <td style={{ padding: "8px 12px" }}>{r.start_time}~{r.end_time}</td>
+                <td style={{ padding: "8px 12px" }}>{r.purpose}</td>
+                <td style={{ padding: "8px 12px" }}>
+                  <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                    {statusLabel(r.status)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
       {/* 신청 모달 */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
