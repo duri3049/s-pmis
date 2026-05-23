@@ -1395,6 +1395,7 @@ const SIDEBAR_ITEMS = [
   { id: "gantt", label: "📋 공정 현황" },
   { id: "3w", label: "📅 3주 공정표" },
   { id: "chat", label: "💬 채팅" }, { id: "calendar", label: "🗓 캘린더 관리" },
+  { id: "lifting", label: "🏗 양중 관리" },  
   { id: "issues", label: "⚠️ 이슈 트래커" },
   { id: "approval", label: "✅ 결재 라인" },
 ];
@@ -1639,6 +1640,354 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
     </div>
   );
 }
+function LiftingManager({ user, weather }) {
+  const [equipment, setEquipment] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(dayStr(TODAY));
+  const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'approval'
+  const [form, setForm] = useState({
+    equipment_id: "", company: "", purpose: "", floor: "",
+    material_type: "", material_weight: "", date: dayStr(TODAY),
+    start_time: "09:00", end_time: "10:00", delay_reason: ""
+  });
+
+  const DELAY_REASONS = ["기상 불량", "자재 미도착", "장비 고장", "선행 작업 지연", "기타"];
+  const FLOORS = ["B1", "1F", "2F", "3F", "4F", "5F", "옥상"];
+  const MATERIAL_TYPES = ["철근", "거푸집", "콘크리트 펌프", "창호", "타일", "방수재", "도장재", "기타"];
+
+  const windWarning = weather && weather.wind >= 10;
+
+  useEffect(() => {
+    const load = async () => {
+      const [eq, res] = await Promise.all([
+        sb.get("lifting_equipment"),
+        sb.get("lifting_reservations", `date=eq.${selectedDate}`)
+      ]);
+      setEquipment(eq || []);
+      setReservations(res || []);
+    };
+    load();
+  }, [selectedDate]);
+
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // 시간 충돌 감지
+  const checkConflict = () => {
+    return reservations.some(r =>
+      r.equipment_id === Number(form.equipment_id) &&
+      r.status !== "rejected" &&
+      r.id !== form.id &&
+      !(form.end_time <= r.start_time || form.start_time >= r.end_time)
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!form.equipment_id || !form.company || !form.purpose || !form.floor || !form.material_type) {
+      alert("필수 항목을 입력해주세요."); return;
+    }
+    if (checkConflict()) {
+      alert("해당 시간대에 이미 예약이 있습니다. 다른 시간을 선택해주세요."); return;
+    }
+    setSaving(true);
+    try {
+      const [saved] = await sb.post("lifting_reservations", {
+        ...form,
+        equipment_id: Number(form.equipment_id),
+        material_weight: Number(form.material_weight) || 0,
+        requested_by: user.name,
+        status: "pending"
+      });
+      setReservations(p => [...p, saved]);
+      setShowForm(false);
+      setForm({ equipment_id: "", company: "", purpose: "", floor: "", material_type: "", material_weight: "", date: selectedDate, start_time: "09:00", end_time: "10:00", delay_reason: "" });
+    } catch (err) { alert("저장 실패: " + err.message); }
+    setSaving(false);
+  };
+
+  const handleApprove = async (r) => {
+    await sb.patch("lifting_reservations", r.id, { status: "approved" });
+    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "approved" } : x));
+  };
+
+  const handleReject = async (r) => {
+    await sb.patch("lifting_reservations", r.id, { status: "rejected" });
+    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "rejected" } : x));
+  };
+
+  const handleComplete = async (r) => {
+    const completedAt = new Date().toISOString();
+    await sb.patch("lifting_reservations", r.id, { status: "completed", completed_at: completedAt });
+    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "completed", completed_at: completedAt } : x));
+  };
+
+  const statusColor = (s) => s === "approved" ? "#10B981" : s === "rejected" ? "#EF4444" : s === "completed" ? "#6B7280" : "#F59E0B";
+  const statusLabel = (s) => s === "approved" ? "승인" : s === "rejected" ? "반려" : s === "completed" ? "완료" : "대기";
+  const typeIcon = (t) => t === "tower_crane" ? "🏗" : t === "hoist" ? "⚙️" : "🛗";
+
+  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" };
+  const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+
+  const pendingCount = reservations.filter(r => r.status === "pending").length;
+
+  // 타임라인 렌더링
+  const HOURS = Array.from({ length: 11 }, (_, i) => i + 7); // 07:00 ~ 17:00
+  const timeToX = (time) => {
+    const [h, m] = time.split(":").map(Number);
+    return ((h - 7) * 60 + m) / (10 * 60) * 100;
+  };
+
+  return (
+    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>🏗 양중 관리</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+            style={{ border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 12px", fontSize: 13, outline: "none" }} />
+          <button onClick={() => setShowForm(true)}
+            style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>
+            + 양중 신청
+          </button>
+        </div>
+      </div>
+
+      {/* 기상 경고 */}
+      {windWarning && (
+        <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#991B1B" }}>강풍 경고 — 타워크레인 작업 위험</div>
+            <div style={{ fontSize: 12, color: "#7F1D1D" }}>현재 풍속 {weather.wind}m/s (기준 10m/s 초과)</div>
+          </div>
+        </div>
+      )}
+
+      {/* 탭 */}
+      <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 4, marginBottom: 16, width: "fit-content" }}>
+        {[["schedule", "📅 일정"], ["approval", `✅ 결재 ${pendingCount > 0 ? `(${pendingCount})` : ""}`]].map(([id, label]) => (
+          <button key={id} onClick={() => setActiveTab(id)}
+            style={{ padding: "7px 16px", border: "none", borderRadius: 8, background: activeTab === id ? "#fff" : "transparent", fontWeight: activeTab === id ? 700 : 400, fontSize: 13, color: activeTab === id ? NAVY : "#6B7280", cursor: "pointer", boxShadow: activeTab === id ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "schedule" && (
+        <>
+          {/* 타임라인 */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, overflowX: "auto" }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>장비별 타임라인</div>
+            <div style={{ minWidth: 600 }}>
+              {/* 시간 헤더 */}
+              <div style={{ display: "flex", marginLeft: 120, marginBottom: 8 }}>
+                {HOURS.map(h => (
+                  <div key={h} style={{ flex: 1, fontSize: 11, color: "#9CA3AF", textAlign: "center" }}>{h}:00</div>
+                ))}
+              </div>
+              {equipment.map(eq => {
+                const eqRes = reservations.filter(r => r.equipment_id === eq.id && r.status !== "rejected");
+                return (
+                  <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ width: 120, flexShrink: 0, fontSize: 12, fontWeight: 600, color: NAVY }}>
+                      {typeIcon(eq.type)} {eq.name}
+                    </div>
+                    <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 6, height: 36, position: "relative" }}>
+                      {/* 현재 시간 선 */}
+                      {selectedDate === dayStr(TODAY) && (() => {
+                        const now = new Date();
+                        const x = ((now.getHours() - 7) * 60 + now.getMinutes()) / (10 * 60) * 100;
+                        return x >= 0 && x <= 100 ? (
+                          <div style={{ position: "absolute", left: `${x}%`, top: 0, width: 2, height: "100%", background: YELLOW, zIndex: 3 }} />
+                        ) : null;
+                      })()}
+                      {eqRes.map(r => {
+                        const x = timeToX(r.start_time);
+                        const w = timeToX(r.end_time) - x;
+                        return (
+                          <div key={r.id} style={{
+                            position: "absolute", left: `${x}%`, width: `${w}%`, top: 4, height: 28,
+                            background: r.status === "approved" ? "#BFDBFE" : r.status === "completed" ? "#D1FAE5" : "#FEF3C7",
+                            border: `1px solid ${r.status === "approved" ? "#3B82F6" : r.status === "completed" ? "#10B981" : "#F59E0B"}`,
+                            borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden"
+                          }}>
+                            <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>{r.company} · {r.floor}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 예약 목록 */}
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>예약 목록</div>
+            {reservations.length === 0
+              ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>예약이 없습니다</div>
+              : reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(r => {
+                const eq = equipment.find(e => e.id === r.equipment_id);
+                return (
+                  <div key={r.id} style={{ border: "1.5px solid #E5E7EB", borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 16 }}>{eq ? typeIcon(eq.type) : "🏗"}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: NAVY, flex: 1 }}>{eq?.name}</span>
+                      <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{statusLabel(r.status)}</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
+                      <span>🏢 {r.floor} · {r.company}</span>
+                      <span>⏰ {r.start_time} ~ {r.end_time}</span>
+                      <span>📦 {r.material_type} {r.material_weight > 0 ? `${r.material_weight}kg` : ""}</span>
+                      <span>👤 {r.requested_by}</span>
+                    </div>
+                    {r.purpose && <div style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}>목적: {r.purpose}</div>}
+                    {r.delay_reason && <div style={{ fontSize: 12, color: "#EF4444" }}>지연사유: {r.delay_reason}</div>}
+                    {r.completed_at && <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>✅ 완료: {new Date(r.completed_at).toLocaleTimeString("ko-KR")}</div>}
+                    {r.status === "approved" && (
+                      <button onClick={() => handleComplete(r)}
+                        style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>
+                        ✅ 수령 완료
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </>
+      )}
+
+      {activeTab === "approval" && (
+        <div>
+          {reservations.filter(r => r.status === "pending").length === 0
+            ? <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>대기 중인 예약이 없습니다</div>
+            : reservations.filter(r => r.status === "pending").map(r => {
+              const eq = equipment.find(e => e.id === r.equipment_id);
+              const conflict = reservations.some(x =>
+                x.equipment_id === r.equipment_id && x.status === "approved" &&
+                !(r.end_time <= x.start_time || r.start_time >= x.end_time) && x.id !== r.id
+              );
+              return (
+                <div key={r.id} style={{ background: "#fff", border: `1.5px solid ${conflict ? "#FECACA" : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14 }}>
+                  {conflict && (
+                    <div style={{ background: "#FEE2E2", borderRadius: 8, padding: "6px 12px", marginBottom: 10, fontSize: 12, color: "#991B1B", fontWeight: 700 }}>
+                      ⚠️ 같은 시간대 승인된 예약과 충돌
+                    </div>
+                  )}
+                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 6 }}>{eq?.name}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#6B7280", marginBottom: 10 }}>
+                    <span>🏢 {r.floor} · {r.company}</span>
+                    <span>⏰ {r.start_time} ~ {r.end_time}</span>
+                    <span>📦 {r.material_type} {r.material_weight > 0 ? `${r.material_weight}kg` : ""}</span>
+                    <span>👤 {r.requested_by}</span>
+                  </div>
+                  {r.purpose && <div style={{ fontSize: 12, color: "#374151", marginBottom: 10 }}>목적: {r.purpose}</div>}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => handleApprove(r)}
+                      style={{ flex: 1, background: YELLOW, border: "none", borderRadius: 10, padding: "10px 0", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>✅ 승인</button>
+                    <button onClick={() => handleReject(r)}
+                      style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "10px 0", fontWeight: 600, fontSize: 13, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {/* 신청 모달 */}
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}>
+            <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🏗 양중 신청</div>
+              <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+            {windWarning && (
+              <div style={{ background: "#FEE2E2", padding: "10px 24px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
+                ⚠️ 현재 풍속 {weather.wind}m/s — 타워크레인 작업 위험 상태
+              </div>
+            )}
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={ls}>장비 *</label>
+                  <select value={form.equipment_id} onChange={e => setF("equipment_id", e.target.value)} style={is}>
+                    <option value="">선택</option>
+                    {equipment.map(e => <option key={e.id} value={e.id}>{typeIcon(e.type)} {e.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={ls}>층 *</label>
+                  <select value={form.floor} onChange={e => setF("floor", e.target.value)} style={is}>
+                    <option value="">선택</option>
+                    {FLOORS.map(f => <option key={f}>{f}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={ls}>자재 종류 *</label>
+                  <select value={form.material_type} onChange={e => setF("material_type", e.target.value)} style={is}>
+                    <option value="">선택</option>
+                    {MATERIAL_TYPES.map(m => <option key={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={ls}>중량 (kg)</label>
+                  <input type="number" value={form.material_weight} onChange={e => setF("material_weight", e.target.value)} style={is} placeholder="예: 500" />
+                </div>
+              </div>
+              <div>
+                <label style={ls}>협력사 *</label>
+                <select value={form.company} onChange={e => setF("company", e.target.value)} style={is}>
+                  <option value="">선택</option>
+                  {SUBCONS.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={ls}>작업 목적 *</label>
+                <input value={form.purpose} onChange={e => setF("purpose", e.target.value)} style={is} placeholder="예: 3층 철근 양중" />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={ls}>날짜</label>
+                  <input type="date" value={form.date} onChange={e => setF("date", e.target.value)} style={is} />
+                </div>
+                <div>
+                  <label style={ls}>시작 시간</label>
+                  <input type="time" value={form.start_time} onChange={e => setF("start_time", e.target.value)} style={is} />
+                </div>
+                <div>
+                  <label style={ls}>종료 시간</label>
+                  <input type="time" value={form.end_time} onChange={e => setF("end_time", e.target.value)} style={is} />
+                </div>
+              </div>
+              {checkConflict() && (
+                <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
+                  ⚠️ 해당 시간대에 이미 예약이 있습니다
+                </div>
+              )}
+              <div>
+                <label style={ls}>지연 사유 (해당 시)</label>
+                <select value={form.delay_reason} onChange={e => setF("delay_reason", e.target.value)} style={is}>
+                  <option value="">없음</option>
+                  {DELAY_REASONS.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+            <div style={{ padding: "0 24px 24px", display: "flex", gap: 8 }}>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "12px 0", fontSize: 13, color: "#374151", cursor: "pointer" }}>취소</button>
+              <button onClick={handleSubmit} disabled={saving} style={{ flex: 2, background: YELLOW, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
+                {saving ? "신청 중..." : "✅ 양중 신청"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, calendarDates, setCalendarDates }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
@@ -1718,6 +2067,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               : <RoomList rooms={rooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
+          {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
         </div>
