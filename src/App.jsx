@@ -387,7 +387,7 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
   );
 }
 
-function Dashboard({ activities, progressReports, issues }) {
+function Dashboard({ activities, progressReports, issues, weather }) {
   const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
   const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalEV = activities.reduce((s, a) => s + a.ev, 0);
@@ -396,6 +396,15 @@ function Dashboard({ activities, progressReports, issues }) {
   const gCPI = totalAC > 0 ? totalEV / totalAC : 1, gSPI = totalPV > 0 ? totalEV / totalPV : 1;
   const delayedCount = activities.filter(a => a.delay_days > 0).length;
   const openIssues = issues.filter(i => i.status !== "closed").length;
+
+  const weatherWarnings = [];
+  if (weather) {
+    if (weather.precipitation > 0) weatherWarnings.push("강수 감지 — 외벽 도장·방수 작업 중단 검토");
+    if (weather.temp >= 30) weatherWarnings.push("고온 주의 — 도료 건조 이상, 오전 작업 권장");
+    if (weather.temp <= 5) weatherWarnings.push("저온 주의 — 콘크리트 양생·도장 품질 저하 위험");
+    if (weather.wind >= 10) weatherWarnings.push("강풍 주의 — 고소 작업·도장 비산 위험");
+  }
+
   const subconMap = {};
   activities.forEach(a => {
     if (!subconMap[a.subcon]) subconMap[a.subcon] = { acts: [], ev: 0, pv: 0, ac: 0, budget: 0 };
@@ -405,8 +414,44 @@ function Dashboard({ activities, progressReports, issues }) {
   const in7 = new Date(TODAY); in7.setDate(in7.getDate() + 7);
   const lookahead = activities.filter(a => a.phys < 100 && new Date(a.ps) <= in7 && new Date(a.pf) >= TODAY).sort((a, b) => new Date(a.ps) - new Date(b.ps));
   const criticals = activities.filter(a => a.critical && a.phys < 100);
+
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+      {weather && (
+        <div style={{ background: NAVY, borderRadius: 14, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 36 }}>{weather.icon}</span>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{weather.temp}°C</div>
+              <div style={{ fontSize: 12, color: "#9CA3AF" }}>{weather.text} · 서울</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>습도</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{weather.humidity}%</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>강수</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: weather.precipitation > 0 ? "#FCA5A5" : "#fff" }}>{weather.precipitation}mm</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>풍속</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: weather.wind >= 10 ? "#FCA5A5" : "#fff" }}>{weather.wind}m/s</div>
+            </div>
+          </div>
+          {weatherWarnings.length > 0 && (
+            <div style={{ flex: 1, minWidth: 200 }}>
+              {weatherWarnings.map((w, i) => (
+                <div key={i} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "6px 12px", marginBottom: 4, fontSize: 12, color: "#FCA5A5" }}>
+                  ⚠️ {w}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`SPI ${gSPI.toFixed(2)}`} />
         <KPI label="CPI" value={gCPI.toFixed(2)} color={cpiColor(gCPI)} sub={gCPI >= 1 ? "비용 효율" : "비용 초과"} />
@@ -415,6 +460,7 @@ function Dashboard({ activities, progressReports, issues }) {
         <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" />
         <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" />
       </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>협력사별 실적</div>
@@ -449,6 +495,7 @@ function Dashboard({ activities, progressReports, issues }) {
           ))}
         </div>
       </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>⚠️ Critical Path</div>
@@ -1085,7 +1132,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 // WeeklyReport 포함 나머지 코드는 그대로 유지하세요.
 // ─────────────────────────────────────────────────────────────────────
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
@@ -1102,6 +1149,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
     const systemPrompt = `한국 건설 현장 AI 어시스턴트야. 현장 반장과 대화하며 작업 보고를 파싱해.
 공정 목록: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(" / ")}
 
+현재 날씨 (서울): ${weather ? `${weather.temp}°C, ${weather.text}, 습도 ${weather.humidity}%, 강수 ${weather.precipitation}mm, 풍속 ${weather.wind}m/s` : "정보 없음"}
 보고 파싱이 가능하면 반드시 JSON으로 응답해:
 {"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수,없으면0>,"delay_reason":"<지연원인,없으면빈문자열>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>}
 
@@ -1350,7 +1398,7 @@ const SIDEBAR_ITEMS = [
   { id: "approval", label: "✅ 결재 라인" },
 ];
 
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
@@ -1420,7 +1468,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           </div>
         )}
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} />}
+          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} />}
           {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} />}
           {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
           {activeMenu === "chat" && (
@@ -1438,6 +1486,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
+  const [weather, setWeather] = useState(null);  
   const [user, setUser] = useState(null);
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
@@ -1499,7 +1548,35 @@ export default function App() {
       if (!session) { setUser(null); setDataReady(false); }
     });
   }, []);
-
+useEffect(() => {
+  const fetchWeather = async () => {
+    try {
+      const r = await fetch(
+        "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=Asia%2FSeoul"
+      );
+      const d = await r.json();
+      const c = d.current;
+      const codeToDesc = (code) => {
+        if (code === 0) return { text: "맑음", icon: "☀️" };
+        if (code <= 3) return { text: "구름 조금", icon: "⛅" };
+        if (code <= 48) return { text: "안개", icon: "🌫️" };
+        if (code <= 67) return { text: "비", icon: "🌧️" };
+        if (code <= 77) return { text: "눈", icon: "❄️" };
+        if (code <= 82) return { text: "소나기", icon: "🌦️" };
+        return { text: "뇌우", icon: "⛈️" };
+      };
+      const desc = codeToDesc(c.weather_code);
+      setWeather({
+        temp: Math.round(c.temperature_2m),
+        humidity: c.relative_humidity_2m,
+        precipitation: c.precipitation,
+        wind: Math.round(c.wind_speed_10m),
+        ...desc,
+      });
+    } catch { /* 날씨 실패해도 앱은 정상 동작 */ }
+  };
+  fetchWeather();
+}, []);
   useEffect(() => {
     if (!user) return;
     setDbLoading(true);
@@ -1560,8 +1637,8 @@ export default function App() {
         </div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} />}
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} />
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} />}
     </div>
   );
 }
