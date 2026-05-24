@@ -562,7 +562,7 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
   };
   const handleStatusToggle = async (m) => {
     const newStatus = m.status === "achieved" ? "planned" : "achieved";
-    try { await sb.patch("milestones", m.id, { status: newStatus }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: newStatus } : x)); } catch {}
+    try { await sb.patch("milestones", m.id, { status: newStatus }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: newStatus } : x)); } catch { }
   };
   const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box", background: "#fff" };
   const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
@@ -650,7 +650,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
   const reportDate = new Date();
   const weekAgo = new Date(reportDate); weekAgo.setDate(weekAgo.getDate() - 7);
   const nextWeek = new Date(reportDate); nextWeek.setDate(nextWeek.getDate() + 7);
-  const fmtDate = d => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+  const fmtDate = d => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
   const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
   const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalPlanPct = Math.round(activities.reduce((s, a) => s + a.plan_pct * a.pv_budget, 0) / Math.max(totalBudget, 1));
@@ -727,20 +727,20 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
         {openIssues.length === 0
           ? <div style={{ padding: "10px 14px", background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, marginBottom: 20, color: "#065F46" }}>✅ 현재 처리 대기 중인 이슈가 없습니다.</div>
           : <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
-              <thead><tr><th style={{ ...rThStyle, width: "5%" }}>No.</th><th style={{ ...rThStyle, width: "28%" }}>이슈 내용</th><th style={{ ...rThStyle, width: "10%" }}>유형</th><th style={{ ...rThStyle, width: "10%" }}>심각도</th><th style={{ ...rThStyle, width: "10%" }}>공기영향</th><th style={rThStyle}>조치 계획</th></tr></thead>
-              <tbody>
-                {openIssues.map((issue, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                    <td style={{ ...rTdStyle, textAlign: "center" }}>{i + 1}</td>
-                    <td style={rTdStyle}>{issue.title}</td>
-                    <td style={{ ...rTdStyle, textAlign: "center" }}>{issue.issue_type}</td>
-                    <td style={{ ...rTdStyle, textAlign: "center", color: issue.severity === "긴급" ? "#EF4444" : issue.severity === "높음" ? "#F59E0B" : "#6B7280" }}>{issue.severity}</td>
-                    <td style={{ ...rTdStyle, textAlign: "center", color: issue.delay_days > 0 ? "#EF4444" : "#6B7280" }}>{issue.delay_days > 0 ? `+${issue.delay_days}일` : "없음"}</td>
-                    <td style={rTdStyle}>{issue.action_plan || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>}
+            <thead><tr><th style={{ ...rThStyle, width: "5%" }}>No.</th><th style={{ ...rThStyle, width: "28%" }}>이슈 내용</th><th style={{ ...rThStyle, width: "10%" }}>유형</th><th style={{ ...rThStyle, width: "10%" }}>심각도</th><th style={{ ...rThStyle, width: "10%" }}>공기영향</th><th style={rThStyle}>조치 계획</th></tr></thead>
+            <tbody>
+              {openIssues.map((issue, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
+                  <td style={{ ...rTdStyle, textAlign: "center" }}>{i + 1}</td>
+                  <td style={rTdStyle}>{issue.title}</td>
+                  <td style={{ ...rTdStyle, textAlign: "center" }}>{issue.issue_type}</td>
+                  <td style={{ ...rTdStyle, textAlign: "center", color: issue.severity === "긴급" ? "#EF4444" : issue.severity === "높음" ? "#F59E0B" : "#6B7280" }}>{issue.severity}</td>
+                  <td style={{ ...rTdStyle, textAlign: "center", color: issue.delay_days > 0 ? "#EF4444" : "#6B7280" }}>{issue.delay_days > 0 ? `+${issue.delay_days}일` : "없음"}</td>
+                  <td style={rTdStyle}>{issue.action_plan || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
           <div>
             <div style={rSecTitle}>4. 금주 완료 작업</div>
@@ -813,7 +813,7 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "TASK");
     const today = new Date();
-    const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
     XLSX.writeFile(wb, `P6_Import_${dateStr}.xlsx`);
   };
   const groups = {};
@@ -897,7 +897,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
   const allGroups = [...new Set([...GROUPS_PRESET, ...existingGroups])];
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const autoWBS = () => { const g = (form.group === "직접입력" ? form.group_custom : form.group || "X").slice(0, 3).toUpperCase().replace(/\s/g, ""); return `A-${form.floor.replace(/\s/g, "")}-${g}-${form.loc.replace(/\s/g, "").slice(0, 6).toUpperCase() || "LOC"}`; };
-  const generateSteps = async () => { if (!form.name) return; setAiLoading(true); try { const r = await claudeComplete(`한국 건설 현장 "${form.name}" 공종의 작업 단계 3~5개와 가중치(합계100). JSON 배열만: [{"name":"단계명","w":숫자}]`); const m = r.match(/\[[\s\S]*\]/); if (m) setForm(p => ({ ...p, steps: JSON.parse(m[0]) })); } catch {} setAiLoading(false); };
+  const generateSteps = async () => { if (!form.name) return; setAiLoading(true); try { const r = await claudeComplete(`한국 건설 현장 "${form.name}" 공종의 작업 단계 3~5개와 가중치(합계100). JSON 배열만: [{"name":"단계명","w":숫자}]`); const m = r.match(/\[[\s\S]*\]/); if (m) setForm(p => ({ ...p, steps: JSON.parse(m[0]) })); } catch { } setAiLoading(false); };
   const addStep = () => setForm(p => ({ ...p, steps: [...p.steps, { name: "", w: 0 }] }));
   const removeStep = i => setForm(p => ({ ...p, steps: p.steps.filter((_, j) => j !== i) }));
   const setStepField = (i, k, v) => setForm(p => ({ ...p, steps: p.steps.map((s, j) => j === i ? { ...s, [k]: v } : s) }));
@@ -970,7 +970,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
           </div>)}
           {step === 4 && (<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ fontSize: 13, color: "#374151", marginBottom: 4 }}>이 공정의 선행 공정을 선택하세요</div>
-            {activities.filter(a => a.name !== form.name).map(a => { const selected = form.predecessors.find(p => p.id === a.id); return (<div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${selected ? YELLOW : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: selected ? "#FFFBEB" : "#fff" }} onClick={() => togglePred(a.id)}><input type="checkbox" checked={!!selected} onChange={() => {}} style={{ width: 16, height: 16 }} /><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf}</div></div>{selected && <select value={selected.type} onChange={e => { e.stopPropagation(); setForm(p => ({ ...p, predecessors: p.predecessors.map(x => x.id === a.id ? { ...x, type: e.target.value } : x) })); }} style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: "3px 6px", fontSize: 12 }} onClick={e => e.stopPropagation()}>{["FS", "SS", "FF", "SF"].map(t => <option key={t}>{t}</option>)}</select>}</div>); })}
+            {activities.filter(a => a.name !== form.name).map(a => { const selected = form.predecessors.find(p => p.id === a.id); return (<div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${selected ? YELLOW : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: selected ? "#FFFBEB" : "#fff" }} onClick={() => togglePred(a.id)}><input type="checkbox" checked={!!selected} onChange={() => { }} style={{ width: 16, height: 16 }} /><div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf}</div></div>{selected && <select value={selected.type} onChange={e => { e.stopPropagation(); setForm(p => ({ ...p, predecessors: p.predecessors.map(x => x.id === a.id ? { ...x, type: e.target.value } : x) })); }} style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: "3px 6px", fontSize: 12 }} onClick={e => e.stopPropagation()}>{["FS", "SS", "FF", "SF"].map(t => <option key={t}>{t}</option>)}</select>}</div>); })}
           </div>)}
         </div>
         <div style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between" }}>
@@ -1077,10 +1077,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           const affectedIds = updated.filter(a => { const o = activities.find(x => x.id === a.id); return o && o.pf !== a.pf && a.id !== report.activity_id; }).map(a => a.id);
           const [savedIssue] = await sb.post("issues", { activity_id: report.activity_id, title: `[자동] ${act.name} ${report.delay_days}일 지연`, issue_type: "공기지연", severity: report.delay_days >= 5 ? "높음" : "보통", cause: "작업 보고에서 감지됨", action_plan: "", delay_days: report.delay_days, assignee: "관리자", status: "open", affected_activities: affectedIds, created_by: "시스템" });
           setIssues(p => [savedIssue, ...p]); setToast("⚠️ CPM 재계산 완료");
-        }  else {
-            await sendPush("✅ 작업 보고 승인", `${act.name} ${report.new_done_qty}${report.unit} 승인되었습니다.`, "/");
-            setToast(`✅ ${report.new_done_qty}${report.unit} 반영`);
-          }
+        } else {
+          await sendPush("✅ 작업 보고 승인", `${act.name} ${report.new_done_qty}${report.unit} 승인되었습니다.`, "/");
+          setToast(`✅ ${report.new_done_qty}${report.unit} 반영`);
+        }
       }
       setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "approved" } : r));
     } catch (err) { alert("승인 실패: " + err.message); }
@@ -1192,8 +1192,8 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
 
     const uid = Date.now();
     setChatMessages(p => [...p,
-      { id: uid, role: "user", content: msg },
-      { id: uid + 1, role: "loading", content: "AI 분석 중..." }
+    { id: uid, role: "user", content: msg },
+    { id: uid + 1, role: "loading", content: "AI 분석 중..." }
     ]);
     setLoading(true);
 
@@ -1242,7 +1242,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
       }
     } catch {
       setChatMessages(p => [...p.filter(m => m.id !== uid + 1),
-        { id: uid + 2, role: "ai", content: "오류가 발생했습니다. 다시 시도해주세요." }
+      { id: uid + 2, role: "ai", content: "오류가 발생했습니다. 다시 시도해주세요." }
       ]);
     }
     setLoading(false);
@@ -1358,9 +1358,9 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{pendingReport.summary}</div>
                   {!pendingReport.sent
                     ? <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={handleSendReport} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
-                        <button style={{ flex: 1, background: "#F3F4F6", color: "#374151", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>✏️ 수정</button>
-                      </div>
+                      <button onClick={handleSendReport} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
+                      <button style={{ flex: 1, background: "#F3F4F6", color: "#374151", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>✏️ 수정</button>
+                    </div>
                     : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 전송 완료</div>}
                 </div>
               )}
@@ -1398,7 +1398,7 @@ const SIDEBAR_ITEMS = [
   { id: "gantt", label: "📋 공정 현황" },
   { id: "3w", label: "📅 3주 공정표" },
   { id: "chat", label: "💬 채팅" }, { id: "calendar", label: "🗓 캘린더 관리" },
-  { id: "lifting", label: "🏗 양중 관리" },  
+  { id: "lifting", label: "🏗 양중 관리" },
   { id: "issues", label: "⚠️ 이슈 트래커" },
   { id: "approval", label: "✅ 결재 라인" },
 ];
@@ -1413,7 +1413,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const fmt = (y, m, d) => `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const fmt = (y, m, d) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const getDateInfo = (dateStr) => calendarDates.find(d => d.date === dateStr);
 
   // 해당 날짜에 진행 중인 공정
@@ -1480,7 +1480,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
       {/* 범례 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        {[["#FEE2E2","공휴일 (자동)"],["#FECACA","작업불가일"],["#F3F4F6","주말"]].map(([bg, label]) => (
+        {[["#FEE2E2", "공휴일 (자동)"], ["#FECACA", "작업불가일"], ["#F3F4F6", "주말"]].map(([bg, label]) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: "1px solid #E5E7EB" }} />
             <span style={{ fontSize: 12, color: "#6B7280" }}>{label}</span>
@@ -1495,10 +1495,10 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
         {/* 달력 */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth()-1, 1))}
+            <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
               style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>←</button>
-            <div style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{year}년 {month+1}월</div>
-            <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth()+1, 1))}
+            <div style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{year}년 {month + 1}월</div>
+            <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
               style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>→</button>
           </div>
 
@@ -1628,17 +1628,17 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
         }).length === 0
           ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 비작업일이 없습니다</div>
           : calendarDates.filter(d => {
-              const [y, m] = d.date.split("-").map(Number);
-              return y === year && m === month + 1;
-            }).sort((a,b) => a.date.localeCompare(b.date)).map(d => (
-              <div key={d.date} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
-                <span style={{ background: d.type === "holiday" ? "#FEE2E2" : "#FECACA", color: "#991B1B", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
-                  {d.type === "holiday" ? "공휴일" : "작업불가"}
-                </span>
-                <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{d.date}</span>
-                <span style={{ fontSize: 12, color: "#6B7280", flex: 1 }}>{d.name}</span>
-              </div>
-            ))}
+            const [y, m] = d.date.split("-").map(Number);
+            return y === year && m === month + 1;
+          }).sort((a, b) => a.date.localeCompare(b.date)).map(d => (
+            <div key={d.date} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
+              <span style={{ background: d.type === "holiday" ? "#FEE2E2" : "#FECACA", color: "#991B1B", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                {d.type === "holiday" ? "공휴일" : "작업불가"}
+              </span>
+              <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{d.date}</span>
+              <span style={{ fontSize: 12, color: "#6B7280", flex: 1 }}>{d.name}</span>
+            </div>
+          ))}
       </div>
     </div>
   );
@@ -1650,7 +1650,7 @@ function LiftingManager({ user, weather, sendPush }) {
   const [selectedDate, setSelectedDate] = useState(dayStr(TODAY));
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'approval'
-  const [showFullView, setShowFullView] = useState(false);  
+  const [showFullView, setShowFullView] = useState(false);
   const [form, setForm] = useState({
     equipment_id: "", company: "", purpose: "", floor: "",
     material_type: "", material_weight: "", date: dayStr(TODAY),
@@ -1722,9 +1722,26 @@ function LiftingManager({ user, weather, sendPush }) {
   };
 
   const handleComplete = async (r) => {
+    const actualEndTime = new Date().toTimeString().slice(0, 5);
     const completedAt = new Date().toISOString();
-    await sb.patch("lifting_reservations", r.id, { status: "completed", completed_at: completedAt });
-    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "completed", completed_at: completedAt } : x));
+    const [ph, pm] = r.end_time.split(":").map(Number);
+    const [ah, am] = actualEndTime.split(":").map(Number);
+    const diffMin = (ah * 60 + am) - (ph * 60 + pm);
+    await sb.patch("lifting_reservations", r.id, {
+      status: "completed",
+      completed_at: completedAt,
+      actual_end_time: actualEndTime,
+    });
+    setReservations(p => p.map(x => x.id === r.id ? {
+      ...x,
+      status: "completed",
+      completed_at: completedAt,
+      actual_end_time: actualEndTime,
+      diff_min: diffMin,
+    } : x));
+    if (diffMin > 0) {
+      alert(`⚠️ 계획보다 ${diffMin}분 지연 완료됐습니다.`);
+    }
   };
 
   const statusColor = (s) => s === "approved" ? "#10B981" : s === "rejected" ? "#EF4444" : s === "completed" ? "#6B7280" : "#F59E0B";
@@ -1742,15 +1759,15 @@ function LiftingManager({ user, weather, sendPush }) {
   const HOURS = Array.from({ length: 13 }, (_, i) => startHour + i); // 13시간 표시
 
   const timeToX = (time) => {
-   const [h, m] = time.split(":").map(Number);
-   return ((h - startHour) * 60 + m) / (12 * 60) * 100; // 12시간 기준
-};
+    const [h, m] = time.split(":").map(Number);
+    return ((h - startHour) * 60 + m) / (12 * 60) * 100; // 12시간 기준
+  };
 
-// 시간 표시 포맷 (24 넘으면 다음날 표시)
-const fmtHour = (h) => {
-  if (h >= 24) return `+1일 ${String(h - 24).padStart(2,"0")}:00`;
-  return `${String(h).padStart(2,"0")}:00`;
-};
+  // 시간 표시 포맷 (24 넘으면 다음날 표시)
+  const fmtHour = (h) => {
+    if (h >= 24) return `+1일 ${String(h - 24).padStart(2, "0")}:00`;
+    return `${String(h).padStart(2, "0")}:00`;
+  };
 
 
   return (
@@ -1790,7 +1807,7 @@ const fmtHour = (h) => {
 
       {activeTab === "schedule" && (
         <>
-         {/* 타임라인 */}
+          {/* 타임라인 */}
           <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, overflowX: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>장비별 타임라인</div>
@@ -1826,16 +1843,47 @@ const fmtHour = (h) => {
                       })()}
                       {eqRes.map(r => {
                         const x = timeToX(r.start_time);
-                        const w = timeToX(r.end_time) - x;
+                        const planW = timeToX(r.end_time) - x;
+                        const actualW = r.actual_end_time ? timeToX(r.actual_end_time) - x : null;
+                        const isDelayed = actualW !== null && actualW > planW;
+                        const isEarly = actualW !== null && actualW < planW;
+
                         return (
-                          <div key={r.id} style={{
-                            position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(w, 2)}%`, top: 4, height: 28,
-                            background: r.status === "approved" ? "#BFDBFE" : r.status === "completed" ? "#D1FAE5" : "#FEF3C7",
-                            border: `1px solid ${r.status === "approved" ? "#3B82F6" : r.status === "completed" ? "#10B981" : "#F59E0B"}`,
-                            borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden"
-                          }}>
-                            <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>{r.company} · {r.floor}</span>
-                          </div>
+                          <React.Fragment key={r.id}>
+                            {/* 계획 바 (항상 표시) */}
+                            <div style={{
+                              position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(planW, 2)}%`,
+                              top: 4, height: 28,
+                              background: r.status === "completed" ? "transparent" : r.status === "approved" ? "#BFDBFE" : "#FEF3C7",
+                              border: `1px dashed ${r.status === "completed" ? "#D1D5DB" : r.status === "approved" ? "#3B82F6" : "#F59E0B"}`,
+                              borderRadius: 4, overflow: "hidden"
+                            }} />
+                            {/* 실제 완료 바 (completed일 때) */}
+                            {r.actual_end_time && (
+                              <div style={{
+                                position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(actualW, 2)}%`,
+                                top: 4, height: 28,
+                                background: isDelayed ? "#FECACA" : "#D1FAE5",
+                                border: `1px solid ${isDelayed ? "#EF4444" : "#10B981"}`,
+                                borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden"
+                              }}>
+                                <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>
+                                  {r.company} · {r.floor} {isDelayed ? "⚠️" : isEarly ? "✅" : ""}
+                                </span>
+                              </div>
+                            )}
+                            {/* 미완료 바 텍스트 */}
+                            {!r.actual_end_time && (
+                              <div style={{
+                                position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(planW, 2)}%`,
+                                top: 4, height: 28, display: "flex", alignItems: "center", paddingLeft: 6
+                              }}>
+                                <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>
+                                  {r.company} · {r.floor}
+                                </span>
+                              </div>
+                            )}
+                          </React.Fragment>
                         );
                       })}
                     </div>
@@ -1869,12 +1917,36 @@ const fmtHour = (h) => {
                     {r.delay_reason && <div style={{ fontSize: 12, color: "#EF4444" }}>지연사유: {r.delay_reason}</div>}
                     {r.completed_at && <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>✅ 완료: {new Date(r.completed_at).toLocaleTimeString("ko-KR")}</div>}
                     {r.status === "approved" && (
-                      <button onClick={() => handleComplete(r)}
-                        style={{ marginTop: 8, background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>
-                        ✅ 수령 완료
-                      </button>
+                      <div style={{ marginTop: 8 }}>
+                        {windWarning && equipment.find(e => e.id === r.equipment_id)?.type === "tower_crane" ? (
+                          <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
+                            🚫 풍속 {weather.wind}m/s 초과 — 타워크레인 작업 불가
+                          </div>
+                        ) : (
+                          <button onClick={() => handleComplete(r)}
+                            style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>
+                            ✅ 수령 완료
+                          </button>
+                        )}
+                      </div>
                     )}
-                  </div>
+                    {r.status === "completed" && r.actual_end_time && (
+                      <div style={{ marginTop: 8, display: "flex", gap: 12, alignItems: "center" }}>
+                        <div style={{ fontSize: 11, color: "#10B981" }}>
+                          ✅ 실제 완료: {r.actual_end_time}
+                        </div>
+                        {r.diff_min !== undefined && r.diff_min !== 0 && (
+                          <div style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: r.diff_min > 0 ? "#EF4444" : "#10B981",
+                            background: r.diff_min > 0 ? "#FEE2E2" : "#F0FDF4",
+                            borderRadius: 6, padding: "2px 8px"
+                          }}>
+                            {r.diff_min > 0 ? `+${r.diff_min}분 지연` : `${Math.abs(r.diff_min)}분 조기 완료`}
+                          </div>
+                        )}
+                      </div>
+                    )}                  </div>
                 );
               })}
           </div>
@@ -1919,104 +1991,104 @@ const fmtHour = (h) => {
       )}
 
 
-{showFullView && (
-  <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-    <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {selectedDate} 양중 전체 현황</div>
-        <button onClick={() => setShowFullView(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>✕ 닫기</button>
-      </div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "전체 예약", value: reservations.length },
-          { label: "승인", value: reservations.filter(r => r.status === "approved").length, color: "#10B981" },
-          { label: "대기", value: reservations.filter(r => r.status === "pending").length, color: "#F59E0B" },
-          { label: "완료", value: reservations.filter(r => r.status === "completed").length, color: "#6B7280" },
-        ].map(k => (
-          <div key={k.label} style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "12px 16px" }}>
-            <div style={{ fontSize: 11, color: "#9CA3AF" }}>{k.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: k.color || NAVY }}>{k.value}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginBottom: 20, overflowX: "auto" }}>
-        <div style={{ minWidth: 700 }}>
-          <div style={{ display: "flex", marginLeft: 140, marginBottom: 8 }}>
-            {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
-              <div key={h} style={{ flex: 1, fontSize: 10, color: "#9CA3AF", textAlign: "center" }}>
-                {String(h).padStart(2, "0")}:00
-              </div>
-            ))}
-          </div>
-          {equipment.map(eq => {
-            const eqRes = reservations.filter(r => r.equipment_id === eq.id);
-            return (
-              <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ width: 140, flexShrink: 0, fontSize: 13, fontWeight: 600, color: NAVY }}>
-                  {typeIcon(eq.type)} {eq.name}
+      {showFullView && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {selectedDate} 양중 전체 현황</div>
+              <button onClick={() => setShowFullView(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>✕ 닫기</button>
+            </div>
+            <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "전체 예약", value: reservations.length },
+                { label: "승인", value: reservations.filter(r => r.status === "approved").length, color: "#10B981" },
+                { label: "대기", value: reservations.filter(r => r.status === "pending").length, color: "#F59E0B" },
+                { label: "완료", value: reservations.filter(r => r.status === "completed").length, color: "#6B7280" },
+              ].map(k => (
+                <div key={k.label} style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "12px 16px" }}>
+                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>{k.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: k.color || NAVY }}>{k.value}</div>
                 </div>
-                <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 8, height: 44, position: "relative" }}>
-                  {Array.from({ length: 16 }, (_, i) => (
-                    <div key={i} style={{ position: "absolute", left: `${(i / 15) * 100}%`, top: 0, width: 1, height: "100%", background: "#E5E7EB" }} />
+              ))}
+            </div>
+            <div style={{ marginBottom: 20, overflowX: "auto" }}>
+              <div style={{ minWidth: 700 }}>
+                <div style={{ display: "flex", marginLeft: 140, marginBottom: 8 }}>
+                  {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
+                    <div key={h} style={{ flex: 1, fontSize: 10, color: "#9CA3AF", textAlign: "center" }}>
+                      {String(h).padStart(2, "0")}:00
+                    </div>
                   ))}
-                  {eqRes.map(r => {
-                    const [sh, sm] = r.start_time.split(":").map(Number);
-                    const [eh, em] = r.end_time.split(":").map(Number);
-                    const x = ((sh - 7) * 60 + sm) / (15 * 60) * 100;
-                    const w = ((eh - sh) * 60 + (em - sm)) / (15 * 60) * 100;
-                    const bgMap = { approved: "#BFDBFE", pending: "#FEF3C7", completed: "#D1FAE5", rejected: "#F3F4F6" };
-                    const borderMap = { approved: "#3B82F6", pending: "#F59E0B", completed: "#10B981", rejected: "#D1D5DB" };
-                    return (
-                      <div key={r.id} style={{
-                        position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.min(w, 100 - Math.max(0, x))}%`,
-                        top: 4, height: 36, background: bgMap[r.status] || "#F3F4F6",
-                        border: `1.5px solid ${borderMap[r.status] || "#D1D5DB"}`,
-                        borderRadius: 6, padding: "2px 6px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center"
-                      }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.company}</div>
-                        <div style={{ fontSize: 10, color: "#6B7280", whiteSpace: "nowrap" }}>{r.start_time}~{r.end_time} · {r.floor}</div>
-                      </div>
-                    );
-                  })}
                 </div>
+                {equipment.map(eq => {
+                  const eqRes = reservations.filter(r => r.equipment_id === eq.id);
+                  return (
+                    <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ width: 140, flexShrink: 0, fontSize: 13, fontWeight: 600, color: NAVY }}>
+                        {typeIcon(eq.type)} {eq.name}
+                      </div>
+                      <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 8, height: 44, position: "relative" }}>
+                        {Array.from({ length: 16 }, (_, i) => (
+                          <div key={i} style={{ position: "absolute", left: `${(i / 15) * 100}%`, top: 0, width: 1, height: "100%", background: "#E5E7EB" }} />
+                        ))}
+                        {eqRes.map(r => {
+                          const [sh, sm] = r.start_time.split(":").map(Number);
+                          const [eh, em] = r.end_time.split(":").map(Number);
+                          const x = ((sh - 7) * 60 + sm) / (15 * 60) * 100;
+                          const w = ((eh - sh) * 60 + (em - sm)) / (15 * 60) * 100;
+                          const bgMap = { approved: "#BFDBFE", pending: "#FEF3C7", completed: "#D1FAE5", rejected: "#F3F4F6" };
+                          const borderMap = { approved: "#3B82F6", pending: "#F59E0B", completed: "#10B981", rejected: "#D1D5DB" };
+                          return (
+                            <div key={r.id} style={{
+                              position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.min(w, 100 - Math.max(0, x))}%`,
+                              top: 4, height: 36, background: bgMap[r.status] || "#F3F4F6",
+                              border: `1.5px solid ${borderMap[r.status] || "#D1D5DB"}`,
+                              borderRadius: 6, padding: "2px 6px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center"
+                            }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.company}</div>
+                              <div style={{ fontSize: 10, color: "#6B7280", whiteSpace: "nowrap" }}>{r.start_time}~{r.end_time} · {r.floor}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: NAVY, color: "#fff" }}>
+                  {["장비", "협력사", "층", "자재", "중량", "시간", "목적", "상태"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map((r, i) => {
+                  const eq = equipment.find(e => e.id === r.equipment_id);
+                  return (
+                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                      <td style={{ padding: "8px 12px" }}>{eq?.name}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.company}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.floor}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.material_type}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.material_weight > 0 ? `${r.material_weight}kg` : "-"}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.start_time}~{r.end_time}</td>
+                      <td style={{ padding: "8px 12px" }}>{r.purpose}</td>
+                      <td style={{ padding: "8px 12px" }}>
+                        <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                          {statusLabel(r.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-        <thead>
-          <tr style={{ background: NAVY, color: "#fff" }}>
-            {["장비", "협력사", "층", "자재", "중량", "시간", "목적", "상태"].map(h => (
-              <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map((r, i) => {
-            const eq = equipment.find(e => e.id === r.equipment_id);
-            return (
-              <tr key={r.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
-                <td style={{ padding: "8px 12px" }}>{eq?.name}</td>
-                <td style={{ padding: "8px 12px" }}>{r.company}</td>
-                <td style={{ padding: "8px 12px" }}>{r.floor}</td>
-                <td style={{ padding: "8px 12px" }}>{r.material_type}</td>
-                <td style={{ padding: "8px 12px" }}>{r.material_weight > 0 ? `${r.material_weight}kg` : "-"}</td>
-                <td style={{ padding: "8px 12px" }}>{r.start_time}~{r.end_time}</td>
-                <td style={{ padding: "8px 12px" }}>{r.purpose}</td>
-                <td style={{ padding: "8px 12px" }}>
-                  <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
-                    {statusLabel(r.status)}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+      )}
       {/* 신청 모달 */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -2078,11 +2150,15 @@ const fmtHour = (h) => {
                 </div>
                 <div>
                   <label style={ls}>시작 시간</label>
-                  <input type="time" value={form.start_time} onChange={e => setF("start_time", e.target.value)} style={is} />
+                  <input type="time" value={form.start_time} onChange={e => setF("start_time", e.target.value)}
+                    disabled={windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane"}
+                    style={{ ...is, opacity: windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane" ? 0.4 : 1 }} />
                 </div>
                 <div>
                   <label style={ls}>종료 시간</label>
-                  <input type="time" value={form.end_time} onChange={e => setF("end_time", e.target.value)} style={is} />
+                  <input type="time" value={form.end_time} onChange={e => setF("end_time", e.target.value)}
+                    disabled={windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane"}
+                    style={{ ...is, opacity: windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane" ? 0.4 : 1 }} />
                 </div>
               </div>
               {checkConflict() && (
@@ -2200,9 +2276,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [pushEnabled, setPushEnabled] = useState(false);  
-  const [calendarDates, setCalendarDates] = useState([]);  
-  const [weather, setWeather] = useState(null);  
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [calendarDates, setCalendarDates] = useState([]);
+  const [weather, setWeather] = useState(null);
   const [user, setUser] = useState(null);
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
@@ -2265,105 +2341,105 @@ export default function App() {
     });
   }, []);
 
-useEffect(() => {
-  if (!user) return;
-  const setupPush = async () => {
+  useEffect(() => {
+    if (!user) return;
+    const setupPush = async () => {
+      try {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) { setPushEnabled(true); return; }
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: VAPID_PUBLIC_KEY,
+        });
+        await supabase.from("push_subscriptions").upsert({
+          user_id: user.id,
+          subscription: sub.toJSON(),
+        }, { onConflict: "user_id" });
+        setPushEnabled(true);
+      } catch (err) {
+        console.error("푸시 설정 실패:", err);
+      }
+    };
+    setupPush();
+  }, [user]);
+
+  const sendPushNotification = async (title, body, url = "/") => {
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) { setPushEnabled(true); return; }
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: VAPID_PUBLIC_KEY,
+      await fetch(`${SB_URL}/functions/v1/send-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SB_KEY}`,
+        },
+        body: JSON.stringify({ title, body, url }),
       });
-      await supabase.from("push_subscriptions").upsert({
-        user_id: user.id,
-        subscription: sub.toJSON(),
-      }, { onConflict: "user_id" });
-      setPushEnabled(true);
     } catch (err) {
-      console.error("푸시 설정 실패:", err);
+      console.error("푸시 전송 실패:", err);
     }
   };
-  setupPush();
-}, [user]);
 
-const sendPushNotification = async (title, body, url = "/") => {
-  try {
-    await fetch(`${SB_URL}/functions/v1/send-push`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SB_KEY}`,
-      },
-      body: JSON.stringify({ title, body, url }),
-    });
-  } catch (err) {
-    console.error("푸시 전송 실패:", err);
-  }
-};
-
-useEffect(() => {
-  const fetchWeather = async () => {
-    try {
-      const r = await fetch(
-        "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=Asia%2FSeoul"
-      );
-      const d = await r.json();
-      const c = d.current;
-      const codeToDesc = (code) => {
-        if (code === 0) return { text: "맑음", icon: "☀️" };
-        if (code <= 3) return { text: "구름 조금", icon: "⛅" };
-        if (code <= 48) return { text: "안개", icon: "🌫️" };
-        if (code <= 67) return { text: "비", icon: "🌧️" };
-        if (code <= 77) return { text: "눈", icon: "❄️" };
-        if (code <= 82) return { text: "소나기", icon: "🌦️" };
-        return { text: "뇌우", icon: "⛈️" };
-      };
-      const desc = codeToDesc(c.weather_code);
-      setWeather({
-        temp: Math.round(c.temperature_2m),
-        humidity: c.relative_humidity_2m,
-        precipitation: c.precipitation,
-        wind: Math.round(c.wind_speed_10m),
-        ...desc,
-      });
-    } catch { /* 날씨 실패해도 앱은 정상 동작 */ }
-  };
-  fetchWeather();
-}, []);
-useEffect(() => {
-  const fetchCalendar = async () => {
-    try {
-      const saved = await sb.get("calendars");
-      const savedDates = saved || [];
-      const year = new Date().getFullYear();
-      const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?serviceKey=${HOLIDAY_KEY}&solYear=${year}&numOfRows=50&_type=json`;
-      const r = await fetch(url);
-      const d = await r.json();
-      const items = d.response?.body?.items?.item || [];
-      const holidays = (Array.isArray(items) ? items : [items]).map(h => ({
-        date: String(h.locdate),
-        type: "holiday",
-        name: h.dateName,
-      }));
-      const merged = [...savedDates];
-      holidays.forEach(h => {
-        const dateStr = `${h.date.slice(0,4)}-${h.date.slice(4,6)}-${h.date.slice(6,8)}`;
-        if (!merged.find(m => m.date === dateStr)) {
-          merged.push({ ...h, date: dateStr });
-        }
-      });
-      setCalendarDates(merged);
-    } catch (err) {
-      console.error("캘린더 로드 실패:", err);
-    }
-  };
-  fetchCalendar();
-}, []);
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const r = await fetch(
+          "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=Asia%2FSeoul"
+        );
+        const d = await r.json();
+        const c = d.current;
+        const codeToDesc = (code) => {
+          if (code === 0) return { text: "맑음", icon: "☀️" };
+          if (code <= 3) return { text: "구름 조금", icon: "⛅" };
+          if (code <= 48) return { text: "안개", icon: "🌫️" };
+          if (code <= 67) return { text: "비", icon: "🌧️" };
+          if (code <= 77) return { text: "눈", icon: "❄️" };
+          if (code <= 82) return { text: "소나기", icon: "🌦️" };
+          return { text: "뇌우", icon: "⛈️" };
+        };
+        const desc = codeToDesc(c.weather_code);
+        setWeather({
+          temp: Math.round(c.temperature_2m),
+          humidity: c.relative_humidity_2m,
+          precipitation: c.precipitation,
+          wind: Math.round(c.wind_speed_10m),
+          ...desc,
+        });
+      } catch { /* 날씨 실패해도 앱은 정상 동작 */ }
+    };
+    fetchWeather();
+  }, []);
+  useEffect(() => {
+    const fetchCalendar = async () => {
+      try {
+        const saved = await sb.get("calendars");
+        const savedDates = saved || [];
+        const year = new Date().getFullYear();
+        const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?serviceKey=${HOLIDAY_KEY}&solYear=${year}&numOfRows=50&_type=json`;
+        const r = await fetch(url);
+        const d = await r.json();
+        const items = d.response?.body?.items?.item || [];
+        const holidays = (Array.isArray(items) ? items : [items]).map(h => ({
+          date: String(h.locdate),
+          type: "holiday",
+          name: h.dateName,
+        }));
+        const merged = [...savedDates];
+        holidays.forEach(h => {
+          const dateStr = `${h.date.slice(0, 4)}-${h.date.slice(4, 6)}-${h.date.slice(6, 8)}`;
+          if (!merged.find(m => m.date === dateStr)) {
+            merged.push({ ...h, date: dateStr });
+          }
+        });
+        setCalendarDates(merged);
+      } catch (err) {
+        console.error("캘린더 로드 실패:", err);
+      }
+    };
+    fetchCalendar();
+  }, []);
   useEffect(() => {
     if (!user) return;
     setDbLoading(true);
@@ -2425,7 +2501,7 @@ useEffect(() => {
       </div>
       {view === "mobile"
         ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} calendarDates={calendarDates}  setCalendarDates={setCalendarDates} sendPush={sendPushNotification}/>}
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} />}
     </div>
   );
 }
