@@ -10,6 +10,7 @@ const SB_URL = "https://movvrcrbuokoahhiydtt.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vdnZyY3JidW9rb2FoaGl5ZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDkxMjIsImV4cCI6MjA5NDg4NTEyMn0.zK_GlKCXhKxa-xd0HpxAGURMwzyXr6cbm7xi-rYZUVE";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY;
 const HOLIDAY_KEY = import.meta.env.VITE_HOLIDAY_KEY;
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 const supabase = createClient(SB_URL, SB_KEY, {
   auth: { persistSession: true, storageKey: "spmis-auth" }
 });
@@ -1059,7 +1060,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
   );
 }
 
-function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast }) {
+function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush }) {
   const [flashId, setFlashId] = useState(null);
   const pending = progressReports.filter(r => r.status === "pending");
   const handleApprove = async (report) => {
@@ -1076,8 +1077,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           const affectedIds = updated.filter(a => { const o = activities.find(x => x.id === a.id); return o && o.pf !== a.pf && a.id !== report.activity_id; }).map(a => a.id);
           const [savedIssue] = await sb.post("issues", { activity_id: report.activity_id, title: `[자동] ${act.name} ${report.delay_days}일 지연`, issue_type: "공기지연", severity: report.delay_days >= 5 ? "높음" : "보통", cause: "작업 보고에서 감지됨", action_plan: "", delay_days: report.delay_days, assignee: "관리자", status: "open", affected_activities: affectedIds, created_by: "시스템" });
           setIssues(p => [savedIssue, ...p]); setToast("⚠️ CPM 재계산 완료");
-        } else setToast(`✅ ${report.new_done_qty}${report.unit} 반영`);
-        setActivities(updated);
+        }  else {
+            await sendPush("✅ 작업 보고 승인", `${act.name} ${report.new_done_qty}${report.unit} 승인되었습니다.`, "/");
+            setToast(`✅ ${report.new_done_qty}${report.unit} 반영`);
+          }
       }
       setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "approved" } : r));
     } catch (err) { alert("승인 실패: " + err.message); }
@@ -1640,7 +1643,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
     </div>
   );
 }
-function LiftingManager({ user, weather }) {
+function LiftingManager({ user, weather, sendPush }) {
   const [equipment, setEquipment] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -1709,6 +1712,7 @@ function LiftingManager({ user, weather }) {
 
   const handleApprove = async (r) => {
     await sb.patch("lifting_reservations", r.id, { status: "approved" });
+    await sendPush("🏗 양중 예약 승인", `${r.start_time}~${r.end_time} 양중 예약이 승인되었습니다.`, "/");
     setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "approved" } : x));
   };
 
@@ -2106,7 +2110,7 @@ const fmtHour = (h) => {
     </div>
   );
 }
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, calendarDates, setCalendarDates }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, calendarDates, setCalendarDates, sendPush }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
@@ -2185,9 +2189,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               : <RoomList rooms={rooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
-          {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} />}
+          {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
-          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} />}
+          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} />}
         </div>
       </div>
     </div>
@@ -2196,6 +2200,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
+  const [pushEnabled, setPushEnabled] = useState(false);  
   const [calendarDates, setCalendarDates] = useState([]);  
   const [weather, setWeather] = useState(null);  
   const [user, setUser] = useState(null);
@@ -2259,6 +2264,48 @@ export default function App() {
       if (!session) { setUser(null); setDataReady(false); }
     });
   }, []);
+
+useEffect(() => {
+  if (!user) return;
+  const setupPush = async () => {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) { setPushEnabled(true); return; }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: VAPID_PUBLIC_KEY,
+      });
+      await supabase.from("push_subscriptions").upsert({
+        user_id: user.id,
+        subscription: sub.toJSON(),
+      }, { onConflict: "user_id" });
+      setPushEnabled(true);
+    } catch (err) {
+      console.error("푸시 설정 실패:", err);
+    }
+  };
+  setupPush();
+}, [user]);
+
+const sendPushNotification = async (title, body, url = "/") => {
+  try {
+    await fetch(`${SB_URL}/functions/v1/send-push`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SB_KEY}`,
+      },
+      body: JSON.stringify({ title, body, url }),
+    });
+  } catch (err) {
+    console.error("푸시 전송 실패:", err);
+  }
+};
+
 useEffect(() => {
   const fetchWeather = async () => {
     try {
@@ -2378,7 +2425,7 @@ useEffect(() => {
       </div>
       {view === "mobile"
         ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} calendarDates={calendarDates}  setCalendarDates={setCalendarDates} />}
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} calendarDates={calendarDates}  setCalendarDates={setCalendarDates} sendPush={sendPushNotification}/>}
     </div>
   );
 }
