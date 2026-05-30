@@ -201,6 +201,7 @@ function AuthScreen({ onAuth }) {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState(ROLES[0]);
+  const [subcon, setSubcon] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -220,8 +221,7 @@ function AuthScreen({ onAuth }) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
     if (!data.user) { setError("회원가입 실패. 다시 시도해주세요."); setLoading(false); return; }
-    const { error: profileError } = await supabase.from("profiles").insert({ id: data.user.id, name, role });
-    if (profileError) { setError("프로필 저장 실패: " + profileError.message); setLoading(false); return; }
+    const { error: profileError } = await supabase.from("profiles").insert({ id: data.user.id, name, role, subcon: role === "협력사 반장" ? subcon : null }); if (profileError) { setError("프로필 저장 실패: " + profileError.message); setLoading(false); return; }
     onAuth({ ...data.user, name, role });
     setLoading(false);
   };
@@ -247,6 +247,12 @@ function AuthScreen({ onAuth }) {
           <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, background: "#fff" }}>
             {ROLES.map(r => <option key={r}>{r}</option>)}
           </select>
+          {role === "협력사 반장" && (
+            <select value={subcon} onChange={e => setSubcon(e.target.value)} style={{ ...inputStyle, background: "#fff" }}>
+              <option value="">협력사 선택</option>
+              {SUBCONS.map(s => <option key={s}>{s}</option>)}
+            </select>
+          )}
         </>}
         {error && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12, textAlign: "center" }}>{error}</div>}
         <button onClick={mode === "login" ? handleLogin : handleSignup} disabled={loading}
@@ -1603,7 +1609,19 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
             </div>
             {report.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{report.delay_days}일</div></div>}
             {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
-            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{report.ai_summary}</div>
+            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>
+            {report.matching_reason && (
+              <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>🤖 AI 매핑 근거</span>
+                  <span style={{ fontSize: 10, background: report.matching_confidence === "high" ? "#D1FAE5" : report.matching_confidence === "medium" ? "#FEF3C7" : "#FEE2E2", color: report.matching_confidence === "high" ? "#065F46" : report.matching_confidence === "medium" ? "#92400E" : "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>
+                    {report.matching_confidence === "high" ? "높음" : report.matching_confidence === "medium" ? "보통" : "낮음"}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: "#374151" }}>{report.matching_reason}</div>
+              </div>
+            )}
+
             <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
               {CHAIN_ROLES.map((rank, i) => { const done = i < 2, active = i === 2; return (<div key={i} style={{ display: "flex", alignItems: "center" }}><div style={{ background: done ? "#10B981" : active ? YELLOW : "#F3F4F6", border: `1px solid ${done ? "#10B981" : active ? YELLOW : "#D1D5DB"}`, borderRadius: 6, padding: "3px 6px", textAlign: "center", minWidth: 44 }}><div style={{ fontSize: 10, color: done ? "#fff" : active ? NAVY : "#6B7280" }}>{rank}</div><div style={{ fontSize: 10, fontWeight: 600, color: done ? "#fff" : active ? NAVY : "#9CA3AF" }}>{done ? "✓" : active ? "⏳" : "—"}</div><div style={{ fontSize: 9, color: done ? "#d1fae5" : active ? "#78350f" : "#9CA3AF" }}>{CHAIN_NAMES[i]}</div></div>{i < 4 && <div style={{ width: 5, height: 1, background: "#D1D5DB" }} />}</div>); })}
             </div>
@@ -1624,7 +1642,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 // WeeklyReport 포함 나머지 코드는 그대로 유지하세요.
 // ─────────────────────────────────────────────────────────────────────
 
-function MobileHome({ user, activities, issues, weather }) {
+function MobileHome({ user, activities, issues, weather, profiles }) {
   const tier = getTier(user.role);
   const todayStr = dayStr(TODAY);
 
@@ -1635,8 +1653,11 @@ function MobileHome({ user, activities, issues, weather }) {
   const criticals = activities.filter(a => a.critical && a.phys < 100);
 
   // Micro 전용 — 협력사 반장 본인 공종만
+  const userProfile = (profiles || []).find(p => p.id === user.id);
+  const mySubcon = userProfile?.subcon;
   const myActs = activities.filter(a =>
-    a.phys < 100 && a.ps <= todayStr && a.pf >= todayStr
+    a.phys < 100 && a.ps <= todayStr && a.pf >= todayStr &&
+    (mySubcon ? a.subcon === mySubcon : true)
   );
 
   const weatherWarnings = [];
@@ -1868,7 +1889,8 @@ function MobileHome({ user, activities, issues, weather }) {
 
 
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues }) {  const [input, setInput] = useState("");
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues }) {
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingEquipment, setPendingEquipment] = useState(null);
@@ -1890,8 +1912,7 @@ ${activities.map(a => `- ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} �
 입력 유형을 판단해서 아래 중 하나로 응답해:
 
 1. 작업 보고 (공정 진척 보고)
-JSON: {"type":"work_report","matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>}
-
+JSON: {"type":"work_report","matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>,"matching_reason":"<이 공정에 매핑한 이유 한 줄>","matching_confidence":"high|medium|low"}
 2. 장비 투입 보고
 JSON: {"type":"equipment_deploy","equipment_name":"<장비명>","unit_count":<대수>,"activity_id":<공종ID|null>,"note":"<비고>","ai_message":"<응답>","needs_clarification":<true|false>}
 
@@ -1947,6 +1968,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 delay_days: res.delay_days || 0,
                 delay_reason: res.delay_reason || "",
                 summary: res.summary,
+                matching_reason: res.matching_reason || "",
+                matching_confidence: res.matching_confidence || "medium",
                 raw: msg,
                 sent: false
               });
@@ -2010,6 +2033,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
         plan_qty: a.plan_qty,
         unit: a.unit,
         ai_summary: pendingReport.summary,
+        matching_reason: pendingReport.matching_reason || "",
+        matching_confidence: pendingReport.matching_confidence || "medium",
         status: "pending"
       });
       setProgressReports(p => [...p, saved]);
@@ -2060,7 +2085,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
       {/* 콘텐츠 영역 */}
       <div style={{ flex: 1, overflow: "hidden" }}>
         {tab === "home" ? (
-          <MobileHome user={user} activities={activities} issues={issues} weather={weather} />
+          <MobileHome user={user} activities={activities} issues={issues} weather={weather} profiles={profiles} />
         ) : tab === "report" ? (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2106,7 +2131,19 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   </div>
                   {pendingReport.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{pendingReport.delay_days}일</div></div>}
                   {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {pendingReport.special_note}</div>}
-                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 12 }}>{pendingReport.summary}</div>
+                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{pendingReport.summary}</div>
+                  {pendingReport.matching_reason && (
+                    <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>🤖 AI 매핑 근거</span>
+                        <span style={{ fontSize: 10, background: pendingReport.matching_confidence === "high" ? "#D1FAE5" : pendingReport.matching_confidence === "medium" ? "#FEF3C7" : "#FEE2E2", color: pendingReport.matching_confidence === "high" ? "#065F46" : pendingReport.matching_confidence === "medium" ? "#92400E" : "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>
+                          {pendingReport.matching_confidence === "high" ? "높음" : pendingReport.matching_confidence === "medium" ? "보통" : "낮음"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#374151" }}>{pendingReport.matching_reason}</div>
+                    </div>
+                  )}
+
                   {!pendingReport.sent
                     ? <div style={{ display: "flex", gap: 8 }}>
                       <button onClick={handleSendReport} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
