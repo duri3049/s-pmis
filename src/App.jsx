@@ -543,8 +543,7 @@ function Dashboard({ activities, progressReports, issues, weather }) {
   const totalAC = activities.reduce((s, a) => s + a.ac, 0);
   const gCPI = totalAC > 0 ? totalEV / totalAC : 1, gSPI = totalPV > 0 ? totalEV / totalPV : 1;
   const delayedCount = activities.filter(a => a.delay_days > 0).length;
-  const openIssues = issues.filter(i => i.status !== "closed").length;
-
+  const openIssues = (issues || []).filter(i => i.status !== "closed").length;
   const weatherWarnings = [];
   if (weather) {
     if (weather.precipitation > 0) weatherWarnings.push("강수 감지 — 외벽 도장·방수 작업 중단 검토");
@@ -663,8 +662,10 @@ function Dashboard({ activities, progressReports, issues, weather }) {
         </div>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>최근 이슈</div>
-          {issues.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
-          {issues.slice(0, 4).map(issue => (
+          {(issues || []).length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
+          
+          
+          {(issues || []).slice(0, 4).map(issue => (
             <div key={issue.id} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block", flexShrink: 0 }} />
@@ -748,7 +749,7 @@ function ThreeWeekView({ activities, milestones, setMilestones }) {
               <div style={{ width: LEFT_W, flexShrink: 0, color: YELLOW, fontWeight: 700, fontSize: 12, padding: "0 16px", display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ flex: 1, position: "relative" }}>
                 <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: 36, background: YELLOW, zIndex: 3 }} />
-                {milestones.map(m => { const x = dateToX(m.milestone_date); if (diffDays(m.milestone_date, startDateStr) < 0 || diffDays(m.milestone_date, startDateStr) >= DAYS) return null; return (<div key={m.id} onClick={() => handleStatusToggle(m)} style={{ position: "absolute", left: x + COL_W / 2 - 10, top: 7, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, cursor: "pointer", opacity: m.status === "achieved" ? 0.35 : 1, zIndex: 2 }}>{msIcon(m.type)}</div>); })}
+                {(milestones || []).map(m => { const x = dateToX(m.milestone_date); if (diffDays(m.milestone_date, startDateStr) < 0 || diffDays(m.milestone_date, startDateStr) >= DAYS) return null; return (<div key={m.id} onClick={() => handleStatusToggle(m)} style={{ position: "absolute", left: x + COL_W / 2 - 10, top: 7, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, cursor: "pointer", opacity: m.status === "achieved" ? 0.35 : 1, zIndex: 2 }}>{msIcon(m.type)}</div>); })}
               </div>
             </div>
             {active.map((a, ri) => {
@@ -816,8 +817,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
   });
   const thisWeekDone = activities.filter(a => a.af && new Date(a.af) >= weekAgo && new Date(a.af) <= reportDate);
   const nextWeekPlan = activities.filter(a => a.phys < 100 && new Date(a.ps) <= nextWeek && new Date(a.pf) >= reportDate);
-  const openIssues = issues.filter(i => i.status !== "closed");
-  return (
+  const openIssues = (issues || []).filter(i => i.status !== "closed");  return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #wr-content, #wr-content * { visibility: visible; } #wr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
@@ -870,12 +870,12 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={rSecTitle}>3. 주요 이슈 및 조치 계획</div>
-        {openIssues.length === 0
+        {open(issues || []).length === 0
           ? <div style={{ padding: "10px 14px", background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, marginBottom: 20, color: "#065F46" }}>✅ 현재 처리 대기 중인 이슈가 없습니다.</div>
           : <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
             <thead><tr><th style={{ ...rThStyle, width: "5%" }}>No.</th><th style={{ ...rThStyle, width: "28%" }}>이슈 내용</th><th style={{ ...rThStyle, width: "10%" }}>유형</th><th style={{ ...rThStyle, width: "10%" }}>심각도</th><th style={{ ...rThStyle, width: "10%" }}>공기영향</th><th style={rThStyle}>조치 계획</th></tr></thead>
             <tbody>
-              {openIssues.map((issue, i) => (
+              {open(issues || []).map((issue, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
                   <td style={{ ...rTdStyle, textAlign: "center" }}>{i + 1}</td>
                   <td style={rTdStyle}>{issue.title}</td>
@@ -929,7 +929,344 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
     </div>
   );
 }
-function GanttPanel({ activities, progressReports, milestones, onRegister, onReport }) {
+
+function DailyReport({ activities, progressReports, issues, equipment, equipmentLogs, weather, onClose }) {
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const fmtDate = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}요일`;
+  const fmtDateShort = d => `${d.getFullYear()}년 ${String(d.getMonth() + 1).padStart(2, "0")}월 ${String(d.getDate()).padStart(2, "0")}일`;
+  const todayStr = dayStr(today);
+  const yesterdayStr = dayStr(yesterday);
+
+  // ── 공정 현황 ──────────────────────────────────────────
+  const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
+  const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
+  const totalPlan = Math.round(activities.reduce((s, a) => s + a.plan_pct * a.pv_budget, 0) / Math.max(totalBudget, 1));
+  const deviation = totalPhys - totalPlan;
+
+  // ── 작업 내용 ──────────────────────────────────────────
+  // 전일 실적: 어제 approved된 보고서
+  const yesterdayReports = progressReports.filter(r =>
+    r.status === "approved" &&
+    r.created_at && new Date(r.created_at).toISOString().slice(0, 10) === yesterdayStr
+  );
+  // 금일 계획: 오늘 날짜가 ps~pf 안에 있고 미완료인 공정
+  const todayPlan = activities.filter(a =>
+    a.phys < 100 && a.ps <= todayStr && a.pf >= todayStr
+  );
+  // 진행 중인 공정 (as_ 있고 미완료)
+  const inProgress = activities.filter(a => a.as_ && a.phys < 100);
+
+  // ── 인력 투입 ──────────────────────────────────────────
+  // 전일 누계: 어제까지 approved 보고서의 workers 합
+  const prevWorkers = progressReports
+    .filter(r => r.status === "approved" && r.created_at && new Date(r.created_at).toISOString().slice(0, 10) < todayStr)
+    .reduce((s, r) => s + (Number(r.workers) || 0), 0);
+  // 금일 투입: 오늘 pending/approved 보고서의 workers 합
+  const todayWorkers = progressReports
+    .filter(r => r.created_at && new Date(r.created_at).toISOString().slice(0, 10) === todayStr)
+    .reduce((s, r) => s + (Number(r.workers) || 0), 0);
+  const totalWorkers = prevWorkers + todayWorkers;
+
+  // ── 장비 현황 ──────────────────────────────────────────
+  // active 상태인 equipment_logs 기준
+  const activeEqRows = (equipmentLogs || []).map(log => {
+    const eq = (equipment || []).find(e => e.id === log.equipment_id);
+    const act = activities.find(a => a.id === log.activity_id);
+    return { name: eq?.name || "-", spec: eq?.spec || "-", unit: log.unit_number, activity: act?.name || "-" };
+  });
+  // site_equipment 전체 목록 기준으로 표 구성
+  const eqTableRows = (equipment || []).map(eq => {
+    const activeLogs = (equipmentLogs || []).filter(l => l.equipment_id === eq.id);
+    return {
+      name: eq.name,
+      spec: eq.spec || "-",
+      prev: "-",
+      today: activeLogs.length > 0 ? activeLogs.length : "-",
+      total: activeLogs.length > 0 ? activeLogs.length : "-",
+    };
+  });
+
+  // ── 날씨 ──────────────────────────────────────────────
+  const prevWeather = { text: "맑음", temp_max: "-", temp_min: "-", precip: "0 mm", snow: "0 cm" }; // 전일은 정적
+  const todayWx = weather
+    ? {
+      text: weather.text,
+      temp_max: weather.temp_max !== undefined ? `${weather.temp_max}°C` : `${weather.temp}°C`,
+      temp_min: weather.temp_min !== undefined ? `${weather.temp_min}°C` : "-",
+      precip: `${weather.precipitation} mm`,
+      snow: "0 cm"
+    }
+    : { text: "맑음", temp_max: "-", temp_min: "-", precip: "0 mm", snow: "0 cm" };
+
+  // ── 스타일 ─────────────────────────────────────────────
+  const th = { background: "#1A2332", color: "#fff", padding: "5px 8px", border: "1px solid #374151", fontWeight: 600, textAlign: "center", fontSize: 11 };
+  const td = { padding: "5px 8px", border: "1px solid #D1D5DB", fontSize: 11, verticalAlign: "top" };
+  const tdC = { ...td, textAlign: "center" };
+  const secTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, margin: "14px 0 6px" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: 20 }}>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #dr-content, #dr-content * { visibility: visible; }
+          #dr-content { position: fixed; top:0; left:0; width:100%; }
+          .no-print { display: none !important; }
+        }
+        @page { size: A4; margin: 12mm; }
+      `}</style>
+
+      {/* 버튼 */}
+      <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 14 }}>
+        <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+        <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
+      </div>
+
+      <div id="dr-content" style={{ maxWidth: 800, margin: "0 auto", background: "#fff", padding: "28px 36px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
+
+        {/* 제목 */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.3em", color: "#1A2332" }}>공 사 일 지</div>
+        </div>
+
+        {/* 기본 정보 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+          <tbody>
+            <tr>
+              <td style={{ ...td, fontWeight: 700, width: 80 }}>■ 공사명</td>
+              <td style={{ ...td, width: "60%" }}>스카이라인 플라자 리모델링 공사</td>
+              <td style={{ ...td, fontWeight: 700, width: 60 }}>현장대리인</td>
+              <td style={{ ...td }}></td>
+            </tr>
+            <tr>
+              <td style={{ ...td, fontWeight: 700 }}>■ 날&nbsp;&nbsp;&nbsp;짜</td>
+              <td colSpan={3} style={td}>{fmtDate(today)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 공정 현황 + 기상 현황 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+          <tbody>
+            <tr>
+              <td rowSpan={3} style={{ ...th, width: 28, writingMode: "vertical-lr", textAlign: "center" }}>공정현황</td>
+              <td style={{ ...th, width: 40 }}>구 분</td>
+              <td style={{ ...th, width: "18%" }}>전 일</td>
+              <td colSpan={3} style={{ ...th }}>기상</td>
+              <td style={{ ...th }}>전일 날씨</td>
+              <td style={{ ...th }}>맑음</td>
+            </tr>
+            <tr>
+              <td style={{ ...th }}>전 체</td>
+              <td style={{ ...th }}>계획 / 실시 / 대비</td>
+              <td rowSpan={2} style={{ ...th, writingMode: "vertical-lr" }}>현황</td>
+              <td style={{ ...th }}>기온(최고)</td>
+              <td style={{ ...td, textAlign: "center" }}>{todayWx.temp_max}</td>
+              <td style={{ ...th }}>강수량</td>
+              <td style={{ ...tdC }}>{todayWx.precip}</td>
+            </tr>
+            <tr>
+              <td style={tdC}>전체</td>
+              <td style={tdC}>{totalPlan}% / {totalPhys}% / {deviation >= 0 ? "+" : ""}{deviation}%</td>
+              <td style={{ ...th }}>기온(최저)</td>
+              <td style={tdC}>{todayWx.temp_min}</td>
+              <td style={{ ...th }}>강설량</td>
+              <td style={tdC}>0 cm</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 주요 작업 내용 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, width: 28 }} rowSpan={2}></th>
+              <th style={th}>전일실적 ({fmtDateShort(yesterday)})</th>
+              <th style={th}>금일계획 ({fmtDateShort(today)})</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style={{ ...td, writingMode: "vertical-lr", textAlign: "center", fontWeight: 700, width: 28 }}>주요작업내용</td>
+              {/* 전일 실적 */}
+              <td style={{ ...td, verticalAlign: "top", minHeight: 120 }}>
+                {yesterdayReports.length === 0
+                  ? <span style={{ color: "#9CA3AF" }}>-</span>
+                  : yesterdayReports.map((r, i) => {
+                    const act = activities.find(a => a.id === r.activity_id);
+                    return (
+                      <div key={i} style={{ marginBottom: 4 }}>
+                        {i + 1}. {act?.name || "-"} {r.new_done_qty}{r.unit} 완료
+                        {r.special_note ? ` (${r.special_note})` : ""}
+                      </div>
+                    );
+                  })
+                }
+              </td>
+              {/* 금일 계획 */}
+              <td style={{ ...td, verticalAlign: "top", minHeight: 120 }}>
+                {todayPlan.length === 0
+                  ? <span style={{ color: "#9CA3AF" }}>-</span>
+                  : todayPlan.map((a, i) => (
+                    <div key={i} style={{ marginBottom: 4 }}>
+                      {i + 1}. {a.name} ({a.subcon}) — 목표 {calcTodayTarget(a).daily_target}{a.unit}
+                    </div>
+                  ))
+                }
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 인력 투입 현황 */}
+        <div style={secTitle}>인력 투입 현황</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+          <thead>
+            <tr>
+              <th colSpan={2} style={th}>직 종</th>
+              <th style={th}>전일누계</th>
+              <th style={th}>금일투입</th>
+              <th style={th}>누 계</th>
+              <th colSpan={2} style={th}>직 종</th>
+              <th style={th}>전일누계</th>
+              <th style={th}>금일투입</th>
+              <th style={th}>누 계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ["직 원", "포장공"],
+              ["직원(협력업체)", "보링공"],
+              ["작업반장", "전기공"],
+              ["보통인부", "조경공"],
+              ["형틀목공, 비계공", "외국인(연수생)"],
+              ["철근, 방수공", "기타(설비등)"],
+            ].map(([left, right], i) => {
+              const isTotal = i === 5;
+              return (
+                <tr key={i}>
+                  <td style={{ ...td, width: 30, textAlign: "center", writingMode: i === 0 ? "vertical-lr" : "horizontal-tb", fontSize: i === 0 ? 10 : 11 }}>
+                    {i === 0 ? "출력현황" : ""}
+                  </td>
+                  <td style={td}>{left}</td>
+                  <td style={tdC}>{i === 0 ? prevWorkers : "-"}</td>
+                  <td style={tdC}>{i === 0 ? todayWorkers : "-"}</td>
+                  <td style={tdC}>{i === 0 ? totalWorkers : "-"}</td>
+                  <td style={{ ...td, width: 30, textAlign: "center" }}></td>
+                  <td style={td}>{right}</td>
+                  <td style={tdC}>-</td>
+                  <td style={tdC}>-</td>
+                  <td style={tdC}>-</td>
+                </tr>
+              );
+            })}
+            {/* 합계 행 */}
+            <tr style={{ background: "#F9FAFB", fontWeight: 700 }}>
+              <td colSpan={2} style={{ ...tdC, fontWeight: 700 }}>합 계</td>
+              <td style={tdC}>{prevWorkers}</td>
+              <td style={tdC}>{todayWorkers}</td>
+              <td style={tdC}>{totalWorkers}</td>
+              <td colSpan={2} style={tdC}></td>
+              <td style={tdC}>-</td>
+              <td style={tdC}>-</td>
+              <td style={tdC}>-</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 주요 장비 현황 */}
+        <div style={secTitle}>주요 장비 현황</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 14 }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, width: "20%" }}>장비명</th>
+              <th style={{ ...th, width: "15%" }}>규격</th>
+              <th style={th}>전일누계</th>
+              <th style={th}>금일투입</th>
+              <th style={th}>누계</th>
+              <th style={{ ...th, width: "20%" }}>장비명</th>
+              <th style={{ ...th, width: "15%" }}>규격</th>
+              <th style={th}>전일누계</th>
+              <th style={th}>금일투입</th>
+              <th style={th}>누계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: Math.max(Math.ceil(eqTableRows.length / 2), 4) }, (_, i) => {
+              const left = eqTableRows[i * 2];
+              const right = eqTableRows[i * 2 + 1];
+              return (
+                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
+                  <td style={td}>{left?.name || ""}</td>
+                  <td style={tdC}>{left?.spec || ""}</td>
+                  <td style={tdC}>{left?.prev || "-"}</td>
+                  <td style={tdC}>{left?.today || "-"}</td>
+                  <td style={tdC}>{left?.total || "-"}</td>
+                  <td style={td}>{right?.name || ""}</td>
+                  <td style={tdC}>{right?.spec || ""}</td>
+                  <td style={tdC}>{right?.prev || "-"}</td>
+                  <td style={tdC}>{right?.today || "-"}</td>
+                  <td style={tdC}>{right?.total || "-"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* 특이사항 / 이슈 */}
+        <div style={secTitle}>특이사항 및 이슈</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
+          <tbody>
+            <tr>
+              <td style={{ ...td, minHeight: 60, verticalAlign: "top" }}>
+                {(issues || []).filter(i => i.status !== "closed").length === 0
+                  ? <span style={{ color: "#9CA3AF" }}>특이사항 없음</span>
+                  : (issues || []).filter(i => i.status !== "closed").map((issue, i) => (
+                    <div key={i} style={{ marginBottom: 4 }}>
+                      {i + 1}. [{issue.severity}] {issue.title}
+                      {issue.delay_days > 0 ? ` — 공기 +${issue.delay_days}일 영향` : ""}
+                    </div>
+                  ))
+                }
+                {weather?.precipitation > 0 && (
+                  <div style={{ color: "#EF4444", fontWeight: 600, marginTop: 4 }}>
+                    ⚠️ 강수 {weather.precipitation}mm 감지 — 외벽 작업 중단 검토 요망
+                  </div>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 서명란 */}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <tbody>
+            <tr>
+              <td style={{ ...th, textAlign: "center", width: "25%", height: 48 }}>작 성</td>
+              <td style={{ ...th, textAlign: "center", width: "25%" }}>검 토</td>
+              <td style={{ ...th, textAlign: "center", width: "25%" }}>현장소장</td>
+              <td style={{ ...th, textAlign: "center", width: "25%" }}>발 주 처</td>
+            </tr>
+            <tr>
+              <td style={{ ...td, height: 48 }}></td>
+              <td style={td}></td>
+              <td style={td}></td>
+              <td style={td}></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#9CA3AF" }}>
+          본 공사일지는 S-PMIS Collab에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function GanttPanel({ activities, progressReports, milestones, onRegister, onReport, onDailyReport }) {
   const [open, setOpen] = useState(null);
 
   const exportToP6Excel = () => {
@@ -970,6 +1307,7 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>공정 현황</div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📋 공사일지</button>
           <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📄 주간보고서</button>
           <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>
           <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
@@ -1282,36 +1620,41 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 // WeeklyReport 포함 나머지 코드는 그대로 유지하세요.
 // ─────────────────────────────────────────────────────────────────────
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
-  // ✅ 추가: AI 멀티턴 대화 히스토리
+  const [pendingEquipment, setPendingEquipment] = useState(null);
   const [conversationHistory, setConversationHistory] = useState([]);
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
 
-  // ✅ 변경: 질문형 칩으로 교체
   const CHIPS = ["이번 주 공정 어때?", "오늘 뭐 했어?", "지연 있어?"];
 
-  // ✅ 변경: conversationHistory를 누적해서 Claude API에 넘기는 진짜 멀티턴
   const callAI = async (userMsg, history) => {
-    const systemPrompt = `한국 건설 현장 AI 어시스턴트야. 현장 반장과 대화하며 작업 보고를 파싱해.
-공정 목록: ${activities.map(a => `ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} | 완료 ${a.done_qty}${a.unit}`).join(" / ")}
-
+    const systemPrompt = `너는 건설현장 AI 어시스턴트야. 현장 반장들이랑 친근하게 대화해.
+오늘 날짜: ${new Date().toLocaleDateString("ko-KR")}
+현장명: 스카이라인 플라자 리모델링 공사
 현재 날씨 (서울): ${weather ? `${weather.temp}°C, ${weather.text}, 습도 ${weather.humidity}%, 강수 ${weather.precipitation}mm, 풍속 ${weather.wind}m/s` : "정보 없음"}
-보고 파싱이 가능하면 반드시 JSON으로 응답해:
-{"matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수,없으면0>,"delay_reason":"<지연원인,없으면빈문자열>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>}
 
-보고 내용이 불충분하면 needs_clarification:true로 하고 ai_message로 부족한 정보를 자연스럽게 물어봐.
-일반 질문(공정 현황, 날씨 영향 등)은 JSON 없이 자연스럽게 한국어로 답변해.
-답변은 항상 2~3문장 이내로 짧게 해. JSON 응답도 불필요한 설명 없이 바로 출력해.`;
+현재 공정 현황:
+${activities.map(a => `- ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} 중 ${a.done_qty}${a.unit} 완료 (${a.phys}%)`).join("\n")}
 
-    const messages = [
-      ...history,
-      { role: "user", content: userMsg }
-    ];
+입력 유형을 판단해서 아래 중 하나로 응답해:
 
+1. 작업 보고 (공정 진척 보고)
+JSON: {"type":"work_report","matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>}
+
+2. 장비 투입 보고
+JSON: {"type":"equipment_deploy","equipment_name":"<장비명>","unit_count":<대수>,"activity_id":<공종ID|null>,"note":"<비고>","ai_message":"<응답>","needs_clarification":<true|false>}
+
+3. 일반 대화
+JSON 없이 자연스럽게 한국어로만 답해.
+
+중요: 이전 대화 내용을 반드시 기억하고 문맥에 맞게 답해.
+답변은 2~3문장 이내로 짧게. 절대 bullet point나 마크다운 쓰지 마.`;
+
+    const messages = [...history, { role: "user", content: userMsg }];
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -1320,12 +1663,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 400,
-        system: systemPrompt,
-        messages
-      })
+      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 400, system: systemPrompt, messages })
     });
     const data = await r.json();
     return data.content[0].text;
@@ -1335,55 +1673,61 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
     const msg = input.trim();
     if (!msg || loading) return;
     setInput("");
-
     const uid = Date.now();
     setChatMessages(p => [...p,
     { id: uid, role: "user", content: msg },
     { id: uid + 1, role: "loading", content: "AI 분석 중..." }
     ]);
     setLoading(true);
-
-    // ✅ 히스토리에 유저 메시지 추가
     const newHistory = [...conversationHistory, { role: "user", content: msg }];
-
     try {
       const rawResponse = await callAI(msg, conversationHistory);
-
-      // ✅ 히스토리에 AI 응답 추가 (누적)
       setConversationHistory([...newHistory, { role: "assistant", content: rawResponse }]);
-
       setChatMessages(p => p.filter(m => m.id !== uid + 1));
-
-      // JSON 파싱 시도
       const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           const res = JSON.parse(jsonMatch[0]);
-          const matched = res.matched_activity_id
-            ? activities.find(a => a.id === res.matched_activity_id)
-            : null;
-
-          setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
-
-          if (!res.needs_clarification && matched) {
-            setPendingReport({
-              activity: matched,
-              new_done_qty: res.new_done_qty || matched.done_qty,
-              workers: res.workers,
-              special_note: res.special_note,
-              delay_days: res.delay_days || 0,
-              delay_reason: res.delay_reason || "",
-              summary: res.summary,
-              raw: msg,
-              sent: false
-            });
+          if (res.type === "work_report") {
+            const matched = res.matched_activity_id ? activities.find(a => a.id === res.matched_activity_id) : null;
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            if (!res.needs_clarification && matched) {
+              setPendingReport({
+                activity: matched,
+                new_done_qty: res.new_done_qty || matched.done_qty,
+                workers: res.workers,
+                special_note: res.special_note,
+                delay_days: res.delay_days || 0,
+                delay_reason: res.delay_reason || "",
+                summary: res.summary,
+                raw: msg,
+                sent: false
+              });
+            }
+          } else if (res.type === "equipment_deploy") {
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            if (!res.needs_clarification) {
+              const matchedEq = siteEquipment?.find(e =>
+                e.name.includes(res.equipment_name) || res.equipment_name?.includes(e.name)
+              );
+              const matchedAct = res.activity_id ? activities.find(a => a.id === res.activity_id) : null;
+              setPendingEquipment({
+                equipment: matchedEq || null,
+                equipment_name: res.equipment_name,
+                unit_count: res.unit_count || 1,
+                activity: matchedAct,
+                note: res.note || "",
+                raw: msg,
+                sent: false
+              });
+            }
+          } else {
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
           }
         } catch {
-          // JSON 파싱 실패 → 일반 텍스트로
           setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
         }
       } else {
-        // JSON 없음 → 일반 대화 응답
         setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
       }
     } catch {
@@ -1394,11 +1738,11 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
     setLoading(false);
   };
 
-  // ✅ 추가: 대화 초기화
   const handleReset = () => {
     setChatMessages([{ id: 0, role: "system", content: "안녕하세요 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
     setConversationHistory([]);
     setPendingReport(null);
+    setPendingEquipment(null);
   };
 
   const handleSendReport = async () => {
@@ -1424,9 +1768,23 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
       setProgressReports(p => [...p, saved]);
       setPendingReport(p => ({ ...p, sent: true }));
       setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 관리자에게 전달되었습니다" }]);
-    } catch (err) {
-      alert("전송 실패: " + err.message);
-    }
+    } catch (err) { alert("전송 실패: " + err.message); }
+  };
+
+  const handleSendEquipment = async () => {
+    if (!pendingEquipment || pendingEquipment.sent) return;
+    try {
+      await sb.post("equipment_logs", {
+        equipment_id: pendingEquipment.equipment?.id || null,
+        activity_id: pendingEquipment.activity?.id || null,
+        unit_number: pendingEquipment.unit_count,
+        status: "active",
+        started_at: new Date().toISOString(),
+        note: pendingEquipment.note,
+      });
+      setPendingEquipment(p => ({ ...p, sent: true }));
+      setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 장비 투입이 기록되었습니다" }]);
+    } catch (err) { alert("전송 실패: " + err.message); }
   };
 
   return (
@@ -1457,7 +1815,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
       <div style={{ flex: 1, overflow: "hidden" }}>
         {tab === "report" ? (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            {/* 스크롤 가능한 메시지 영역 */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ background: NAVY, borderRadius: 14, padding: "14px 16px" }}>
                 <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 8, fontWeight: 600 }}>📅 오늘 목표 현황</div>
@@ -1510,6 +1867,34 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
                     : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 전송 완료</div>}
                 </div>
               )}
+
+              {pendingEquipment && (
+                <div style={{ background: "#fff", border: `2px solid #10B981`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, fontWeight: 600 }}>🚜 AI 장비 투입 파싱 결과</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 8 }}>
+                    {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
+                  </div>
+                  <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+                      장비: {pendingEquipment.equipment ? `✅ ${pendingEquipment.equipment.name} (등록된 장비)` : "⚠️ 미등록 장비"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
+                      공종: {pendingEquipment.activity ? `✅ ${pendingEquipment.activity.name}` : "⚠️ 공종 미지정"}
+                    </div>
+                    {pendingEquipment.note && (
+                      <div style={{ fontSize: 12, color: "#6B7280" }}>비고: {pendingEquipment.note}</div>
+                    )}
+                  </div>
+                  {!pendingEquipment.sent
+                    ? <button onClick={handleSendEquipment}
+                      style={{ width: "100%", background: "#10B981", color: "#fff", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                      ✅ 장비 투입 기록
+                    </button>
+                    : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 기록 완료</div>
+                  }
+                </div>
+              )}
+
               <div ref={reportBottom} />
             </div>
 
@@ -1519,7 +1904,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
                 {CHIPS.map((c, i) => (
                   <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer" }}>{c}</button>
                 ))}
-                {/* ✅ 추가: 대화 초기화 버튼 */}
                 <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 20, padding: "5px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", marginLeft: "auto" }}>🔄 초기화</button>
               </div>
               <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
@@ -1537,7 +1921,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
     </div>
   );
 }
-
 // ── Desktop View ──────────────────────────────────────────────────────
 const SIDEBAR_ITEMS = [
   { id: "dashboard", label: "📊 대시보드" },
@@ -1999,9 +2382,7 @@ function LiftingReport({ reservations, equipment }) {
 }
 
 
-function EquipmentManager({ activities }) {
-  const [equipment, setEquipment] = useState([]);
-  const [logs, setLogs] = useState([]);
+function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }) {
   const [showForm, setShowForm] = useState(false);
   const [showLogForm, setShowLogForm] = useState(false);
   const [selectedEq, setSelectedEq] = useState(null);
@@ -2011,17 +2392,6 @@ function EquipmentManager({ activities }) {
 
   const EQUIPMENT_TYPES = ["굴삭기", "덤프트럭", "크레인", "펌프카", "불도저", "지게차", "롤러", "믹서트럭", "기타"];
 
-  useEffect(() => {
-    const load = async () => {
-      const [eq, lg] = await Promise.all([
-        sb.get("site_equipment"),
-        sb.get("equipment_logs", "status=eq.active")
-      ]);
-      setEquipment(eq || []);
-      setLogs(lg || []);
-    };
-    load();
-  }, []);
 
   const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const setLF = (k, v) => setLogForm(p => ({ ...p, [k]: v }));
@@ -2863,11 +3233,11 @@ function LiftingManager({ user, weather, sendPush }) {
     </div>
   );
 }
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, calendarDates, setCalendarDates, sendPush }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, sendPush }) {  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showDailyReport, setShowDailyReport] = useState(false);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -2885,6 +3255,17 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
       {showModal && <ActivityFormModal onClose={() => setShowModal(false)} onSave={act => { setActivities(p => [...p, act]); setShowModal(false); setToast(`✅ "${act.name}" 공정 등록 완료`); }} activities={activities} existingGroups={existingGroups} />}
       {showReport && <WeeklyReport activities={activities} issues={issues} progressReports={progressReports} onClose={() => setShowReport(false)} />}
+      {showDailyReport && (
+        <DailyReport
+          activities={activities}
+          progressReports={progressReports}
+          issues={issues}
+          equipment={siteEquipment}
+          equipmentLogs={equipmentLogs}
+          weather={weather}
+          onClose={() => setShowDailyReport(false)}
+        />
+      )}
 
       {isMobileScreen && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998 }} />
@@ -2934,7 +3315,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         )}
         <div style={{ flex: 1, overflow: "hidden" }}>
           {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} />}
-          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} />}
+          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} />}
           {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
           {activeMenu === "chat" && (
             activeRoom
@@ -2942,8 +3323,14 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
-          {activeMenu === "equipment" && <EquipmentManager activities={activities} />}
-          {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
+          {activeMenu === "equipment" && (
+            <EquipmentManager
+              activities={activities}
+              equipment={siteEquipment}
+              setEquipment={setSiteEquipment}
+              logs={equipmentLogs}
+              setLogs={setEquipmentLogs}
+            />)}        {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} />}
         </div>
@@ -2954,6 +3341,8 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
+  const [siteEquipment, setSiteEquipment] = useState([]);
+  const [equipmentLogs, setEquipmentLogs] = useState([]);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
@@ -3064,10 +3453,14 @@ export default function App() {
     const fetchWeather = async () => {
       try {
         const r = await fetch(
-          "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&timezone=Asia%2FSeoul"
+          "https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780" +
+          "&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code" +
+          "&daily=temperature_2m_max,temperature_2m_min" +
+          "&timezone=Asia%2FSeoul"
         );
         const d = await r.json();
         const c = d.current;
+        const daily = d.daily;
         const codeToDesc = (code) => {
           if (code === 0) return { text: "맑음", icon: "☀️" };
           if (code <= 3) return { text: "구름 조금", icon: "⛅" };
@@ -3080,12 +3473,14 @@ export default function App() {
         const desc = codeToDesc(c.weather_code);
         setWeather({
           temp: Math.round(c.temperature_2m),
+          temp_max: Math.round(daily.temperature_2m_max[0]),
+          temp_min: Math.round(daily.temperature_2m_min[0]),
           humidity: c.relative_humidity_2m,
           precipitation: c.precipitation,
           wind: Math.round(c.wind_speed_10m),
           ...desc,
         });
-      } catch { /* 날씨 실패해도 앱은 정상 동작 */ }
+      } catch { }
     };
     fetchWeather();
   }, []);
@@ -3126,9 +3521,13 @@ export default function App() {
       sb.get("progress_reports"),
       sb.get("issues"),
       sb.get("milestones"),
+      sb.get("site_equipment"),
+      sb.get("equipment_logs", "status=eq.active"),
       supabase.from("rooms").select("*").order("id", { ascending: true }),
       supabase.from("profiles").select("*"),
-    ]).then(([acts, reports, iss, ms, { data: roomData }, { data: profileData }]) => {
+    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, { data: roomData }, { data: profileData }]) => {
+      setSiteEquipment(siteEq || []);
+      setEquipmentLogs(eqLogs || []);
       setActivities((acts || []).map(calcAct));
       setProgressReports(reports || []);
       setIssues((iss || []).reverse());
@@ -3178,8 +3577,9 @@ export default function App() {
         </div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} />}
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} />
+        : <DesktopView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} />
+      }
     </div>
   );
 }
