@@ -2207,16 +2207,15 @@ JSON 없이 자연스럽게 한국어로만 답해.
   );
 }
 // ── Desktop View ──────────────────────────────────────────────────────
-const ALL_SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
-  { id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
-  { id: "3w", label: "📅 3주 공정표", tiers: ["macro", "meso"] },
-  { id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
-  { id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
-  { id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
-  { id: "lifting", label: "🏗 양중 관리", tiers: ["macro", "meso"] },
-  { id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
-  { id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
+const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
+{ id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
+{ id: "3w", label: "📅 3주 공정표", tiers: ["macro", "meso"] },
+{ id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
+{ id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
+{ id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
+{ id: "lifting", label: "🏗 양중 관리", tiers: ["macro", "meso"] },
+{ id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
+{ id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
 ];
 function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -3597,8 +3596,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {isMobileScreen && (
           <div style={{ padding: "12px 16px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <button onClick={() => setSidebarOpen(true)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: NAVY }}>☰</button>
-            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>
-          </div>
+            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{ALL_SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>          </div>
         )}
         <div style={{ flex: 1, overflow: "hidden" }}>
           {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} />}
