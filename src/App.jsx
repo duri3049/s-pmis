@@ -15,7 +15,11 @@ const supabase = createClient(SB_URL, SB_KEY, {
   auth: { persistSession: true, storageKey: "spmis-auth" }
 });
 const ROLES = ["공무과장", "현장소장", "안전관리자", "협력사 반장", "기사", "대리", "기타"];
-
+const getTier = (role) => {
+  if (["현장소장", "공무과장"].includes(role)) return "macro";
+  if (["기사", "대리", "안전관리자"].includes(role)) return "meso";
+  return "micro"; // 협력사 반장, 기타
+};
 const sb = {
   async get(table, params = "") {
     const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}&order=id.asc${params ? "&" + params : ""}`;
@@ -663,8 +667,8 @@ function Dashboard({ activities, progressReports, issues, weather }) {
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>최근 이슈</div>
           {(issues || []).length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
-          
-          
+
+
           {(issues || []).slice(0, 4).map(issue => (
             <div key={issue.id} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
@@ -817,7 +821,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
   });
   const thisWeekDone = activities.filter(a => a.af && new Date(a.af) >= weekAgo && new Date(a.af) <= reportDate);
   const nextWeekPlan = activities.filter(a => a.phys < 100 && new Date(a.ps) <= nextWeek && new Date(a.pf) >= reportDate);
-  const openIssues = (issues || []).filter(i => i.status !== "closed");  return (
+  const openIssues = (issues || []).filter(i => i.status !== "closed"); return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #wr-content, #wr-content * { visibility: visible; } #wr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
@@ -1478,7 +1482,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   useEffect(() => {
     if (!form.activity_id || form.delay_days <= 0) { setAffectedPreview([]); return; }
-    const affected = []; const findSuccessors = (id) => { activities.forEach(a => { const preds = a.predecessors || []; if (preds.find(p => p.id === Number(id))) { affected.push(a); findSuccessors(a.id); } }); }; findSuccessors(form.activity_id);
+    const affected = []; const findSuccessors = (id) => { (activities || []).forEach(a => { const preds = a.predecessors || []; if (preds.find(p => p.id === Number(id))) { affected.push(a); findSuccessors(a.id); } }); }; findSuccessors(form.activity_id);
     setAffectedPreview([...new Map(affected.map(a => [a.id, a])).values()]);
   }, [form.activity_id, form.delay_days]);
   const handleSave = async () => {
@@ -1505,7 +1509,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
         <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div style={{ gridColumn: "1/-1" }}><label style={ls}>이슈 제목 *</label><input value={form.title} onChange={e => set("title", e.target.value)} style={is} /></div>
-            <div><label style={ls}>연결 공정 *</label><select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={is}><option value="">선택하세요</option>{activities.filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <div><label style={ls}>연결 공정 *</label><select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={is}><option value="">선택하세요</option>{(activities || []).filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
             <div><label style={ls}>이슈 유형</label><select value={form.issue_type} onChange={e => set("issue_type", e.target.value)} style={is}>{ISSUE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
             <div><label style={ls}>심각도</label><select value={form.severity} onChange={e => set("severity", e.target.value)} style={is}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select></div>
             <div><label style={ls}>공기 지연일수</label><input type="number" value={form.delay_days} onChange={e => set("delay_days", e.target.value)} min={0} style={is} /></div>
@@ -1519,7 +1523,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
           </div>
         </div>
       )}
-      {issues.map(issue => {
+      {(issues || []).map(issue => {
         const act = activities.find(a => a.id === issue.activity_id);
         return (
           <div key={issue.id} style={{ background: "#fff", border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
@@ -1620,8 +1624,251 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 // WeeklyReport 포함 나머지 코드는 그대로 유지하세요.
 // ─────────────────────────────────────────────────────────────────────
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment }) {
-  const [input, setInput] = useState("");
+function MobileHome({ user, activities, issues, weather }) {
+  const tier = getTier(user.role);
+  const todayStr = dayStr(TODAY);
+
+  // 공통 데이터
+  const inProgress = activities.filter(a => a.as_ && a.phys < 100);
+  const todayActs = activities.filter(a => a.ps <= todayStr && a.pf >= todayStr && a.phys < 100);
+  const openIssues = (issues || []).filter(i => i.status !== "closed");
+  const criticals = activities.filter(a => a.critical && a.phys < 100);
+
+  // Micro 전용 — 협력사 반장 본인 공종만
+  const myActs = activities.filter(a =>
+    a.phys < 100 && a.ps <= todayStr && a.pf >= todayStr
+  );
+
+  const weatherWarnings = [];
+  if (weather) {
+    if (weather.precipitation > 0) weatherWarnings.push({ text: "강수 감지 — 외벽·방수 작업 중단 검토", level: "high" });
+    if (weather.temp <= 5) weatherWarnings.push({ text: "저온 주의 — 콘크리트 양생 품질 저하 위험", level: "mid" });
+    if (weather.wind >= 10) weatherWarnings.push({ text: "강풍 주의 — 고소 작업 위험", level: "high" });
+  }
+
+  const cardStyle = { background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" };
+  const secTitle = { fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 10 };
+
+  // ── MACRO 뷰 ─────────────────────────────────────────
+  if (tier === "macro") {
+    const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
+    const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
+    const totalEV = activities.reduce((s, a) => s + a.ev, 0);
+    const totalPV = activities.reduce((s, a) => s + a.pv, 0);
+    const totalAC = activities.reduce((s, a) => s + a.ac, 0);
+    const gCPI = totalAC > 0 ? totalEV / totalAC : 1;
+    const gSPI = totalPV > 0 ? totalEV / totalPV : 1;
+
+    return (
+      <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+        {/* 날씨 */}
+        {weather && (
+          <div style={{ ...cardStyle, background: NAVY }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 32 }}>{weather.icon}</span>
+              <div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#fff" }}>{weather.temp}°C</div>
+                <div style={{ fontSize: 11, color: "#9CA3AF" }}>{weather.text} · 최고 {weather.temp_max}°C / 최저 {weather.temp_min}°C</div>
+              </div>
+            </div>
+            {weatherWarnings.map((w, i) => (
+              <div key={i} style={{ background: "rgba(239,68,68,0.15)", borderRadius: 8, padding: "6px 10px", marginTop: 8, fontSize: 12, color: "#FCA5A5" }}>⚠️ {w.text}</div>
+            ))}
+          </div>
+        )}
+
+        {/* 전체 공정률 */}
+        <div style={cardStyle}>
+          <div style={secTitle}>📊 전체 공정 현황</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>공정률</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: NAVY }}>{totalPhys}%</div>
+            </div>
+            <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>CPI</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: cpiColor(gCPI) }}>{gCPI.toFixed(2)}</div>
+            </div>
+            <div style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>SPI</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: cpiColor(gSPI) }}>{gSPI.toFixed(2)}</div>
+            </div>
+          </div>
+          <div style={{ background: "#E5E7EB", borderRadius: 6, height: 14, overflow: "hidden" }}>
+            <div style={{ width: `${totalPhys}%`, height: "100%", background: YELLOW, borderRadius: 6, transition: "width 0.8s" }} />
+          </div>
+        </div>
+
+        {/* Critical Path */}
+        {criticals.length > 0 && (
+          <div style={{ ...cardStyle, border: "1.5px solid #FECACA" }}>
+            <div style={{ ...secTitle, color: "#EF4444" }}>🚨 Critical Path ({criticals.length}건)</div>
+            {criticals.map(a => (
+              <div key={a.id} style={{ background: "#FEF2F2", borderRadius: 8, padding: "8px 12px", marginBottom: 6 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>{a.name}</div>
+                <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>
+                  완료 {a.pf} · 잔여 {a.rem_dur}일
+                  {a.delay_days > 0 && <span style={{ color: "#EF4444", fontWeight: 700 }}> · +{a.delay_days}일 지연</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 오픈 이슈 */}
+        {openIssues.length > 0 && (
+          <div style={cardStyle}>
+            <div style={secTitle}>⚠️ 오픈 이슈 ({openIssues.length}건)</div>
+            {openIssues.slice(0, 3).map(issue => (
+              <div key={issue.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid #F3F4F6" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), flexShrink: 0, display: "inline-block" }} />
+                <span style={{ fontSize: 13, color: NAVY, flex: 1 }}>{issue.title}</span>
+                <Badge label={issue.severity} bg={sevColor(issue.severity) + "22"} color={sevColor(issue.severity)} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── MESO 뷰 ─────────────────────────────────────────
+  if (tier === "meso") {
+    return (
+      <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+        {/* 날씨 간략 */}
+        {weather && (
+          <div style={{ ...cardStyle, background: NAVY, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 28 }}>{weather.icon}</span>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{weather.temp}°C</div>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>{weather.text} · 최고 {weather.temp_max}°C / 최저 {weather.temp_min}°C</div>
+            </div>
+            {weatherWarnings.length > 0 && (
+              <div style={{ marginLeft: "auto", background: "rgba(239,68,68,0.2)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#FCA5A5" }}>
+                ⚠️ {weatherWarnings.length}건 경고
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 진행 중 공종 */}
+        <div style={cardStyle}>
+          <div style={secTitle}>📋 진행 중 공종 ({inProgress.length}건)</div>
+          {inProgress.length === 0
+            ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>진행 중인 공종 없음</div>
+            : inProgress.map(a => (
+              <div key={a.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>{a.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: statusColor(a.status) }}>{pct(a.phys)}</span>
+                </div>
+                <div style={{ background: "#E5E7EB", borderRadius: 4, height: 8, overflow: "hidden" }}>
+                  <div style={{ width: `${a.phys}%`, height: "100%", background: statusColor(a.status), borderRadius: 4 }} />
+                </div>
+                <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 3 }}>
+                  {a.subcon} · 완료 {a.pf} · 잔여 {a.rem_dur}일
+                  {a.delay_days > 0 && <span style={{ color: "#EF4444", fontWeight: 700 }}> · +{a.delay_days}일 지연</span>}
+                </div>
+              </div>
+            ))
+          }
+        </div>
+
+        {/* 이슈 */}
+        {openIssues.length > 0 && (
+          <div style={cardStyle}>
+            <div style={secTitle}>⚠️ 이슈 ({openIssues.length}건)</div>
+            {openIssues.slice(0, 3).map(issue => (
+              <div key={issue.id} style={{ padding: "7px 0", borderBottom: "1px solid #F3F4F6" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{issue.title}</span>
+                </div>
+                {issue.action_plan && <div style={{ fontSize: 11, color: "#6B7280", marginTop: 3, paddingLeft: 16 }}>조치: {issue.action_plan}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── MICRO 뷰 ─────────────────────────────────────────
+  return (
+    <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+      {/* 인사 */}
+      <div style={{ ...cardStyle, background: NAVY }}>
+        <div style={{ fontWeight: 700, fontSize: 16, color: "#fff", marginBottom: 4 }}>
+          안녕하세요, {user.name}님 👋
+        </div>
+        <div style={{ fontSize: 12, color: "#9CA3AF" }}>{user.role}</div>
+        {weather && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <span style={{ fontSize: 20 }}>{weather.icon}</span>
+            <span style={{ fontSize: 13, color: "#D1D5DB" }}>{weather.temp}°C · {weather.text}</span>
+            {weatherWarnings.length > 0 && (
+              <span style={{ background: "rgba(239,68,68,0.2)", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#FCA5A5" }}>⚠️ 기상 주의</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 오늘 내 작업 */}
+      <div style={cardStyle}>
+        <div style={secTitle}>🔨 오늘 내 작업 ({myActs.length}건)</div>
+        {myActs.length === 0
+          ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>오늘 예정된 작업 없음</div>
+          : myActs.map(a => {
+            const { daily_target, rem_days } = calcTodayTarget(a);
+            return (
+              <div key={a.id} style={{ background: "#F9FAFB", borderRadius: 10, padding: "12px 14px", marginBottom: 8, borderLeft: `3px solid ${a.critical ? "#EF4444" : YELLOW}` }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 6 }}>{a.name}</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: "#9CA3AF" }}>오늘 목표</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: YELLOW }}>{daily_target}<span style={{ fontSize: 11 }}> {a.unit}</span></div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: "#9CA3AF" }}>잔여 물량</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>{a.plan_qty - a.done_qty}<span style={{ fontSize: 11 }}> {a.unit}</span></div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, color: "#9CA3AF" }}>잔여 일수</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: rem_days <= 3 ? "#EF4444" : NAVY }}>{rem_days}<span style={{ fontSize: 11 }}> 일</span></div>
+                  </div>
+                </div>
+                <div style={{ background: "#E5E7EB", borderRadius: 4, height: 8, overflow: "hidden" }}>
+                  <div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : YELLOW, borderRadius: 4 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9CA3AF", marginTop: 3 }}>
+                  <span>진척 {a.phys}%</span>
+                  <span>{a.subcon}</span>
+                </div>
+              </div>
+            );
+          })
+        }
+      </div>
+
+      {/* 기상 경고 */}
+      {weatherWarnings.length > 0 && (
+        <div style={{ ...cardStyle, border: "1.5px solid #FECACA" }}>
+          <div style={{ ...secTitle, color: "#EF4444" }}>⚠️ 오늘 기상 주의사항</div>
+          {weatherWarnings.map((w, i) => (
+            <div key={i} style={{ background: "#FEF2F2", borderRadius: 8, padding: "8px 12px", marginBottom: 6, fontSize: 13, color: "#991B1B" }}>
+              {w.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues }) {  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingEquipment, setPendingEquipment] = useState(null);
@@ -1806,14 +2053,15 @@ JSON 없이 자연스럽게 한국어로만 답해.
 
       {/* 탭 */}
       <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
-        {[{ id: "report", label: "📋 작업 보고" }, { id: "chat", label: "💬 채팅" }].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "11px 0", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 400, fontSize: 14, color: tab === t.id ? NAVY : "#6B7280", borderBottom: tab === t.id ? `2px solid ${YELLOW}` : "2px solid transparent", cursor: "pointer" }}>{t.label}</button>
+        {[{ id: "home", label: "🏠 홈" }, { id: "report", label: "📋 작업 보고" }, { id: "chat", label: "💬 채팅" }].map(t => (<button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "11px 0", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 400, fontSize: 14, color: tab === t.id ? NAVY : "#6B7280", borderBottom: tab === t.id ? `2px solid ${YELLOW}` : "2px solid transparent", cursor: "pointer" }}>{t.label}</button>
         ))}
       </div>
 
       {/* 콘텐츠 영역 */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        {tab === "report" ? (
+        {tab === "home" ? (
+          <MobileHome user={user} activities={activities} issues={issues} weather={weather} />
+        ) : tab === "report" ? (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ background: NAVY, borderRadius: 14, padding: "14px 16px" }}>
@@ -1922,15 +2170,16 @@ JSON 없이 자연스럽게 한국어로만 답해.
   );
 }
 // ── Desktop View ──────────────────────────────────────────────────────
-const SIDEBAR_ITEMS = [
-  { id: "dashboard", label: "📊 대시보드" },
-  { id: "gantt", label: "📋 공정 현황" },
-  { id: "3w", label: "📅 3주 공정표" },
-  { id: "equipment", label: "🚜 장비 현황" },
-  { id: "chat", label: "💬 채팅" }, { id: "calendar", label: "🗓 캘린더 관리" },
-  { id: "lifting", label: "🏗 양중 관리" },
-  { id: "issues", label: "⚠️ 이슈 트래커" },
-  { id: "approval", label: "✅ 결재 라인" },
+const ALL_SIDEBAR_ITEMS = [
+  { id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
+  { id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
+  { id: "3w", label: "📅 3주 공정표", tiers: ["macro", "meso"] },
+  { id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
+  { id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
+  { id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
+  { id: "lifting", label: "🏗 양중 관리", tiers: ["macro", "meso"] },
+  { id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
+  { id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
 ];
 function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -3233,7 +3482,8 @@ function LiftingManager({ user, weather, sendPush }) {
     </div>
   );
 }
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, sendPush }) {  const [sidebarOpen, setSidebarOpen] = useState(false);
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, sendPush }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -3285,7 +3535,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {isMobileScreen && <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 20 }}>✕</button>}
         </div>
         <div style={{ padding: "14px 12px", flex: 1 }}>
-          {SIDEBAR_ITEMS.map(item => {
+          {ALL_SIDEBAR_ITEMS.filter(item => item.tiers.includes(getTier(user.role))).map(item => {
             const isActive = activeMenu === item.id;
             const badge = item.id === "approval" ? pendingCount : item.id === "issues" ? openIssueCount : 0;
             return (
@@ -3577,7 +3827,7 @@ export default function App() {
         </div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} />
         : <DesktopView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} />
       }
     </div>
