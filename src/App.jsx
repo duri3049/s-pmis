@@ -712,97 +712,81 @@ function Dashboard({ activities, progressReports, issues, weather, project }) {
         <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" />
         <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" />
       </div>
-      {sCurveData.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>📈 S커브 (공정률 추이)</div>
-            <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 24, height: 3, background: "#3B82F6", borderRadius: 2 }} />
-                <span style={{ fontSize: 12, color: "#6B7280" }}>계획</span>
+      {sCurveData.length > 0 && (() => {
+        const W = 800, H = 120, PAD = { top: 8, right: 16, bottom: 26, left: 36 };
+        const innerW = W - PAD.left - PAD.right;
+        const innerH = H - PAD.top - PAD.bottom;
+        const n = sCurveData.length;
+        const xStep = innerW / Math.max(n - 1, 1);
+        const toX = i => PAD.left + i * xStep;
+        const toY = v => PAD.top + innerH - (v / 100) * innerH;
+        const planPath = sCurveData.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.plan)}`).join(" ");
+        const actualPath = sCurveData
+          .map((d, i) => d.actual > 0 ? `${i === 0 || sCurveData[i - 1]?.actual === 0 ? "M" : "L"}${toX(i)},${toY(d.actual)}` : null)
+          .filter(Boolean).join(" ");
+        const todayIdx = sCurveData.findIndex(d => d.isToday);
+        const todayData = sCurveData.find(d => d.isToday);
+        const dev = todayData ? todayData.actual - todayData.plan : 0;
+        return (
+          <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
+            {/* 상단: 제목 + 수치 뱃지 + 범례 */}
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: NAVY, marginRight: 8 }}>📈 S커브</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+                <span style={{ fontSize: 11, color: "#9CA3AF" }}>계획</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: "#3B82F6" }}>{todayData?.plan ?? 0}%</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 24, height: 3, background: YELLOW, borderRadius: 2 }} />
-                <span style={{ fontSize: 12, color: "#6B7280" }}>실적</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+                <span style={{ fontSize: 11, color: "#9CA3AF" }}>실적</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: YELLOW }}>{todayData?.actual ?? 0}%</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+                <span style={{ fontSize: 11, color: "#9CA3AF" }}>편차</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: dev >= 0 ? "#10B981" : "#EF4444" }}>{dev >= 0 ? "+" : ""}{dev}%</span>
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 18, height: 2, background: "#3B82F6", borderRadius: 2 }} />
+                  <span style={{ fontSize: 11, color: "#6B7280" }}>계획</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 18, height: 2, background: YELLOW, borderRadius: 2 }} />
+                  <span style={{ fontSize: 11, color: "#6B7280" }}>실적</span>
+                </div>
               </div>
             </div>
+            {/* 그래프 */}
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
+              {[0, 25, 50, 75, 100].map(v => (
+                <g key={v}>
+                  <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)} stroke="#F3F4F6" strokeWidth="1" />
+                  <text x={PAD.left - 4} y={toY(v) + 4} textAnchor="end" fontSize="9" fill="#9CA3AF">{v}%</text>
+                </g>
+              ))}
+              {todayIdx >= 0 && (
+                <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom} stroke={YELLOW} strokeWidth="1.5" strokeDasharray="4,3" />
+              )}
+              <path d={planPath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round" />
+              <path d={actualPath} fill="none" stroke={YELLOW} strokeWidth="2.5" strokeLinejoin="round" />
+              {sCurveData.map((d, i) => d.actual > 0 && (
+                <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="2.5" fill={YELLOW} stroke="#fff" strokeWidth="1" />
+              ))}
+              {sCurveData.map((d, i) => {
+                const isYearStart = i === 0 || d.label === "1월";
+                const showLabel = i === 0 || i === n - 1 || d.isToday || isYearStart || (n <= 12 ? true : i % Math.ceil(n / 8) === 0);
+                return showLabel ? (
+                  <g key={i}>
+                    {isYearStart && (
+                      <text x={toX(i)} y={H - 14} textAnchor="middle" fontSize="10" fill={NAVY} fontWeight="700">{d.year}</text>
+                    )}
+                    <text x={toX(i)} y={H - 3} textAnchor="middle" fontSize="9" fill={d.isToday ? YELLOW : "#9CA3AF"} fontWeight={d.isToday ? "700" : "400"}>{d.label}</text>
+                  </g>
+                ) : null;
+              })}
+            </svg>
           </div>
-          {(() => {
-            const W = 800, H = 200, PAD = { top: 10, right: 20, bottom: 30, left: 40 };
-            const innerW = W - PAD.left - PAD.right;
-            const innerH = H - PAD.top - PAD.bottom;
-            const n = sCurveData.length;
-            const xStep = innerW / Math.max(n - 1, 1);
-            const toX = i => PAD.left + i * xStep;
-            const toY = v => PAD.top + innerH - (v / 100) * innerH;
-
-            const planPath = sCurveData.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.plan)}`).join(" ");
-            const actualPath = sCurveData
-              .filter((_, i) => sCurveData[i].actual > 0 || i === 0)
-              .map((d, i, arr) => {
-                const origIdx = sCurveData.indexOf(d);
-                return `${origIdx === 0 ? "M" : "L"}${toX(origIdx)},${toY(d.actual)}`;
-              }).join(" ");
-
-            const todayIdx = sCurveData.findIndex(d => d.isToday);
-
-            return (
-              <div style={{ overflowX: "auto" }}>
-                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: 400, height: "auto" }}>
-                  {/* 그리드 */}
-                  {[0, 25, 50, 75, 100].map(v => (
-                    <g key={v}>
-                      <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)}
-                        stroke="#F3F4F6" strokeWidth="1" />
-                      <text x={PAD.left - 6} y={toY(v) + 4} textAnchor="end"
-                        fontSize="10" fill="#9CA3AF">{v}%</text>
-                    </g>
-                  ))}
-
-                  {/* 오늘 수직선 */}
-                  {todayIdx >= 0 && (
-                    <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom}
-                      stroke={YELLOW} strokeWidth="1.5" strokeDasharray="4,3" />
-                  )}
-
-                  {/* 계획선 */}
-                  <path d={planPath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round" />
-
-                  {/* 실적선 */}
-                  <path d={actualPath} fill="none" stroke={YELLOW} strokeWidth="2.5" strokeLinejoin="round" />
-
-                  {/* 실적 점 */}
-                  {sCurveData.map((d, i) => d.actual > 0 && (
-                    <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="3"
-                      fill={YELLOW} stroke="#fff" strokeWidth="1.5" />
-                  ))}
-
-                  {sCurveData.map((d, i) => {
-                    const isYearStart = i === 0 || d.label === "1월";
-                    const showLabel = i === 0 || i === n - 1 || d.isToday || isYearStart ||
-                      (n <= 12 ? true : i % Math.ceil(n / 8) === 0);
-                    return showLabel ? (
-                      <g key={i}>
-                        {isYearStart && (
-                          <text x={toX(i)} y={H - 18} textAnchor="middle"
-                            fontSize="11" fill={NAVY} fontWeight="700">
-                            {d.year}
-                          </text>
-                        )}
-                        <text x={toX(i)} y={H - 6} textAnchor="middle"
-                          fontSize="10" fill={d.isToday ? YELLOW : "#9CA3AF"}
-                          fontWeight={d.isToday ? "700" : "400"}>
-                          {d.label}
-                        </text>
-                      </g>
-                    ) : null;
-                  })}
-                </svg>
-              </div>
-            );
-          })()}
-        </div>
-      )}
+        );
+      })()}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>협력사별 실적</div>
