@@ -6,6 +6,44 @@ const YELLOW = "#FFB800";
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 
+const downloadTemplate = () => {
+  const XLSX = window.XLSX;
+  const headers = [
+    "대분류",
+    "중분류(동/구역)",
+    "공종명",
+    "가중치(%)",
+    "시작년월(YYYY-MM)",
+    "완료년월(YYYY-MM)",
+    "시작층(선택)",
+    "완료층(선택)",
+    "비고"
+  ];
+  const examples = [
+    ["공통가설공사", "", "공통가설공사", "3.65", "2022-11", "2026-02", "", "", ""],
+    ["골조공사", "지하주차장", "지하주차장 골조", "3.0", "2023-07", "2024-01", "-3", "-1", ""],
+    ["골조공사", "101동", "101동 골조", "2.5", "2024-02", "2024-05", "2", "5", ""],
+    ["골조공사", "101동", "101동 골조", "2.5", "2024-05", "2024-08", "6", "10", ""],
+    ["골조공사", "102동", "102동 골조", "2.5", "2024-03", "2024-06", "2", "5", ""],
+    ["미장공사", "101동", "101동 미장", "1.5", "2024-08", "2024-11", "2", "5", ""],
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
+  ws["!cols"] = [
+    { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 12 },
+    { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }
+  ];
+  // 헤더 스타일
+  const headerStyle = { font: { bold: true }, fill: { fgColor: { rgb: "1A2332" } }, alignment: { horizontal: "center" } };
+  headers.forEach((_, i) => {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (ws[cell]) ws[cell].s = headerStyle;
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "공정표");
+  XLSX.writeFile(wb, "S-PMIS_공정표_템플릿.xlsx");
+};
+
+
 const SB_URL = "https://movvrcrbuokoahhiydtt.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vdnZyY3JidW9rb2FoaGl5ZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMDkxMjIsImV4cCI6MjA5NDg4NTEyMn0.zK_GlKCXhKxa-xd0HpxAGURMwzyXr6cbm7xi-rYZUVE";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY;
@@ -38,6 +76,14 @@ const sb = {
     const r = await fetch(url, { method: "PATCH", headers: { Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(body) });
     if (!r.ok) { const t = await r.text(); throw new Error(`PATCH ${table} ${r.status}: ${t}`); }
     return r.json();
+  },
+  async delete(table, id) {
+    console.log("DELETE 호출:", table, id);
+    const url = `${SB_URL}/rest/v1/${table}?apikey=${SB_KEY}&id=eq.${id}`;
+    const r = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${SB_KEY}` } });
+    console.log("DELETE 응답 상태:", r.status);
+    if (!r.ok) { const t = await r.text(); throw new Error(`DELETE ${table} ${r.status}: ${t}`); }
+    return true;
   },
 };
 
@@ -545,7 +591,7 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
   );
 }
 
-function Dashboard({ activities, progressReports, issues, weather }) {
+function Dashboard({ activities, progressReports, issues, weather, project }) {
   const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
   const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalEV = activities.reduce((s, a) => s + a.ev, 0);
@@ -571,7 +617,56 @@ function Dashboard({ activities, progressReports, issues, weather }) {
   const in7 = new Date(TODAY); in7.setDate(in7.getDate() + 7);
   const lookahead = activities.filter(a => a.phys < 100 && new Date(a.ps) <= in7 && new Date(a.pf) >= TODAY).sort((a, b) => new Date(a.ps) - new Date(b.ps));
   const criticals = activities.filter(a => a.critical && a.phys < 100);
+  // S커브 데이터 계산
+  const projectStart = project?.start_date ||
+    (activities.length > 0
+      ? activities.reduce((min, a) => a.ps < min ? a.ps : min, activities[0].ps)
+      : null);
+  const projectEnd = project?.end_date ||
+    (activities.length > 0
+      ? activities.reduce((max, a) => a.pf > max ? a.pf : max, activities[0].pf)
+      : null);
 
+  const sCurveData = (() => {
+    if (!projectStart || !projectEnd) return [];
+    const start = new Date(projectStart);
+    const end = new Date(projectEnd);
+    const months = [];
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cur <= end) {
+      months.push(new Date(cur));
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return months.map(month => {
+      const monthStr = dayStr(month);
+      const nextMonth = new Date(month); nextMonth.setMonth(nextMonth.getMonth() + 1);
+      const nextStr = dayStr(nextMonth);
+      const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
+      // 계획: 이 월까지 누계 계획 공정률
+      const planPct = Math.round(
+        activities.reduce((s, a) => {
+          const elapsed = Math.max(0, Math.min(diffDays(monthStr, a.ps), a.orig_dur));
+          const p = a.orig_dur > 0 ? Math.min(100, Math.round(elapsed / a.orig_dur * 100)) : 0;
+          return s + p * a.pv_budget;
+        }, 0) / Math.max(totalBudget, 1)
+      );
+      // 실적: 이 월까지 실제 완료된 공정률
+      const actualPct = Math.round(
+        activities.reduce((s, a) => {
+          if (!a.as_ || a.as_ > monthStr) return s;
+          const p = a.af && a.af <= monthStr ? 100 : a.phys;
+          return s + p * a.pv_budget;
+        }, 0) / Math.max(totalBudget, 1)
+      );
+      return {
+        label: `${month.getMonth() + 1}월`,
+        year: month.getFullYear(),
+        plan: planPct,
+        actual: actualPct,
+        isToday: monthStr <= dayStr(TODAY) && nextStr > dayStr(TODAY),
+      };
+    });
+  })();
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       {weather && (
@@ -617,7 +712,97 @@ function Dashboard({ activities, progressReports, issues, weather }) {
         <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" />
         <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" />
       </div>
+      {sCurveData.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>📈 S커브 (공정률 추이)</div>
+            <div style={{ display: "flex", gap: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 24, height: 3, background: "#3B82F6", borderRadius: 2 }} />
+                <span style={{ fontSize: 12, color: "#6B7280" }}>계획</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 24, height: 3, background: YELLOW, borderRadius: 2 }} />
+                <span style={{ fontSize: 12, color: "#6B7280" }}>실적</span>
+              </div>
+            </div>
+          </div>
+          {(() => {
+            const W = 800, H = 200, PAD = { top: 10, right: 20, bottom: 30, left: 40 };
+            const innerW = W - PAD.left - PAD.right;
+            const innerH = H - PAD.top - PAD.bottom;
+            const n = sCurveData.length;
+            const xStep = innerW / Math.max(n - 1, 1);
+            const toX = i => PAD.left + i * xStep;
+            const toY = v => PAD.top + innerH - (v / 100) * innerH;
 
+            const planPath = sCurveData.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.plan)}`).join(" ");
+            const actualPath = sCurveData
+              .filter((_, i) => sCurveData[i].actual > 0 || i === 0)
+              .map((d, i, arr) => {
+                const origIdx = sCurveData.indexOf(d);
+                return `${origIdx === 0 ? "M" : "L"}${toX(origIdx)},${toY(d.actual)}`;
+              }).join(" ");
+
+            const todayIdx = sCurveData.findIndex(d => d.isToday);
+
+            return (
+              <div style={{ overflowX: "auto" }}>
+                <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", minWidth: 400, height: "auto" }}>
+                  {/* 그리드 */}
+                  {[0, 25, 50, 75, 100].map(v => (
+                    <g key={v}>
+                      <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)}
+                        stroke="#F3F4F6" strokeWidth="1" />
+                      <text x={PAD.left - 6} y={toY(v) + 4} textAnchor="end"
+                        fontSize="10" fill="#9CA3AF">{v}%</text>
+                    </g>
+                  ))}
+
+                  {/* 오늘 수직선 */}
+                  {todayIdx >= 0 && (
+                    <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom}
+                      stroke={YELLOW} strokeWidth="1.5" strokeDasharray="4,3" />
+                  )}
+
+                  {/* 계획선 */}
+                  <path d={planPath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round" />
+
+                  {/* 실적선 */}
+                  <path d={actualPath} fill="none" stroke={YELLOW} strokeWidth="2.5" strokeLinejoin="round" />
+
+                  {/* 실적 점 */}
+                  {sCurveData.map((d, i) => d.actual > 0 && (
+                    <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="3"
+                      fill={YELLOW} stroke="#fff" strokeWidth="1.5" />
+                  ))}
+
+                  {sCurveData.map((d, i) => {
+                    const isYearStart = i === 0 || d.label === "1월";
+                    const showLabel = i === 0 || i === n - 1 || d.isToday || isYearStart ||
+                      (n <= 12 ? true : i % Math.ceil(n / 8) === 0);
+                    return showLabel ? (
+                      <g key={i}>
+                        {isYearStart && (
+                          <text x={toX(i)} y={H - 18} textAnchor="middle"
+                            fontSize="11" fill={NAVY} fontWeight="700">
+                            {d.year}
+                          </text>
+                        )}
+                        <text x={toX(i)} y={H - 6} textAnchor="middle"
+                          fontSize="10" fill={d.isToday ? YELLOW : "#9CA3AF"}
+                          fontWeight={d.isToday ? "700" : "400"}>
+                          {d.label}
+                        </text>
+                      </g>
+                    ) : null;
+                  })}
+                </svg>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>협력사별 실적</div>
@@ -880,20 +1065,19 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={rSecTitle}>3. 주요 이슈 및 조치 계획</div>
-        {open(issues || []).length === 0
+        {(issues || []).filter(i => i.status !== "closed").length === 0
           ? <div style={{ padding: "10px 14px", background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, marginBottom: 20, color: "#065F46" }}>✅ 현재 처리 대기 중인 이슈가 없습니다.</div>
           : <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
             <thead><tr><th style={{ ...rThStyle, width: "5%" }}>No.</th><th style={{ ...rThStyle, width: "28%" }}>이슈 내용</th><th style={{ ...rThStyle, width: "10%" }}>유형</th><th style={{ ...rThStyle, width: "10%" }}>심각도</th><th style={{ ...rThStyle, width: "10%" }}>공기영향</th><th style={rThStyle}>조치 계획</th></tr></thead>
             <tbody>
-              {open(issues || []).map((issue, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                  <td style={{ ...rTdStyle, textAlign: "center" }}>{i + 1}</td>
-                  <td style={rTdStyle}>{issue.title}</td>
-                  <td style={{ ...rTdStyle, textAlign: "center" }}>{issue.issue_type}</td>
-                  <td style={{ ...rTdStyle, textAlign: "center", color: issue.severity === "긴급" ? "#EF4444" : issue.severity === "높음" ? "#F59E0B" : "#6B7280" }}>{issue.severity}</td>
-                  <td style={{ ...rTdStyle, textAlign: "center", color: issue.delay_days > 0 ? "#EF4444" : "#6B7280" }}>{issue.delay_days > 0 ? `+${issue.delay_days}일` : "없음"}</td>
-                  <td style={rTdStyle}>{issue.action_plan || "-"}</td>
-                </tr>
+              {(issues || []).filter(i => i.status !== "closed").map((issue, i) => (<tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
+                <td style={{ ...rTdStyle, textAlign: "center" }}>{i + 1}</td>
+                <td style={rTdStyle}>{issue.title}</td>
+                <td style={{ ...rTdStyle, textAlign: "center" }}>{issue.issue_type}</td>
+                <td style={{ ...rTdStyle, textAlign: "center", color: issue.severity === "긴급" ? "#EF4444" : issue.severity === "높음" ? "#F59E0B" : "#6B7280" }}>{issue.severity}</td>
+                <td style={{ ...rTdStyle, textAlign: "center", color: issue.delay_days > 0 ? "#EF4444" : "#6B7280" }}>{issue.delay_days > 0 ? `+${issue.delay_days}일` : "없음"}</td>
+                <td style={rTdStyle}>{issue.action_plan || "-"}</td>
+              </tr>
               ))}
             </tbody>
           </table>}
@@ -1276,7 +1460,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, progressReports, milestones, onRegister, onReport, onDailyReport }) {
+function GanttPanel({ activities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete }) {
   const [open, setOpen] = useState(null);
 
   const exportToP6Excel = () => {
@@ -1317,6 +1501,7 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>공정 현황</div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onImport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📤 공정표 업로드</button>
           <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📋 공사일지</button>
           <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📄 주간보고서</button>
           <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>
@@ -1355,11 +1540,29 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
                 {g.acts.map(a => (
                   <div key={a.id} style={{ background: "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.critical ? "#EF4444" : statusColor(a.status)}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>{a.name}</span>
-                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                      <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
+                        {a.name}
+                        {a.floor_start !== null && a.floor_end !== null && (
+                          <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
+                            ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
+                          </span>
+                        )}
+                      </span>                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                       {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
                       <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
-                    </div>
+                      {a.done_qty === 0 && onDelete && (
+                        <button onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                          try {
+                            await sb.delete("activities", a.id);
+                            onDelete(a.id);
+                          } catch (err) { alert("삭제 실패: " + err.message); }
+                        }}
+                          style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                          삭제
+                        </button>
+                      )}                    </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                       <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
                       <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
@@ -1368,6 +1571,11 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
                       <span>📅 {a.ps} ~ {a.pf}</span>
                       <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
                       <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
+                      {a.floor_start !== null && a.floor_end !== null && (
+                        <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
+                          {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`} ~ {a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1381,6 +1589,430 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
 }
 
 const EMPTY_FORM = { group: "", group_custom: "", name: "", floor: "3F", loc: "", subcon: "한일건설", resp: "이기사", ps: "", pf: "", plan_qty: "", unit: "㎡", pv_budget: "", risk: "중", weather: false, critical: false, steps: [{ name: "", w: 100 }], predecessors: [] };
+
+function ProjectSettings({ project, setProject, activities, setActivities }) {
+  const [form, setForm] = useState({
+    name: project?.name || "",
+    total_budget: project?.total_budget || 0,
+    start_date: project?.start_date || "",
+    end_date: project?.end_date || "",
+  });
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (project) {
+      setForm({
+        name: project.name || "",
+        total_budget: project.total_budget || 0,
+        start_date: project.start_date || "",
+        end_date: project.end_date || "",
+      });
+    }
+  }, [project]);
+  const [toast, setToast] = useState("");
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+
+      await sb.patch("projects", project.id, {
+        name: form.name,
+        total_budget: Number(form.total_budget),
+        start_date: form.start_date,
+        end_date: form.end_date,
+      });
+      setProject(p => ({ ...p, ...form, total_budget: Number(form.total_budget) }));
+
+      // 총 공사비 변경 시 모든 공종 pv_budget 재계산
+      if (Number(form.total_budget) > 0 && activities.length > 0) {
+        const totalWeight = activities.reduce((s, a) => s + (a.pv_budget / (project?.total_budget || 1000000000)) * 100, 0);
+        for (const act of activities) {
+          const weight = (act.pv_budget / (project?.total_budget || 1000000000)) * 100;
+          const newBudget = Math.round(Number(form.total_budget) * weight / 100);
+          await sb.patch("activities", act.id, { pv_budget: newBudget });
+        }
+        setActivities(p => p.map(a => {
+          const weight = (a.pv_budget / (project?.total_budget || 1000000000)) * 100;
+          return { ...a, pv_budget: Math.round(Number(form.total_budget) * weight / 100) };
+        }));
+      }
+      setToast("✅ 저장되었습니다");
+      setTimeout(() => setToast(""), 3000);
+    } catch (err) {
+      alert("저장 실패: " + err.message);
+    }
+    setSaving(false);
+  };
+
+  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "10px 14px", fontSize: 15, outline: "none", boxSizing: "border-box" };
+  const ls = { fontSize: 13, color: "#374151", fontWeight: 600, marginBottom: 6, display: "block" };
+
+  return (
+    <div style={{ padding: 24, overflowY: "auto", height: "100%" }}>
+      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 24 }}>⚙️ 프로젝트 설정</div>
+
+      <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", maxWidth: 600, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div>
+            <label style={ls}>현장명</label>
+            <input value={form.name} onChange={e => set("name", e.target.value)} style={is} />
+          </div>
+          <div>
+            <label style={ls}>총 공사비 (원)</label>
+            <input type="number" value={form.total_budget} onChange={e => set("total_budget", e.target.value)} style={is} placeholder="예: 50000000000 (500억)" />
+            {form.total_budget > 0 && (
+              <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>
+                = {(Number(form.total_budget) / 100000000).toFixed(1)}억원
+              </div>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={ls}>착공일</label>
+              <input type="date" value={form.start_date} onChange={e => set("start_date", e.target.value)} style={is} />
+            </div>
+            <div>
+              <label style={ls}>준공일</label>
+              <input type="date" value={form.end_date} onChange={e => set("end_date", e.target.value)} style={is} />
+            </div>
+          </div>
+        </div>
+
+        {/* 현재 공종별 예산 미리보기 */}
+        {form.total_budget > 0 && activities.length > 0 && (
+          <div style={{ marginTop: 24, borderTop: "1px solid #E5E7EB", paddingTop: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 12 }}>공종별 예산 미리보기</div>
+            <div style={{ maxHeight: 240, overflowY: "auto" }}>
+              {activities.map(a => {
+                const weight = (a.pv_budget / (project?.total_budget || 1000000000)) * 100;
+                const newBudget = Math.round(Number(form.total_budget) * weight / 100);
+                return (
+                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F3F4F6", fontSize: 13 }}>
+                    <div>
+                      <span style={{ color: "#9CA3AF", fontSize: 11, marginRight: 6 }}>{a.group_name}</span>
+                      <span style={{ color: NAVY }}>{a.name}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ color: "#6B7280" }}>
+                        {weight.toFixed(1)}% = <strong style={{ color: NAVY }}>{(newBudget / 100000000).toFixed(2)}억</strong>
+                      </span>
+                      <button onClick={async () => {
+                        if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                        try {
+                          await sb.delete("activities", a.id);
+                          setActivities(p => p.filter(x => x.id !== a.id));
+                        } catch (err) {
+                          alert("삭제 실패: " + err.message);
+                        }
+                      }}
+                        style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24 }}>
+          {toast && <span style={{ fontSize: 13, color: "#10B981", fontWeight: 600 }}>{toast}</span>}
+          <button onClick={handleSave} disabled={saving}
+            style={{ marginLeft: "auto", background: YELLOW, border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
+            {saving ? "저장 중..." : "✅ 저장"}
+          </button>
+        </div>
+      </div>
+
+      {/* 총 공사비 설정 후 공정표 업로드 안내 */}
+      <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 12, padding: "14px 18px", marginTop: 16, maxWidth: 600, fontSize: 13, color: "#065F46" }}>
+        💡 총 공사비 설정 후 공정표를 업로드하면 가중치 기반으로 공종별 예산이 자동 계산됩니다.
+      </div>
+    </div>
+  );
+}
+function ExcelImportModal({ onClose, onSave, totalBudget }) {
+  const [step, setStep] = useState(1); // 1: 업로드, 2: 미리보기, 3: 저장 중
+  const [parsed, setParsed] = useState([]);
+  const [error, setError] = useState("");
+  const fileRef = useRef(null);
+
+  // 년월 → 시작일/완료일 변환
+  const toStartDate = (ym) => {
+    if (!ym) return "";
+    const [y, m] = ym.split("-");
+    return `${y}-${String(m).padStart(2, "0")}-01`;
+  };
+  const toEndDate = (ym) => {
+    if (!ym) return "";
+    const [y, m] = ym.split("-");
+    const lastDay = new Date(Number(y), Number(m), 0).getDate();
+    return `${y}-${String(m).padStart(2, "0")}-${lastDay}`;
+  };
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setError("");
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const XLSX = window.XLSX;
+        const wb = XLSX.read(evt.target.result, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+        // 헤더 제외하고 데이터 파싱
+        const data = rows.slice(1).filter(r => r[1]).map((r, i) => ({
+          id: i,
+          checked: true,
+          group_name: String(r[0] || r[2] || ""),
+          sub_group: String(r[1] || ""),
+          name: String(r[2] || ""),
+          weight: Number(r[3]) || 0,
+          ps_ym: String(r[4] || ""),
+          pf_ym: String(r[5] || ""),
+          floor_start: r[6] !== "" ? Number(r[6]) : null,
+          floor_end: r[7] !== "" ? Number(r[7]) : null,
+          ps: toStartDate(String(r[4] || "")),
+          pf: toEndDate(String(r[5] || "")),
+        }));
+
+        if (data.length === 0) throw new Error("데이터가 없습니다. 템플릿 형식을 확인해주세요.");
+        setParsed(data);
+        setStep(2);
+      } catch (err) {
+        setError("파싱 오류: " + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const toggleCheck = (id) => setParsed(p => p.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+  const updateField = (id, key, val) => setParsed(p => p.map(item => item.id === id ? { ...item, [key]: val } : item));
+
+  const handleSaveAll = async () => {
+    const toSave = parsed.filter(p => p.checked);
+    if (toSave.length === 0) return;
+    setStep(3);
+
+    // 전체 예산 기준으로 가중치 → 예산 변환 (총 10억 기준)
+    const BASE_BUDGET = totalBudget > 0 ? totalBudget : 1000000000;
+    const saved = [];
+    for (const item of toSave) {
+      try {
+        const origDur = Math.max(1, diffDays(item.pf, item.ps));
+        const pvBudget = Math.round(BASE_BUDGET * (item.weight / 100));
+        const [act] = await sb.post("activities", {
+          group_name: item.group_name || item.name,
+          sub_group: item.sub_group || null,
+          building: item.sub_group || null,
+          wbs: `IMP-${Date.now()}-${item.id}`,
+          name: item.name,
+          floor: item.floor_start !== null ? `${item.floor_start}F` : "-",
+          loc: item.sub_group || "-",
+          floor_start: item.floor_start || null,
+          floor_end: item.floor_end || null,
+          subcon: "미정",
+          resp: "미정",
+          ps: item.ps,
+          pf: item.pf,
+          as_: null,
+          af: null,
+          bl_s: item.ps,
+          bl_f: item.pf,
+          original_ps: item.ps,
+          original_pf: item.pf,
+          orig_dur: origDur,
+          plan_qty: 100,
+          done_qty: 0,
+          unit: "식",
+          steps: [{ name: "기본 작업", w: 100, done: false }],
+          predecessors: [],
+          pv_budget: pvBudget,
+          ac: 0,
+          risk: "중",
+          weather: false,
+          critical: false,
+          delay_days: 0,
+        });
+        saved.push(calcAct(act));
+      } catch (err) {
+        console.error("저장 실패:", item.name, err.message);
+      }
+    }
+    onSave(saved);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
+        {/* 헤더 */}
+        <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>📤 공정표 업로드</div>
+            <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+              {step === 1 && "템플릿을 다운로드 후 작성하여 업로드하세요"}
+              {step === 2 && `${parsed.length}개 공종 파싱 완료 — 확인 후 등록하세요`}
+              {step === 3 && "DB에 저장 중..."}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+
+        <div style={{ padding: 24 }}>
+          {/* STEP 1 — 업로드 */}
+          {step === 1 && (
+            <div>
+              {/* 템플릿 다운로드 */}
+              <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#065F46", marginBottom: 4 }}>📥 템플릿 먼저 다운로드하세요</div>
+                  <div style={{ fontSize: 12, color: "#6B7280" }}>대분류 / 공종명 / 가중치 / 시작년월 / 완료년월 / 세부구간 형식</div>
+                </div>
+                <button onClick={downloadTemplate}
+                  style={{ background: "#10B981", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  📥 템플릿 다운로드
+                </button>
+              </div>
+
+              {error && (
+                <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 13, color: "#991B1B" }}>
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* 업로드 영역 */}
+              <div onClick={() => fileRef.current?.click()}
+                style={{ border: "2px dashed #D1D5DB", borderRadius: 14, padding: "48px 24px", textAlign: "center", cursor: "pointer", background: "#F9FAFB" }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = YELLOW}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "#D1D5DB"}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: NAVY, marginBottom: 6 }}>공정표 Excel 업로드</div>
+                <div style={{ fontSize: 13, color: "#9CA3AF" }}>클릭하거나 파일을 드래그하세요 (.xlsx, .xls)</div>
+              </div>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
+            </div>
+          )}
+
+          {/* STEP 2 — 미리보기 */}
+          {step === 2 && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ fontSize: 13, color: "#6B7280" }}>
+                  총 {parsed.length}개 공종 · <span style={{ color: NAVY, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setParsed(p => p.map(i => ({ ...i, checked: true })))}
+                    style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 선택</button>
+                  <button onClick={() => setParsed(p => p.map(i => ({ ...i, checked: false })))}
+                    style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 해제</button>
+                </div>
+              </div>
+
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: NAVY, color: "#fff" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "center", width: 40 }}>✓</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>대분류</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>중분류</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>공종명</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center" }}>가중치(%)</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center" }}>시작년월</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center" }}>완료년월</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center" }}>기간</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center" }}>층 범위</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsed.map((item) => (
+                      <tr key={item.id} style={{ background: item.checked ? "#fff" : "#F9FAFB", borderBottom: "1px solid #F3F4F6", opacity: item.checked ? 1 : 0.5 }}>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <input type="checkbox" checked={item.checked} onChange={() => toggleCheck(item.id)} />
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          <input value={item.group_name} onChange={e => updateField(item.id, "group_name", e.target.value)}
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          <input value={item.sub_group} onChange={e => updateField(item.id, "sub_group", e.target.value)}
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                        </td>
+
+                        <td style={{ padding: "8px 12px" }}>
+                          <input value={item.name} onChange={e => updateField(item.id, "name", e.target.value)}
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <input type="number" value={item.weight} onChange={e => updateField(item.id, "weight", Number(e.target.value))}
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 60, textAlign: "center" }} />
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <input value={item.ps_ym} onChange={e => { updateField(item.id, "ps_ym", e.target.value); updateField(item.id, "ps", toStartDate(e.target.value)); }}
+                            placeholder="YYYY-MM"
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          <input value={item.pf_ym} onChange={e => { updateField(item.id, "pf_ym", e.target.value); updateField(item.id, "pf", toEndDate(e.target.value)); }}
+                            placeholder="YYYY-MM"
+                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center", color: "#6B7280" }}>
+                          {item.ps && item.pf ? `${Math.round(diffDays(item.pf, item.ps) / 30)}개월` : "-"}
+                        </td>
+                        <td style={{ padding: "8px 12px", textAlign: "center" }}>
+                          {item.floor_start !== null || item.floor_end !== null
+                            ? `${item.floor_start}F ~ ${item.floor_end}F`
+                            : <span style={{ color: "#9CA3AF" }}>-</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 가중치 합계 체크 */}
+              {(() => {
+                const totalWeight = parsed.filter(p => p.checked).reduce((s, p) => s + p.weight, 0);
+                const isValid = Math.abs(totalWeight - 100) < 0.5;
+                return (
+                  <div style={{ background: isValid ? "#F0FDF4" : "#FEF3C7", border: `1px solid ${isValid ? "#6EE7B7" : "#FCD34D"}`, borderRadius: 8, padding: "8px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: isValid ? "#065F46" : "#92400E" }}>
+                      선택 공종 가중치 합계: {totalWeight.toFixed(2)}%
+                    </span>
+                    <span style={{ fontSize: 12, color: isValid ? "#10B981" : "#F59E0B" }}>
+                      {isValid ? "✅ 정상 (100%)" : "⚠️ 100%가 되어야 합니다"}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => { setStep(1); setParsed([]); setError(""); }}
+                  style={{ background: "#F3F4F6", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, cursor: "pointer" }}>← 다시 업로드</button>
+                <button onClick={handleSaveAll} disabled={parsed.filter(p => p.checked).length === 0}
+                  style={{ background: YELLOW, border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
+                  ✅ {parsed.filter(p => p.checked).length}개 공종 등록
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3 — 저장 중 */}
+          {step === 3 && (
+            <div style={{ textAlign: "center", padding: "48px 24px" }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>💾</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: NAVY, marginBottom: 8 }}>DB에 저장 중입니다</div>
+              <div style={{ fontSize: 13, color: "#9CA3AF" }}>잠시만 기다려주세요...</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -1563,9 +2195,11 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
       await sb.patch("progress_reports", report.id, { status: "approved" });
       const act = activities.find(a => a.id === report.activity_id);
       if (act) {
-        await sb.patch("activities", act.id, { done_qty: report.new_done_qty });
-        let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: report.new_done_qty }) : a);
-        if (report.delay_days > 0) {
+        await sb.patch("activities", act.id, {
+          done_qty: report.new_done_qty,
+          as_: act.as_ || dayStr(TODAY),
+        });
+        let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: report.new_done_qty, as_: act.as_ || dayStr(TODAY) }) : a); if (report.delay_days > 0) {
           updated = recalcCPM(updated, report.activity_id, report.delay_days);
           for (const u of updated) { const orig = activities.find(a => a.id === u.id); if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days }); }
           const affectedIds = updated.filter(a => { const o = activities.find(x => x.id === a.id); return o && o.pf !== a.pf && a.id !== report.activity_id; }).map(a => a.id);
@@ -1645,6 +2279,59 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 function MobileHome({ user, activities, issues, weather, profiles }) {
   const tier = getTier(user.role);
   const todayStr = dayStr(TODAY);
+  const [briefing, setBriefing] = useState("");
+  const [briefingLoading, setBriefingLoading] = useState(false);
+
+  useEffect(() => {
+    const generateBriefing = async () => {
+      setBriefingLoading(true);
+      try {
+        const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
+        const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
+        const openIssueCount = (issues || []).filter(i => i.status !== "closed").length;
+        const delayedCount = activities.filter(a => a.delay_days > 0).length;
+        const todayActs = activities.filter(a => a.ps <= todayStr && a.pf >= todayStr && a.phys < 100);
+        const criticalCount = activities.filter(a => a.critical && a.phys < 100).length;
+
+        const prompt = `당신은 건설현장 AI 어시스턴트입니다. 아래 현장 데이터를 바탕으로 오늘 아침 현장 브리핑을 작성해주세요.
+
+현장명: 스카이라인 플라자 리모델링 공사
+날짜: ${new Date().toLocaleDateString("ko-KR")}
+날씨: ${weather ? `${weather.temp}°C, ${weather.text}, 강수 ${weather.precipitation}mm, 풍속 ${weather.wind}m/s` : "정보 없음"}
+전체 공정률: ${totalPhys}%
+오늘 진행 공종: ${todayActs.length}건 (${todayActs.slice(0, 3).map(a => a.name).join(", ")})
+공기 지연 공종: ${delayedCount}건
+크리티컬 공종: ${criticalCount}건
+오픈 이슈: ${openIssueCount}건
+
+규칙:
+- 2~3문장으로 간결하게
+- 오늘 주의할 점 1가지 포함
+- 친근하고 명확한 한국어
+- 마크다운 없이 순수 텍스트만
+- "안녕하세요" 같은 인사말 없이 바로 브리핑 시작`;
+
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            max_tokens: 200,
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+        const data = await r.json();
+        setBriefing(data.content[0].text);
+      } catch { setBriefing(""); }
+      setBriefingLoading(false);
+    };
+    generateBriefing();
+  }, []);
 
   // 공통 데이터
   const inProgress = activities.filter(a => a.as_ && a.phys < 100);
@@ -1670,6 +2357,23 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
   const cardStyle = { background: "#fff", borderRadius: 14, padding: "16px 18px", marginBottom: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" };
   const secTitle = { fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 10 };
 
+  // AI 브리핑 카드 (공통)
+  const BriefingCard = () => (briefingLoading || briefing) ? (
+    <div style={{ background: "linear-gradient(135deg, #1A2332 0%, #2D3F55 100%)", borderRadius: 14, padding: "14px 18px", marginBottom: 12, border: "1px solid rgba(255,184,0,0.3)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 16 }}>✨</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: YELLOW }}>오늘의 현장 브리핑</span>
+        <span style={{ fontSize: 10, color: "#9CA3AF", marginLeft: "auto" }}>
+          {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
+        </span>
+      </div>
+      {briefingLoading
+        ? <div style={{ fontSize: 13, color: "#9CA3AF", fontStyle: "italic" }}>AI가 오늘 현장 상황을 분석 중...</div>
+        : <div style={{ fontSize: 13, color: "#E5E7EB", lineHeight: 1.7 }}>{briefing}</div>
+      }
+    </div>
+  ) : null;
+
   // ── MACRO 뷰 ─────────────────────────────────────────
   if (tier === "macro") {
     const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
@@ -1682,6 +2386,8 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
 
     return (
       <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+        <BriefingCard />
+
         {/* 날씨 */}
         {weather && (
           <div style={{ ...cardStyle, background: NAVY }}>
@@ -1757,6 +2463,8 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
   if (tier === "meso") {
     return (
       <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+        <BriefingCard />
+
         {/* 날씨 간략 */}
         {weather && (
           <div style={{ ...cardStyle, background: NAVY, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1818,6 +2526,8 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
   // ── MICRO 뷰 ─────────────────────────────────────────
   return (
     <div style={{ padding: "14px 12px", overflowY: "auto", height: "100%" }}>
+      <BriefingCard />
+
       {/* 인사 */}
       <div style={{ ...cardStyle, background: NAVY }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: "#fff", marginBottom: 4 }}>
@@ -1886,7 +2596,6 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
     </div>
   );
 }
-
 
 
 function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues }) {
@@ -2218,6 +2927,7 @@ const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers:
 { id: "lifting", label: "🏗 양중 관리", tiers: ["macro", "meso"] },
 { id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
 { id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
+{ id: "settings", label: "⚙️ 프로젝트 설정", tiers: ["macro"] },
 ];
 function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -3520,12 +4230,13 @@ function LiftingManager({ user, weather, sendPush }) {
     </div>
   );
 }
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, sendPush }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -3555,6 +4266,17 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         />
       )}
 
+      {showImport && (
+        <ExcelImportModal
+          onClose={() => setShowImport(false)}
+          totalBudget={project?.total_budget || 0}
+          onSave={acts => {
+            setActivities(p => [...p, ...acts]);
+            setShowImport(false);
+            setToast(`✅ ${acts.length}개 공종 등록 완료`);
+          }}
+        />
+      )}
       {isMobileScreen && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998 }} />
       )}
@@ -3568,8 +4290,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         <div style={{ padding: "0 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 3 }}>워크스페이스</div>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>스카이라인 플라자</div>
-          </div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{project?.name || "스카이라인 플라자"}</div>          </div>
           {isMobileScreen && <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 20 }}>✕</button>}
         </div>
         <div style={{ padding: "14px 12px", flex: 1 }}>
@@ -3601,9 +4322,10 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
             <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{ALL_SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>          </div>
         )}
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} />}
-          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} />}
-          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
+          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}          {activeMenu === "settings" && (
+            <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
+          )}
+          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} />}          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
           {activeMenu === "chat" && (
             activeRoom
               ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} />
@@ -3639,6 +4361,7 @@ export default function App() {
   const [progressReports, setProgressReports] = useState([]);
   const [issues, setIssues] = useState([]);
   const [milestones, setMilestones] = useState([]);
+  const [project, setProject] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [chatMessages, setChatMessages] = useState([{ id: 0, role: "system", content: "안녕하세요 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
@@ -3810,11 +4533,13 @@ export default function App() {
       sb.get("milestones"),
       sb.get("site_equipment"),
       sb.get("equipment_logs", "status=eq.active"),
+      sb.get("projects"),
       supabase.from("rooms").select("*").order("id", { ascending: true }),
       supabase.from("profiles").select("*"),
-    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, { data: roomData }, { data: profileData }]) => {
+    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, projects, { data: roomData }, { data: profileData }]) => {
       setSiteEquipment(siteEq || []);
       setEquipmentLogs(eqLogs || []);
+      setProject(projects ? projects[0] : null);
       setActivities((acts || []).map(calcAct));
       setProgressReports(reports || []);
       setIssues((iss || []).reverse());
@@ -3865,8 +4590,7 @@ export default function App() {
       </div>
       {view === "mobile"
         ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} />
-        : <DesktopView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} />
-      }
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} />}
     </div>
   );
 }
