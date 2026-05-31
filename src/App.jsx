@@ -2631,7 +2631,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 중요: 이전 대화 내용을 반드시 기억하고 문맥에 맞게 답해.
 답변은 2~3문장 이내로 짧게. 절대 bullet point나 마크다운 쓰지 마.
 작업 보고나 장비 투입의 경우 반드시 JSON만 출력하고 JSON 앞뒤에 텍스트를 절대 붙이지 마.
-일반 대화의 경우에만 텍스트로 답해.
+일반 대화의 경우에만 텍스트로 답해. `;
 
     const messages = [...history, { role: "user", content: userMsg }];
     const r = await fetch("https://api.anthropic.com/v1/messages", {
