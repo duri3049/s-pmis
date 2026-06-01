@@ -40,7 +40,7 @@ const downloadTemplate = () => {
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "공정표");
-  XLSX.writeFile(wb, "S-PMIS_공정표_템플릿.xlsx");
+  XLSX.writeFile(wb, "FIELD LOG_공정표_템플릿.xlsx");
 };
 
 
@@ -94,9 +94,9 @@ const claudeComplete = async (prompt) => {
     body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
   });
   const data = await r.json();
+  console.log("AI 응답 원본:", data.content[0].text);
   return data.content[0].text;
 };
-
 const diffDays = (a, b) => Math.round((new Date(a) - new Date(b)) / 86400000);
 const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10); };
 const fmtM = n => `${(n / 1000000).toFixed(1)}M`;
@@ -278,8 +278,8 @@ function AuthScreen({ onAuth }) {
     <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div style={{ background: YELLOW, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: NAVY }}>S</div>
-          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>S-PMIS Collab</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
+          <div style={{ background: YELLOW, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: NAVY }}>F</div>
+          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
           {[["login", "로그인"], ["signup", "회원가입"]].map(([m, label]) => (
@@ -1101,7 +1101,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "#9CA3AF" }}>
-          본 보고서는 S-PMIS Collab에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
+          본 보고서는 FIELD LOG 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -1436,7 +1436,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
         </table>
 
         <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#9CA3AF" }}>
-          본 공사일지는 S-PMIS Collab에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
+          본 공사일지는 FIELD LOG 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -1444,8 +1444,103 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete }) {
+function GanttPanel({ activities, setActivities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user }) {
   const [open, setOpen] = useState(null);
+  const [openAct, setOpenAct] = useState(null);
+  const [showSubForm, setShowSubForm] = useState(null); // activity_id
+  const [aiLoading, setAiLoading] = useState(false);
+  const [subInput, setSubInput] = useState("");
+  const [editingSubId, setEditingSubId] = useState(null);
+  const [editingSubName, setEditingSubName] = useState("");
+
+  const handleAISuggest = async (act) => {
+    setAiLoading(true);
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: `한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계를 추천해줘.
+${act.floor_start !== null && act.floor_end !== null ? `이 공종은 ${act.floor_start < 0 ? `B${Math.abs(act.floor_start)}` : `${act.floor_start}F`}~${act.floor_end < 0 ? `B${Math.abs(act.floor_end)}` : `${act.floor_end}F`} 구간이야. 각 층별로 세부공정을 나눠줘.` : ""}
+JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
+예시 (층별): [{"name":"2F 철근 배근"},{"name":"2F 거푸집 설치"},{"name":"2F 콘크리트 타설"},{"name":"3F 철근 배근"},{"name":"3F 거푸집 설치"},{"name":"3F 콘크리트 타설"}]
+예시 (층 없을 때): [{"name":"철근 배근"},{"name":"거푸집 설치"},{"name":"콘크리트 타설"},{"name":"양생"}]`
+          }]
+        })
+      });
+      const data = await r.json();
+      const text = data.content[0].text;
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) {
+        const suggestions = JSON.parse(match[0]);
+        // pending_approval 상태로 DB에 저장
+        for (const s of suggestions) {
+          const [saved] = await sb.post("sub_activities", {
+            activity_id: act.id,
+            name: s.name,
+            phys: 0,
+            status: "pending_approval",
+            suggested_by: user.id,
+          });
+          setSubActivities(p => [...p, saved]);
+        }
+      }
+    } catch (err) { alert("AI 추천 실패: " + err.message); }
+    setAiLoading(false);
+  };
+
+  const handleAddSub = async (act) => {
+    if (!subInput.trim()) return;
+    try {
+      const [saved] = await sb.post("sub_activities", {
+        activity_id: act.id,
+        name: subInput.trim(),
+        phys: 0,
+        status: "active",
+        suggested_by: user.id,
+        approved_by: user.id,
+      });
+      setSubActivities(p => [...p, saved]);
+      setSubInput("");
+    } catch (err) { alert("저장 실패: " + err.message); }
+  };
+
+  const handleApproveSub = async (sub) => {
+    try {
+      await sb.patch("sub_activities", sub.id, {
+        status: "active",
+        approved_by: user.id,
+      });
+      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, status: "active", approved_by: user.id } : s));
+    } catch (err) { alert("승인 실패: " + err.message); }
+  };
+
+  const handleDeleteSub = async (sub) => {
+    if (!window.confirm(`"${sub.name}" 세부공정을 삭제할까요?`)) return;
+    try {
+      await sb.delete("sub_activities", sub.id);
+      setSubActivities(p => p.filter(s => s.id !== sub.id));
+    } catch (err) { alert("삭제 실패: " + err.message); }
+  };
+
+  const handleEditSub = async (sub) => {
+    if (!editingSubName.trim()) return;
+    try {
+      await sb.patch("sub_activities", sub.id, { name: editingSubName.trim() });
+      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, name: editingSubName.trim() } : s));
+      setEditingSubId(null);
+      setEditingSubName("");
+    } catch (err) { alert("수정 실패: " + err.message); }
+  };
 
   const exportToP6Excel = () => {
     if (!window.XLSX) { alert("잠시 후 다시 시도해주세요."); return; }
@@ -1534,6 +1629,12 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
                       </span>                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                       {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
                       <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
+
+                      {/* 세부공정 드릴다운 버튼 */}
+                      <button onClick={(e) => { e.stopPropagation(); setOpenAct(openAct === a.id ? null : a.id); }}
+                        style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                        {openAct === a.id ? "▲ 세부공정" : `▼ 세부공정 ${subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}`}
+                      </button>
                       {a.done_qty === 0 && onDelete && (
                         <button onClick={async (e) => {
                           e.stopPropagation();
@@ -1551,8 +1652,24 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
                       <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
                       <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
                     </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280", alignItems: "center" }}>
                       <span>📅 {a.ps} ~ {a.pf}</span>
+                      {!a.as_ && a.ps <= dayStr(TODAY) && (
+                        <button onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
+                          try {
+                            await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
+                            setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
+                          } catch (err) { alert("착수 처리 실패: " + err.message); }
+                        }}
+                          style={{ background: "#DBEAFE", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                          🚀 착수
+                        </button>
+                      )}
+                      {a.as_ && (
+                        <span style={{ color: "#10B981", fontWeight: 600 }}>🚀 착수 {a.as_}</span>
+                      )}
                       <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
                       <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
                       {a.floor_start !== null && a.floor_end !== null && (
@@ -1561,6 +1678,92 @@ function GanttPanel({ activities, progressReports, milestones, onRegister, onRep
                         </span>
                       )}
                     </div>
+
+                    {/* 세부공정 패널 */}
+                    {openAct === a.id && (
+                      <div style={{ marginTop: 10, background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>세부공정</span>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button onClick={() => handleAISuggest(a)} disabled={aiLoading}
+                              style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                              {aiLoading ? "추천 중..." : "✨ AI 추천"}
+                            </button>
+                            <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
+                              style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                              + 직접 추가
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 직접 입력 폼 */}
+                        {showSubForm === a.id && (
+                          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                            <input value={subInput} onChange={e => setSubInput(e.target.value)}
+                              onKeyDown={e => e.key === "Enter" && handleAddSub(a)}
+                              placeholder="세부공정명 입력"
+                              style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none" }} />
+                            <button onClick={() => handleAddSub(a)}
+                              style={{ background: YELLOW, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                              추가
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 세부공정 목록 */}
+                        {subActivities.filter(s => s.activity_id === a.id).length === 0
+                          ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
+                          : subActivities.filter(s => s.activity_id === a.id).map(sub => (
+                            <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #E5E7EB" }}>
+                              {/* 상태 표시 */}
+                              {sub.status === "pending_approval"
+                                ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
+                                : <span style={{ fontSize: 10, background: "#F0FDF4", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>{sub.phys === 100 ? "완료" : "진행"}</span>
+                              }
+                              {/* 이름 + 진도율 */}
+                              {editingSubId === sub.id
+                                ? <input
+                                  value={editingSubName}
+                                  onChange={e => setEditingSubName(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
+                                  autoFocus
+                                  style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
+                                />
+                                : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                              }
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                                  <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
+                                </div>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
+                              </div>
+                              {/* 수정 버튼 */}
+                              {editingSubId === sub.id
+                                ? <button onClick={() => handleEditSub(sub)}
+                                  style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                  확인
+                                </button>
+                                : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); }}
+                                  style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
+                                  수정
+                                </button>
+                              }
+                              {/* 승인 버튼 (승인대기 + 건축기사/소장만) */}
+                              {sub.status === "pending_approval" && ["공무과장", "현장소장", "기사", "대리"].includes(user.role) && (
+                                <button onClick={() => handleApproveSub(sub)}
+                                  style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                  승인
+                                </button>
+                              )}
+                              <button onClick={() => handleDeleteSub(sub)}
+                                style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                삭제
+                              </button>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1716,7 +1919,7 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
     </div>
   );
 }
-function ExcelImportModal({ onClose, onSave, totalBudget }) {
+function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
   const [step, setStep] = useState(1); // 1: 업로드, 2: 미리보기, 3: 저장 중
   const [parsed, setParsed] = useState([]);
   const [error, setError] = useState("");
@@ -1748,20 +1951,26 @@ function ExcelImportModal({ onClose, onSave, totalBudget }) {
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
         // 헤더 제외하고 데이터 파싱
-        const data = rows.slice(1).filter(r => r[1]).map((r, i) => ({
-          id: i,
-          checked: true,
-          group_name: String(r[0] || r[2] || ""),
-          sub_group: String(r[1] || ""),
-          name: String(r[2] || ""),
-          weight: Number(r[3]) || 0,
-          ps_ym: String(r[4] || ""),
-          pf_ym: String(r[5] || ""),
-          floor_start: r[6] !== "" ? Number(r[6]) : null,
-          floor_end: r[7] !== "" ? Number(r[7]) : null,
-          ps: toStartDate(String(r[4] || "")),
-          pf: toEndDate(String(r[5] || "")),
-        }));
+        const data = rows.slice(1).filter(r => r[1]).map((r, i) => {
+          const name = String(r[2] || "");
+          const existing = activities.find(a => a.name === name);
+          return {
+            id: i,
+            checked: !existing, // 중복이면 기본 체크 해제
+            duplicate: !!existing,
+            existing_id: existing?.id || null,
+            group_name: String(r[0] || r[2] || ""),
+            sub_group: String(r[1] || ""),
+            name,
+            weight: Number(r[3]) || 0,
+            ps_ym: String(r[4] || ""),
+            pf_ym: String(r[5] || ""),
+            floor_start: r[6] !== "" ? Number(r[6]) : null,
+            floor_end: r[7] !== "" ? Number(r[7]) : null,
+            ps: toStartDate(String(r[4] || "")),
+            pf: toEndDate(String(r[5] || "")),
+          };
+        });
 
         if (data.length === 0) throw new Error("데이터가 없습니다. 템플릿 형식을 확인해주세요.");
         setParsed(data);
@@ -1811,7 +2020,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget }) {
           orig_dur: origDur,
           plan_qty: 100,
           done_qty: 0,
-          unit: "식",
+          unit: "%",
           steps: [{ name: "기본 작업", w: 100, done: false }],
           predecessors: [],
           pv_budget: pvBudget,
@@ -1884,8 +2093,14 @@ function ExcelImportModal({ onClose, onSave, totalBudget }) {
           {step === 2 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ fontSize: 13, color: "#6B7280" }}>
-                  총 {parsed.length}개 공종 · <span style={{ color: NAVY, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
+                <div style={{ fontSize: 13, color: "#6B7280", display: "flex", gap: 12, alignItems: "center" }}>
+                  총 {parsed.length}개 공종 ·
+                  <span style={{ color: NAVY, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
+                  {parsed.filter(p => p.duplicate).length > 0 && (
+                    <span style={{ color: "#92400E", fontWeight: 700, background: "#FEF3C7", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
+                      ⚠️ 중복 {parsed.filter(p => p.duplicate).length}개 (기본 체크 해제됨)
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setParsed(p => p.map(i => ({ ...i, checked: true })))}
@@ -1912,7 +2127,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget }) {
                   </thead>
                   <tbody>
                     {parsed.map((item) => (
-                      <tr key={item.id} style={{ background: item.checked ? "#fff" : "#F9FAFB", borderBottom: "1px solid #F3F4F6", opacity: item.checked ? 1 : 0.5 }}>
+                      <tr key={item.id} style={{ background: item.duplicate ? "#FFF7ED" : item.checked ? "#fff" : "#F9FAFB", borderBottom: "1px solid #F3F4F6", opacity: item.checked ? 1 : 0.5 }}>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input type="checkbox" checked={item.checked} onChange={() => toggleCheck(item.id)} />
                         </td>
@@ -1926,8 +2141,15 @@ function ExcelImportModal({ onClose, onSave, totalBudget }) {
                         </td>
 
                         <td style={{ padding: "8px 12px" }}>
-                          <input value={item.name} onChange={e => updateField(item.id, "name", e.target.value)}
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <input value={item.name} onChange={e => updateField(item.id, "name", e.target.value)}
+                              style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, flex: 1 }} />
+                            {item.duplicate && (
+                              <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                중복
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input type="number" value={item.weight} onChange={e => updateField(item.id, "weight", Number(e.target.value))}
@@ -2170,7 +2392,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
   );
 }
 
-function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush }) {
+function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush, subActivities, setSubActivities }) {
   const [flashId, setFlashId] = useState(null);
   const pending = progressReports.filter(r => r.status === "pending");
   const handleApprove = async (report) => {
@@ -2179,10 +2401,33 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
       await sb.patch("progress_reports", report.id, { status: "approved" });
       const act = activities.find(a => a.id === report.activity_id);
       if (act) {
-        await sb.patch("activities", act.id, {
-          done_qty: report.new_done_qty,
-          as_: act.as_ || dayStr(TODAY),
-        });
+        // 세부공정 매핑된 경우 세부공정 진도율 업데이트
+        console.log("matched_sub_id 체크:", report.matched_sub_id, typeof report.matched_sub_id);
+        if (report.matched_sub_id) {
+          await sb.patch("sub_activities", report.matched_sub_id, { phys: 100 });
+          const updatedSubs = subActivities.map(s =>
+            s.id === Number(report.matched_sub_id) ? { ...s, phys: 100 } : s
+          );
+          setSubActivities(updatedSubs);
+
+          // 상위 공종 진도율 = 완료된 세부공정 수 / 전체 세부공정 수
+          const actSubs = updatedSubs.filter(s => s.activity_id === act.id && s.status === "active");
+          const completedSubs = actSubs.filter(s => s.phys === 100).length;
+          const totalSubs = actSubs.length;
+          const newPhys = totalSubs > 0 ? Math.round((completedSubs / totalSubs) * 100) : 0;
+          const newDoneQty = Math.round(act.plan_qty * newPhys / 100);
+
+          await sb.patch("activities", act.id, {
+            done_qty: newDoneQty,
+            as_: act.as_ || dayStr(TODAY),
+          });
+          setToast(`✅ 세부공정 반영 완료 (${completedSubs}/${totalSubs})`);
+        } else {
+          await sb.patch("activities", act.id, {
+            done_qty: report.new_done_qty,
+            as_: act.as_ || dayStr(TODAY),
+          });
+        }
         let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: report.new_done_qty, as_: act.as_ || dayStr(TODAY) }) : a); if (report.delay_days > 0) {
           updated = recalcCPM(updated, report.activity_id, report.delay_days);
           for (const u of updated) { const orig = activities.find(a => a.id === u.id); if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days }); }
@@ -2582,7 +2827,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
 }
 
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
@@ -2593,19 +2838,39 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
 
   const CHIPS = ["이번 주 공정 어때?", "오늘 뭐 했어?", "지연 있어?"];
 
+
   const callAI = async (userMsg, history) => {
+    console.log("시스템 프롬프트 공정현황:", activities.map(a => {
+      const subs = subActivities.filter(s => s.activity_id === a.id && s.status === "active");
+      return `공종ID ${a.id}: ${a.name} | 세부공정 ${subs.length}개: ${subs.map(s => `[ID:${s.id}] ${s.name}`).join(", ")}`;
+    }).join("\n"));
+
     const systemPrompt = `너는 건설현장 AI 어시스턴트야. 현장 반장들이랑 친근하게 대화해.
-오늘 날짜: ${new Date().toLocaleDateString("ko-KR")}
+
+
+    오늘 날짜: ${new Date().toLocaleDateString("ko-KR")}
 현장명: 스카이라인 플라자 리모델링 공사
 현재 날씨 (서울): ${weather ? `${weather.temp}°C, ${weather.text}, 습도 ${weather.humidity}%, 강수 ${weather.precipitation}mm, 풍속 ${weather.wind}m/s` : "정보 없음"}
 
 현재 공정 현황:
-${activities.map(a => `- ID ${a.id}: ${a.name} | 계획 ${a.plan_qty}${a.unit} 중 ${a.done_qty}${a.unit} 완료 (${a.phys}%)`).join("\n")}
+${activities.map(a => {
+      const subs = subActivities.filter(s => s.activity_id === a.id && s.status === "active");
+      const subStr = subs.length > 0
+        ? `\n  세부공정: ${subs.map(s => `[ID:${s.id}] ${s.name} (${s.phys}%)`).join(", ")}`
+        : "";
+      return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}%${subStr}`;
+    }).join("\n")}
 
 입력 유형을 판단해서 아래 중 하나로 응답해:
 
 1. 작업 보고 (공정 진척 보고)
-JSON: {"type":"work_report","matched_activity_id":<숫자|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>,"matching_reason":"<이 공정에 매핑한 이유 한 줄>","matching_confidence":"high|medium|low"}
+JSON: {"type":"work_report","matched_activity_id":<공종ID|null>,"matched_sub_id":<세부공정ID|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>,"matching_reason":"<이 공정/세부공정에 매핑한 이유 한 줄>","matching_confidence":"high|medium|low"}
+규칙:
+- 세부공정이 있으면 반드시 세부공정 ID를 matched_sub_id에 넣어. 세부공정이 없을 때만 상위 공종만 매핑해.
+- 층수 정보가 언급되면 반드시 층수가 일치하는 세부공정에 매핑해. "지하3층"이면 B3, "2층"이면 2F 등.
+- 확실하지 않으면 needs_clarification: true로 반환해.
+- - JSON 앞뒤에 \`\`\`json 같은 마크다운 절대 붙이지 마. 순수 JSON만 반환해.
+- 응답은 반드시 { 로 시작하고 } 로 끝나야 해.
 2. 장비 투입 보고
 JSON: {"type":"equipment_deploy","equipment_name":"<장비명>","unit_count":<대수>,"activity_id":<공종ID|null>,"note":"<비고>","ai_message":"<응답>","needs_clarification":<true|false>}
 
@@ -2629,6 +2894,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
       body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 400, system: systemPrompt, messages })
     });
     const data = await r.json();
+    console.log("AI 응답 원본:", data.content[0].text);
     return data.content[0].text;
   };
 
@@ -2647,12 +2913,18 @@ JSON 없이 자연스럽게 한국어로만 답해.
       const rawResponse = await callAI(msg, conversationHistory);
       setConversationHistory([...newHistory, { role: "assistant", content: rawResponse }]);
       setChatMessages(p => p.filter(m => m.id !== uid + 1));
-      const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+      const cleaned = rawResponse.replace(/```json\n?|```/g, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           const res = JSON.parse(jsonMatch[0]);
           if (res.type === "work_report") {
             const matched = res.matched_activity_id ? activities.find(a => a.id === res.matched_activity_id) : null;
+            const matchedSub = res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id) : null;
+            // 세부공정 매핑된 경우 pending report에 sub 정보 포함
+            if (matchedSub) {
+              res.matched_sub_name = matchedSub.name;
+            }
             setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
             if (!res.needs_clarification && matched) {
               setPendingReport({
@@ -2665,6 +2937,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 summary: res.summary,
                 matching_reason: res.matching_reason || "",
                 matching_confidence: res.matching_confidence || "medium",
+                matched_sub_id: res.matched_sub_id || null,
+                matched_sub_name: res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id)?.name || "" : "",
                 raw: msg,
                 sent: false
               });
@@ -2714,12 +2988,32 @@ JSON 없이 자연스럽게 한국어로만 답해.
     if (!pendingReport || pendingReport.sent) return;
     const a = pendingReport.activity;
     try {
+      // 세부공정 매핑된 경우 바로 세부공정 진도율 업데이트
+      let newDoneQty = pendingReport.new_done_qty;
+      if (pendingReport.matched_sub_id) {
+        await sb.patch("sub_activities", pendingReport.matched_sub_id, { phys: 100 });
+        const updatedSubs = subActivities.map(s =>
+          s.id === Number(pendingReport.matched_sub_id) ? { ...s, phys: 100 } : s
+        );
+        setSubActivities(updatedSubs);
+        // 상위 공종 진도율 = 완료된 세부공정 / 전체 세부공정
+        const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
+        const completedSubs = actSubs.filter(s => s.phys === 100).length;
+        const totalSubs = actSubs.length;
+        const newPhys = totalSubs > 0 ? Math.round((completedSubs / totalSubs) * 100) : 0;
+        newDoneQty = Math.round(a.plan_qty * newPhys / 100);
+      }
+      // 첫 보고면 착수일 자동 설정
+      if (!a.as_) {
+        await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
+      }
       const [saved] = await sb.post("progress_reports", {
         activity_id: a.id,
         reporter: user.name,
         reporter_company: user.role,
         raw_input: pendingReport.raw,
-        new_done_qty: pendingReport.new_done_qty,
+
+        new_done_qty: newDoneQty,
         workers: pendingReport.workers,
         special_note: pendingReport.special_note,
         delay_days: pendingReport.delay_days || 0,
@@ -2730,6 +3024,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
         ai_summary: pendingReport.summary,
         matching_reason: pendingReport.matching_reason || "",
         matching_confidence: pendingReport.matching_confidence || "medium",
+        matched_sub_id: pendingReport.matched_sub_id || null,
         status: "pending"
       });
       setProgressReports(p => [...p, saved]);
@@ -2815,10 +3110,19 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{pendingReport.activity.name}</div>
                   <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", margin: "10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <span>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
-                      <span style={{ color: "#9CA3AF" }}>→</span>
-                      <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{pendingReport.new_done_qty} {pendingReport.activity.unit}</span>
-                      <span style={{ color: "#10B981", fontWeight: 700 }}>+{pendingReport.new_done_qty - pendingReport.activity.done_qty}</span>
+                      {pendingReport.matched_sub_id
+                        ? <>
+                          <span style={{ fontSize: 13, color: "#6B7280" }}>{pendingReport.matched_sub_name || "세부공정"}</span>
+                          <span style={{ color: "#9CA3AF" }}>→</span>
+                          <span style={{ fontSize: 16, fontWeight: 800, color: "#10B981" }}>완료 ✅</span>
+                        </>
+                        : <>
+                          <span>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
+                          <span style={{ color: "#9CA3AF" }}>→</span>
+                          <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{pendingReport.new_done_qty} {pendingReport.activity.unit}</span>
+                          <span style={{ color: "#10B981", fontWeight: 700 }}>+{pendingReport.new_done_qty - pendingReport.activity.done_qty}</span>
+                        </>
+                      }
                     </div>
                     <div style={{ background: "#E5E7EB", borderRadius: 4, height: 8, overflow: "hidden" }}>
                       <div style={{ width: `${Math.round((pendingReport.new_done_qty / pendingReport.activity.plan_qty) * 100)}%`, height: "100%", background: YELLOW, borderRadius: 4 }} />
@@ -4214,7 +4518,7 @@ function LiftingManager({ user, weather, sendPush }) {
     </div>
   );
 }
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
@@ -4254,6 +4558,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         <ExcelImportModal
           onClose={() => setShowImport(false)}
           totalBudget={project?.total_budget || 0}
+          activities={activities}
           onSave={acts => {
             setActivities(p => [...p, ...acts]);
             setShowImport(false);
@@ -4309,7 +4614,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}          {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
           )}
-          {activeMenu === "gantt" && <GanttPanel activities={activities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} />}          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} />}
+          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} />}
           {activeMenu === "chat" && (
             activeRoom
               ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} />
@@ -4325,8 +4630,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               setLogs={setEquipmentLogs}
             />)}        {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
-          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} />}
-        </div>
+          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} />}        </div>
       </div>
     </div>
   );
@@ -4335,6 +4639,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 // ── Root ──────────────────────────────────────────────────────────────
 export default function App() {
   const [siteEquipment, setSiteEquipment] = useState([]);
+  const [subActivities, setSubActivities] = useState([]);
   const [equipmentLogs, setEquipmentLogs] = useState([]);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [calendarDates, setCalendarDates] = useState([]);
@@ -4518,10 +4823,12 @@ export default function App() {
       sb.get("site_equipment"),
       sb.get("equipment_logs", "status=eq.active"),
       sb.get("projects"),
+      sb.get("sub_activities"),
       supabase.from("rooms").select("*").order("id", { ascending: true }),
       supabase.from("profiles").select("*"),
-    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, projects, { data: roomData }, { data: profileData }]) => {
+    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, projects, subActs, { data: roomData }, { data: profileData }]) => {
       setSiteEquipment(siteEq || []);
+      setSubActivities(subActs || []);
       setEquipmentLogs(eqLogs || []);
       setProject(projects ? projects[0] : null);
       setActivities((acts || []).map(calcAct));
@@ -4562,7 +4869,7 @@ export default function App() {
       <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ background: YELLOW, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: NAVY }}>S</div>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>S-PMIS</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "4px 8px", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📱 현장</button>
@@ -4573,8 +4880,9 @@ export default function App() {
         </div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} />}
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} />
+        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} />
+      }
     </div>
   );
 }
