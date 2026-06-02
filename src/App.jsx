@@ -1588,6 +1588,7 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, on
   const [subInput, setSubInput] = useState("");
   const [editingSubId, setEditingSubId] = useState(null);
   const [editingSubName, setEditingSubName] = useState("");
+  const [editingSubWeight, setEditingSubWeight] = useState(0);
 
   const handleAISuggest = async (act) => {
     setAiLoading(true);
@@ -1605,11 +1606,12 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, on
           max_tokens: 500,
           messages: [{
             role: "user",
-            content: `한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계를 추천해줘.
+            content: `한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계와 가중치를 추천해줘.
 ${act.floor_start !== null && act.floor_end !== null ? `이 공종은 ${act.floor_start < 0 ? `B${Math.abs(act.floor_start)}` : `${act.floor_start}F`}~${act.floor_end < 0 ? `B${Math.abs(act.floor_end)}` : `${act.floor_end}F`} 구간이야. 각 층별로 세부공정을 나눠줘.` : ""}
-JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
-예시 (층별): [{"name":"2F 철근 배근"},{"name":"2F 거푸집 설치"},{"name":"2F 콘크리트 타설"},{"name":"3F 철근 배근"},{"name":"3F 거푸집 설치"},{"name":"3F 콘크리트 타설"}]
-예시 (층 없을 때): [{"name":"철근 배근"},{"name":"거푸집 설치"},{"name":"콘크리트 타설"},{"name":"양생"}]`
+가중치는 각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 배분해줘.
+JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]
+예시 (층별): [{"name":"2F 철근 배근","weight":20},{"name":"2F 거푸집 설치","weight":15},{"name":"2F 콘크리트 타설","weight":10},{"name":"3F 철근 배근","weight":20},{"name":"3F 거푸집 설치","weight":15},{"name":"3F 콘크리트 타설","weight":10},{"name":"양생","weight":10}]
+예시 (층 없을 때): [{"name":"철근 배근","weight":35},{"name":"거푸집 설치","weight":25},{"name":"콘크리트 타설","weight":20},{"name":"양생","weight":20}]`
           }]
         })
       });
@@ -1624,6 +1626,7 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
             activity_id: act.id,
             name: s.name,
             phys: 0,
+            weight: s.weight || 0,
             status: "pending_approval",
             suggested_by: user.id,
           });
@@ -1668,13 +1671,55 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
     } catch (err) { alert("삭제 실패: " + err.message); }
   };
 
+  const handleAIReweight = async (act) => {
+    const actSubs = subActivities.filter(s => s.activity_id === act.id && s.status === "active");
+    if (actSubs.length === 0) { alert("세부공정이 없습니다."); return; }
+    setAiLoading(true);
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: `한국 건설현장에서 "${act.name}" 공종의 아래 세부공정들에 가중치를 배분해줘.
+각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 해줘.
+세부공정 목록: ${actSubs.map(s => s.name).join(", ")}
+JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]`
+          }]
+        })
+      });
+      const data = await r.json();
+      const text = data.content[0].text;
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) {
+        const suggestions = JSON.parse(match[0]);
+        for (const s of suggestions) {
+          const sub = actSubs.find(x => x.name === s.name);
+          if (sub) {
+            await sb.patch("sub_activities", sub.id, { weight: s.weight });
+            setSubActivities(p => p.map(x => x.id === sub.id ? { ...x, weight: s.weight } : x));
+          }
+        }
+      }
+    } catch (err) { alert("가중치 계산 실패: " + err.message); }
+    setAiLoading(false);
+  };
   const handleEditSub = async (sub) => {
     if (!editingSubName.trim()) return;
     try {
-      await sb.patch("sub_activities", sub.id, { name: editingSubName.trim() });
-      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, name: editingSubName.trim() } : s));
+      await sb.patch("sub_activities", sub.id, { name: editingSubName.trim(), weight: Number(editingSubWeight) });
+      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, name: editingSubName.trim(), weight: Number(editingSubWeight) } : s));
       setEditingSubId(null);
       setEditingSubName("");
+      setEditingSubWeight(0);
     } catch (err) { alert("수정 실패: " + err.message); }
   };
 
@@ -1825,6 +1870,10 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
                               style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
                               {aiLoading ? "추천 중..." : "✨ AI 추천"}
                             </button>
+                            <button onClick={() => handleAIReweight(a)} disabled={aiLoading}
+                              style={{ background: aiLoading ? "#F3F4F6" : "#8B5CF6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                              {aiLoading ? "계산 중..." : "⚖️ 가중치 재계산"}
+                            </button>
                             <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
                               style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
                               + 직접 추가
@@ -1858,15 +1907,27 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
                               }
                               {/* 이름 + 진도율 */}
                               {editingSubId === sub.id
-                                ? <input
-                                  value={editingSubName}
-                                  onChange={e => setEditingSubName(e.target.value)}
-                                  onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
-                                  autoFocus
-                                  style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
-                                />
-                                : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
-                              }
+                              ? <div style={{ display: "flex", gap: 6, flex: 1 }}>
+                                  <input
+                                    value={editingSubName}
+                                    onChange={e => setEditingSubName(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
+                                    autoFocus
+                                    style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
+                                  />
+                                  <input
+                                    type="number"
+                                    value={editingSubWeight}
+                                    onChange={e => setEditingSubWeight(e.target.value)}
+                                    style={{ width: 56, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
+                                  />
+                                  <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
+                                </div>
+                              : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                            }
+                              <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
+                                {sub.weight || 0}%
+                              </span>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
                                   <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
@@ -1879,7 +1940,7 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
                                   style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
                                   확인
                                 </button>
-                                : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); }}
+                                : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); setEditingSubWeight(sub.weight || 0); }}
                                   style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
                                   수정
                                 </button>
@@ -2710,9 +2771,12 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
 
           // 상위 공종 진도율 = 완료된 세부공정 수 / 전체 세부공정 수
           const actSubs = updatedSubs.filter(s => s.activity_id === act.id && s.status === "active");
-          const completedSubs = actSubs.filter(s => s.phys === 100).length;
-          const totalSubs = actSubs.length;
-          const newPhys = totalSubs > 0 ? Math.round((completedSubs / totalSubs) * 100) : 0;
+          const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
+          const newPhys = totalWeight > 0
+            // 가중치 기반 계산
+            ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
+            // 가중치 없으면 개수 기반
+            : Math.round(actSubs.filter(s => s.phys === 100).length / actSubs.length * 100);
           const newDoneQty = Math.round(act.plan_qty * newPhys / 100);
 
           await sb.patch("activities", act.id, {
@@ -3331,9 +3395,10 @@ JSON 없이 자연스럽게 한국어로만 답해.
         setSubActivities(updatedSubs);
         // 상위 공종 진도율 = 완료된 세부공정 / 전체 세부공정
         const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
-        const completedSubs = actSubs.filter(s => s.phys === 100).length;
-        const totalSubs = actSubs.length;
-        const newPhys = totalSubs > 0 ? Math.round((completedSubs / totalSubs) * 100) : 0;
+        const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
+        const newPhys = totalWeight > 0
+          ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
+          : Math.round(actSubs.filter(s => s.phys === 100).length / Math.max(actSubs.length, 1) * 100);
         newDoneQty = Math.round(a.plan_qty * newPhys / 100);
       }
 
