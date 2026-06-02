@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const NAVY = "#1A2332";
-const YELLOW = "#FFB800";
+const NAVY = "#004884";      // HG Deep Blue
+const YELLOW = "#FFB800";    // 포인트 옐로우
+const ACCENT = "#0069b4";    // HG Blue 서브
+const BTN_TEXT = "#fff"; // 버튼 위 텍스트는 흰색으로
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 
@@ -296,7 +298,7 @@ function AuthScreen({ onAuth }) {
     <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div style={{ background: YELLOW, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: NAVY }}>F</div>
+          <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: YELLOW }}>F</div>
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
@@ -3420,17 +3422,15 @@ JSON 없이 자연스럽게 한국어로만 답해.
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100vh", background: "#FAFAFA" }}>
       {/* 헤더 */}
-      <div style={{ background: NAVY, color: "#fff", padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: NAVY }}>{user.name[0]}</div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{user.name}</div>
-        </div>
+      <div style={{ background: NAVY, color: "#fff", padding: "6px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, minHeight: 44 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ display: "flex", gap: 2 }}>
-            <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "4px 6px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>현장</button>
-            <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "4px 6px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>관리자</button>
-          </div>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 4, color: "#ccc", fontSize: 10, padding: "4px 6px", cursor: "pointer" }}>로그아웃</button>
+          <div style={{ width: 26, height: 26, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, color: NAVY, flexShrink: 0 }}>{user.name[0]}</div>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>{user.name}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>현장</button>
+          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>관리자</button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 4, color: "#ccc", fontSize: 10, padding: "3px 6px", cursor: "pointer" }}>로그아웃</button>
         </div>
       </div>
 
