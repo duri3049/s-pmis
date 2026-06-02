@@ -87,6 +87,19 @@ const sb = {
   },
 };
 
+const uploadPhoto = async (file, folder = "reports") => {
+  const ext = file.name.split(".").pop();
+  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { data, error } = await supabase.storage
+    .from("fieldlog-photos")
+    .upload(fileName, file, { contentType: file.type });
+  if (error) throw new Error("사진 업로드 실패: " + error.message);
+  const { data: urlData } = supabase.storage
+    .from("fieldlog-photos")
+    .getPublicUrl(fileName);
+  return urlData.publicUrl;
+};
+
 const claudeComplete = async (prompt) => {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -99,7 +112,12 @@ const claudeComplete = async (prompt) => {
 };
 const diffDays = (a, b) => Math.round((new Date(a) - new Date(b)) / 86400000);
 const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r.toISOString().slice(0, 10); };
-const fmtM = n => `${(n / 1000000).toFixed(1)}M`;
+const fmtM = n => {
+  if (n >= 100000000) return `${(n / 100000000).toFixed(1)}억`;
+  if (n >= 10000000) return `${(n / 10000000).toFixed(1)}천만`;
+  if (n >= 10000) return `${(n / 10000).toFixed(0)}만`;
+  return `${n.toLocaleString()}원`;
+};
 const pct = n => `${Math.round(n)}%`;
 const cpiColor = v => v >= 1 ? "#10B981" : v >= 0.9 ? "#F59E0B" : "#EF4444";
 const statusColor = s => s === "완료" ? "#10B981" : s === "진행" ? "#F59E0B" : "#9CA3AF";
@@ -507,12 +525,106 @@ function RoomList({ rooms, setRooms, user, onEnterRoom, profiles }) {
   );
 }
 
-function ChatRoom({ room, user, onBack, onNotify, profiles }) {
+function ChatRoom({ room, user, onBack, onNotify, profiles, activities, subActivities }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
   const bottom = useRef(null);
   const sending = useRef(false);
   const roomName = room.type === "group" ? room.name : profiles.find(p => p.id !== user.id && room.member_ids?.includes(p.id))?.name || "채팅";
+
+  const handleAIMention = async (userMsg, recentMsgs) => {
+    setAiLoading(true);
+    try {
+      const context = recentMsgs.slice(-10).map(m => `${m.user_name}: ${m.content}`).join("\n");
+      const prompt = `너는 건설현장 AI 어시스턴트야. 채팅방에서 @AI 멘션을 받았어.
+
+최근 대화 내용:
+${context}
+
+현재 공정 현황:
+${(activities || []).map(a => {
+        const subs = (subActivities || []).filter(s => s.activity_id === a.id && s.status === "active");
+        const subStr = subs.length > 0 ? `\n  세부공정: ${subs.map(s => `[ID:${s.id}] ${s.name} (${s.phys}%)`).join(", ")}` : "";
+        return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}%${subStr}`;
+      }).join("\n")}
+
+사용자 질문: ${userMsg.replace("@AI", "").trim()}
+
+규칙:
+- 2~3문장으로 짧고 친근하게 답해
+- 마크다운 쓰지 마
+- 작업 보고 내용이 감지되면 JSON으로 반환해: JSON: {"type":"work_report","matched_activity_id":<공종ID|null>,"matched_sub_id":<세부공정ID|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>,"matching_reason":"<이 공정/세부공정에 매핑한 이유 한 줄>","matching_confidence":"high|medium|low","photo_required":"none|optional|required","photo_message":"<사진 요청 메시지>","photo_folder":"작업보고|송장|이슈|안전|기타","order_warning":<true|false>,"order_warning_message":"<순서 경고 메시지>"}
+- 작업 보고가 아니면 그냥 텍스트로만 답해
+- JSON 앞뒤에 마크다운 붙이지 마. 순수 JSON만.`;
+
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      const data = await r.json();
+      const rawText = data.content[0].text;
+      const cleaned = rawText.replace(/```json\n?|```/g, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+
+      let aiText = rawText;
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          aiText = parsed.ai_message || rawText;
+
+          // 작업 보고 감지 시 결재 라인으로 전송
+          if (parsed.type === "work_report" && parsed.matched_activity_id) {
+            const act = activities.find(a => a.id === parsed.matched_activity_id);
+            if (act) {
+              await sb.post("progress_reports", {
+                activity_id: act.id,
+                reporter: user.name,
+                reporter_company: user.role,
+                raw_input: userMsg,
+                new_done_qty: parsed.new_done_qty || act.done_qty,
+                workers: parsed.workers || 0,
+                special_note: parsed.special_note || "",
+                delay_days: parsed.delay_days || 0,
+                delay_reason: parsed.delay_reason || "",
+                prev_done_qty: act.done_qty,
+                plan_qty: act.plan_qty,
+                unit: act.unit,
+                ai_summary: parsed.summary || "",
+                matching_reason: parsed.matching_reason || "채팅 @AI 멘션으로 감지",
+                matching_confidence: parsed.matching_confidence || "medium",
+                matched_sub_id: parsed.matched_sub_id || null,
+                status: "pending"
+              });
+              aiText += "\n\n✅ 작업 보고가 결재 라인으로 전달됐어요.";
+            }
+          }
+        } catch { }
+      }
+
+      await supabase.from("chat_messages").insert({
+        room_id: room.id,
+        user_id: "00000000-0000-0000-0000-000000000000",
+        user_name: "Fieldlog AI",
+        user_role: "AI",
+        avatar: "🤖",
+        content: aiText,
+        channel: room.name || "direct"
+      });
+
+    } catch (err) { console.error("AI 멘션 실패:", err); }
+    setAiLoading(false);
+  };
 
   useEffect(() => {
     supabase.from("chat_messages").select("*").eq("room_id", room.id).order("created_at", { ascending: true })
@@ -535,7 +647,19 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
     sending.current = true;
     setInput("");
     try {
-      await supabase.from("chat_messages").insert({ room_id: room.id, user_id: user.id, user_name: user.name, user_role: user.role, avatar: user.name[0], content: msgText, channel: room.name || "direct" });
+      await supabase.from("chat_messages").insert({
+        room_id: room.id,
+        user_id: user.id,
+        user_name: user.name,
+        user_role: user.role,
+        avatar: user.name[0],
+        content: msgText,
+        channel: room.name || "direct"
+      });
+      // @AI 멘션 감지
+      if (msgText.includes("@AI")) {
+        await handleAIMention(msgText, msgs);
+      }
     } catch { setInput(msgText); }
     sending.current = false;
   };
@@ -557,9 +681,15 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
           <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 8, marginBottom: 6 }}>
             {!isMe && <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: "#374151", flexShrink: 0 }}>{m.avatar || m.user_name?.[0]}</div>}
             <div style={{ maxWidth: "65%" }}>
-              {!isMe && <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 3 }}>{m.user_name} · {m.user_role}</div>}
+              {!isMe && <div style={{ fontSize: 11, color: m.user_role === "AI" ? YELLOW : "#9CA3AF", marginBottom: 3, fontWeight: m.user_role === "AI" ? 700 : 400 }}>{m.user_name} · {m.user_role}</div>}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, flexDirection: isMe ? "row-reverse" : "row" }}>
-                <div style={{ background: isMe ? YELLOW : "#fff", color: isMe ? NAVY : "#374151", borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 14px", fontSize: 14, lineHeight: 1.5, border: isMe ? "none" : "1px solid #E5E7EB" }}>{m.content}</div>
+                <div style={{
+                  background: isMe ? YELLOW : m.user_role === "AI" ? "#1A2332" : "#fff",
+                  color: isMe ? NAVY : m.user_role === "AI" ? "#fff" : "#374151",
+                  borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                  padding: "10px 14px", fontSize: 14, lineHeight: 1.5,
+                  border: isMe ? "none" : m.user_role === "AI" ? "none" : "1px solid #E5E7EB"
+                }}>{m.content}</div>
                 <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap", flexShrink: 0 }}>{fmtTime(m.created_at)}</span>
               </div>
             </div>
@@ -584,6 +714,10 @@ function ChatRoom({ room, user, onBack, onNotify, profiles }) {
         <div ref={bottom} />
       </div>
       <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8, background: "#fff", flexShrink: 0 }}>
+        <button onClick={() => setInput(prev => prev.includes("@AI") ? prev : "@AI " + prev)}
+          style={{ background: aiLoading ? "#F3F4F6" : NAVY, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 12, color: aiLoading ? "#9CA3AF" : YELLOW, cursor: "pointer", flexShrink: 0 }}>
+          {aiLoading ? "⏳" : "AI"}
+        </button>
         <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 22, padding: "10px 16px", fontSize: 16, outline: "none", background: "#F9FAFB" }} />
         <button onClick={handleSend} style={{ background: YELLOW, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer" }}>↑</button>
       </div>
@@ -1777,6 +1911,168 @@ JSON 배열만 반환해: [{"name":"세부공정명"}, ...]
 
 const EMPTY_FORM = { group: "", group_custom: "", name: "", floor: "3F", loc: "", subcon: "한일건설", resp: "이기사", ps: "", pf: "", plan_qty: "", unit: "㎡", pv_budget: "", risk: "중", weather: false, critical: false, steps: [{ name: "", w: 100 }], predecessors: [] };
 
+function DocumentVault() {
+  const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFolder, setSelectedFolder] = useState("all");
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const FOLDERS = [
+    { id: "all", label: "전체", icon: "📁" },
+    { id: "work", label: "작업보고", icon: "📋" },
+    { id: "invoice", label: "송장", icon: "🧾" },
+    { id: "safety", label: "안전", icon: "⚠️" },
+    { id: "issue", label: "이슈", icon: "🔴" },
+    { id: "etc", label: "기타", icon: "📄" },
+  ];
+
+  useEffect(() => {
+    loadFiles();
+  }, [selectedFolder]);
+
+  const loadFiles = async () => {
+    setLoading(true);
+    try {
+      const folder = selectedFolder === "all" ? "" : selectedFolder;
+      const { data, error } = await supabase.storage
+        .from("fieldlog-photos")
+        .list(folder, { sortBy: { column: "created_at", order: "desc" } });
+      if (error) throw error;
+
+      if (selectedFolder === "all") {
+        // 전체 보기 — 모든 폴더 파일 불러오기
+        const allFiles = [];
+        for (const f of ["work", "invoice", "safety", "issue", "etc"]) {
+          const { data: fd } = await supabase.storage.from("fieldlog-photos").list(f, { sortBy: { column: "created_at", order: "desc" } });
+          if (fd) allFiles.push(...fd.map(file => ({ ...file, folder: f })));
+        }
+        setFiles(allFiles);
+      } else {
+        setFiles((data || []).map(file => ({ ...file, folder: selectedFolder })));
+      }
+    } catch (err) {
+      console.error("파일 로드 실패:", err);
+    }
+    setLoading(false);
+  };
+
+  const getPublicUrl = (file) => {
+    const { data } = supabase.storage
+      .from("fieldlog-photos")
+      .getPublicUrl(`${file.folder}/${file.name}`);
+    return data.publicUrl;
+  };
+
+  const getFolderLabel = (folderId) => FOLDERS.find(f => f.id === folderId)?.label || folderId;
+  const getFolderIcon = (folderId) => FOLDERS.find(f => f.id === folderId)?.icon || "📄";
+
+  const handleDelete = async (file) => {
+    if (!window.confirm(`"${file.name}" 파일을 삭제할까요?`)) return;
+    try {
+      await supabase.storage.from("fieldlog-photos").remove([`${file.folder}/${file.name}`]);
+      setFiles(p => p.filter(f => f.name !== file.name || f.folder !== file.folder));
+    } catch (err) { alert("삭제 실패: " + err.message); }
+  };
+
+  const isImage = (name) => /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(name);
+
+  return (
+    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>📁 문서 보관함</div>
+
+      {/* 폴더 탭 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {FOLDERS.map(f => (
+          <button key={f.id} onClick={() => setSelectedFolder(f.id)}
+            style={{
+              background: selectedFolder === f.id ? NAVY : "#fff",
+              color: selectedFolder === f.id ? "#fff" : "#374151",
+              border: `1.5px solid ${selectedFolder === f.id ? NAVY : "#E5E7EB"}`,
+              borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: selectedFolder === f.id ? 700 : 400,
+              cursor: "pointer"
+            }}>
+            {f.icon} {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 파일 목록 */}
+      {loading
+        ? <div style={{ textAlign: "center", padding: 40, color: "#9CA3AF" }}>불러오는 중...</div>
+        : files.length === 0
+          ? <div style={{ textAlign: "center", padding: 40, color: "#9CA3AF" }}>파일이 없습니다</div>
+          : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            {files.map((file, i) => {
+              const url = getPublicUrl(file);
+              const img = isImage(file.name);
+              return (
+                <div key={i} style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", cursor: "pointer" }}
+                  onClick={() => setSelectedFile({ ...file, url })}>
+                  {/* 썸네일 */}
+                  <div style={{ width: "100%", height: 140, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                    {img
+                      ? <img src={url} alt={file.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <span style={{ fontSize: 40 }}>📄</span>
+                    }
+                  </div>
+                  {/* 파일 정보 */}
+                  <div style={{ padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>
+                      {getFolderIcon(file.folder)} {getFolderLabel(file.folder)}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {file.name.replace(/^\d{8}_/, "").replace(/\.[^.]+$/, "")}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4 }}>
+                      {file.name.slice(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3")}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+      }
+
+      {/* 파일 상세 모달 */}
+      {selectedFile && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          onClick={() => setSelectedFile(null)}>
+          <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", maxWidth: 600, width: "100%", maxHeight: "90vh" }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ background: NAVY, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
+                {getFolderIcon(selectedFile.folder)} {getFolderLabel(selectedFile.folder)}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => window.open(selectedFile.url, "_blank")}
+                  style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                  🔗 원본 보기
+                </button>
+                <button onClick={() => { handleDelete(selectedFile); setSelectedFile(null); }}
+                  style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                  🗑 삭제
+                </button>
+                <button onClick={() => setSelectedFile(null)}
+                  style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
+              </div>
+            </div>
+            <div style={{ padding: 20, overflowY: "auto", maxHeight: "calc(90vh - 80px)" }}>
+              {isImage(selectedFile.name)
+                ? <img src={selectedFile.url} alt={selectedFile.name} style={{ width: "100%", borderRadius: 8 }} />
+                : <div style={{ textAlign: "center", padding: 40 }}><span style={{ fontSize: 60 }}>📄</span><div style={{ marginTop: 12, color: "#374151" }}>{selectedFile.name}</div></div>
+              }
+              <div style={{ marginTop: 16, padding: "12px 16px", background: "#F9FAFB", borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>파일명</div>
+                <div style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{selectedFile.name}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProjectSettings({ project, setProject, activities, setActivities }) {
   const [form, setForm] = useState({
     name: project?.name || "",
@@ -2472,7 +2768,13 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
             </div>
             {report.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{report.delay_days}일</div></div>}
             {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
-            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>
+            {report.photo_url && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>📷 첨부 사진</div>
+                <img src={report.photo_url} alt="현장 사진" onClick={() => window.open(report.photo_url, "_blank")}
+                  style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #E5E7EB" }} />
+              </div>
+            )}            <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>
             {report.matching_reason && (
               <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
@@ -2827,11 +3129,14 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
 }
 
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingEquipment, setPendingEquipment] = useState(null);
+  const [attachedPhoto, setAttachedPhoto] = useState(null); // 하단 입력창용
+  const [cardPhoto, setCardPhoto] = useState(null); // 카드용
+  const photoRef = useRef(null);
   const [conversationHistory, setConversationHistory] = useState([]);
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
@@ -2863,18 +3168,22 @@ ${activities.map(a => {
 
 입력 유형을 판단해서 아래 중 하나로 응답해:
 
-1. 작업 보고 (공정 진척 보고)
-JSON: {"type":"work_report","matched_activity_id":<공종ID|null>,"matched_sub_id":<세부공정ID|null>,"new_done_qty":<숫자>,"workers":<숫자>,"special_note":"<특이사항>","delay_days":<지연일수>,"delay_reason":"<지연원인>","summary":"<한줄>","ai_message":"<응답>","needs_clarification":<true|false>,"matching_reason":"<이 공정/세부공정에 매핑한 이유 한 줄>","matching_confidence":"high|medium|low"}
 규칙:
 - 세부공정이 있으면 반드시 세부공정 ID를 matched_sub_id에 넣어. 세부공정이 없을 때만 상위 공종만 매핑해.
 - 층수 정보가 언급되면 반드시 층수가 일치하는 세부공정에 매핑해. "지하3층"이면 B3, "2층"이면 2F 등.
 - 확실하지 않으면 needs_clarification: true로 반환해.
-- - JSON 앞뒤에 \`\`\`json 같은 마크다운 절대 붙이지 마. 순수 JSON만 반환해.
+- JSON 앞뒤에 \`\`\`json 같은 마크다운 절대 붙이지 마. 순수 JSON만 반환해.
 - 응답은 반드시 { 로 시작하고 } 로 끝나야 해.
+- photo_required: 자재 입고/반입 보고면 "required", 작업 완료/현장 사진이 도움될 것 같으면 "optional", 일반 보고면 "none"
+- photo_folder: 자재 입고/송장이면 "invoice", 작업 완료/진행이면 "work", 안전 이슈면 "safety", 품질 이슈면 "issue", 그 외 "etc"
+- 순서 검증: 보고된 세부공정이 건설 상식상 이전 단계가 완료되지 않은 상태에서 진행 불가능한 경우 order_warning: true, order_warning_message: "<경고 메시지>" 를 반환해. 예) 콘크리트 타설 전 양생 보고, 거푸집 설치 전 철근 배근 보고 등. 가능한 경우면 order_warning: false.
 2. 장비 투입 보고
 JSON: {"type":"equipment_deploy","equipment_name":"<장비명>","unit_count":<대수>,"activity_id":<공종ID|null>,"note":"<비고>","ai_message":"<응답>","needs_clarification":<true|false>}
 
-3. 일반 대화
+3. 장비 반납 보고
+JSON: {"type":"equipment_return","equipment_name":"<장비명>","unit_count":<대수>,"note":"<비고>","ai_message":"<응답>","needs_clarification":<true|false>}
+
+4. 일반 대화
 JSON 없이 자연스럽게 한국어로만 답해.
 
 중요: 이전 대화 내용을 반드시 기억하고 문맥에 맞게 답해.
@@ -2939,6 +3248,11 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 matching_confidence: res.matching_confidence || "medium",
                 matched_sub_id: res.matched_sub_id || null,
                 matched_sub_name: res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id)?.name || "" : "",
+                photo_required: res.photo_required || "none",
+                photo_message: res.photo_message || "",
+                photo_folder: res.photo_folder || "etc",
+                order_warning: res.order_warning || false,
+                order_warning_message: res.order_warning_message || "",
                 raw: msg,
                 sent: false
               });
@@ -2956,6 +3270,23 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 unit_count: res.unit_count || 1,
                 activity: matchedAct,
                 note: res.note || "",
+                type: "deploy",
+                raw: msg,
+                sent: false
+              });
+            }
+          } else if (res.type === "equipment_return") {
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            if (!res.needs_clarification) {
+              const matchedEq = siteEquipment?.find(e =>
+                e.name.includes(res.equipment_name) || res.equipment_name?.includes(e.name)
+              );
+              setPendingEquipment({
+                equipment: matchedEq || null,
+                equipment_name: res.equipment_name,
+                unit_count: res.unit_count || 1,
+                note: res.note || "",
+                type: "return",
                 raw: msg,
                 sent: false
               });
@@ -3003,6 +3334,18 @@ JSON 없이 자연스럽게 한국어로만 답해.
         const newPhys = totalSubs > 0 ? Math.round((completedSubs / totalSubs) * 100) : 0;
         newDoneQty = Math.round(a.plan_qty * newPhys / 100);
       }
+
+      // 사진 업로드
+      let photoUrl = null;
+      const photoToUpload = cardPhoto || attachedPhoto;
+      if (photoToUpload) {
+        const folderMap = { "작업보고": "work", "송장": "invoice", "안전": "safety", "이슈": "issue", "기타": "etc" };
+        const folder = folderMap[pendingReport.photo_folder] || pendingReport.photo_folder || "work";
+        const label = pendingReport.summary || pendingReport.activity?.name || "작업보고";
+        photoUrl = await uploadPhoto(photoToUpload.file, folder, label);
+        setCardPhoto(null);
+        setAttachedPhoto(null);
+      }
       // 첫 보고면 착수일 자동 설정
       if (!a.as_) {
         await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
@@ -3012,7 +3355,6 @@ JSON 없이 자연스럽게 한국어로만 답해.
         reporter: user.name,
         reporter_company: user.role,
         raw_input: pendingReport.raw,
-
         new_done_qty: newDoneQty,
         workers: pendingReport.workers,
         special_note: pendingReport.special_note,
@@ -3025,6 +3367,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
         matching_reason: pendingReport.matching_reason || "",
         matching_confidence: pendingReport.matching_confidence || "medium",
         matched_sub_id: pendingReport.matched_sub_id || null,
+        photo_url: photoUrl,
         status: "pending"
       });
       setProgressReports(p => [...p, saved]);
@@ -3036,16 +3379,41 @@ JSON 없이 자연스럽게 한국어로만 답해.
   const handleSendEquipment = async () => {
     if (!pendingEquipment || pendingEquipment.sent) return;
     try {
-      await sb.post("equipment_logs", {
-        equipment_id: pendingEquipment.equipment?.id || null,
-        activity_id: pendingEquipment.activity?.id || null,
-        unit_number: pendingEquipment.unit_count,
-        status: "active",
-        started_at: new Date().toISOString(),
-        note: pendingEquipment.note,
-      });
+      if (pendingEquipment.type === "return") {
+        // 반납 처리 — 해당 장비 active 로그 찾아서 returned로 변경
+        const activeLog = equipmentLogs?.find(l =>
+          l.equipment_id === pendingEquipment.equipment?.id && l.status === "active"
+        );
+        if (activeLog) {
+          await sb.patch("equipment_logs", activeLog.id, {
+            status: "returned",
+            ended_at: new Date().toISOString(),
+          });
+          setEquipmentLogs(p => p.filter(l => l.id !== activeLog.id));
+        } else {
+          alert("반납할 장비 투입 기록이 없습니다.");
+          return;
+        }
+      } else {
+        await sb.post("equipment_logs", {
+          equipment_id: pendingEquipment.equipment?.id || null,
+          activity_id: pendingEquipment.activity?.id || null,
+          unit_number: pendingEquipment.unit_count,
+          status: "active",
+          started_at: new Date().toISOString(),
+          note: pendingEquipment.note,
+        });
+        setEquipmentLogs(p => [...p, {
+          equipment_id: pendingEquipment.equipment?.id || null,
+          activity_id: pendingEquipment.activity?.id || null,
+          unit_number: pendingEquipment.unit_count,
+          status: "active",
+          started_at: new Date().toISOString(),
+          note: pendingEquipment.note,
+        }]);
+      }
       setPendingEquipment(p => ({ ...p, sent: true }));
-      setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 장비 투입이 기록되었습니다" }]);
+      setChatMessages(p => [...p, { id: Date.now(), role: "system", content: pendingEquipment.type === "return" ? "✅ 장비 반납이 기록되었습니다" : "✅ 장비 투입이 기록되었습니다" }]);
     } catch (err) { alert("전송 실패: " + err.message); }
   };
 
@@ -3129,6 +3497,13 @@ JSON 없이 자연스럽게 한국어로만 답해.
                     </div>
                   </div>
                   {pendingReport.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{pendingReport.delay_days}일</div></div>}
+                  {pendingReport.order_warning && (
+                    <div style={{ background: "#FFF7ED", border: "1px solid #FCD34D", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 6 }}>⚠️ 작업 순서 확인 필요</div>
+                      <div style={{ fontSize: 12, color: "#78350F" }}>{pendingReport.order_warning_message}</div>
+                      <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>맞으면 이대로 보내기를 눌러주세요.</div>
+                    </div>
+                  )}
                   {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {pendingReport.special_note}</div>}
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{pendingReport.summary}</div>
                   {pendingReport.matching_reason && (
@@ -3143,9 +3518,44 @@ JSON 없이 자연스럽게 한국어로만 답해.
                     </div>
                   )}
 
+                  {/* 사진 첨부 요청 */}
+                  {!pendingReport.sent && pendingReport.photo_required !== "none" && (
+                    <div style={{
+                      background: pendingReport.photo_required === "required" ? "#FEF2F2" : "#F0FDF4",
+                      border: `1px solid ${pendingReport.photo_required === "required" ? "#FECACA" : "#6EE7B7"}`,
+                      borderRadius: 10, padding: "10px 14px", marginBottom: 10
+                    }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: pendingReport.photo_required === "required" ? "#991B1B" : "#065F46", marginBottom: 8 }}>
+                        {pendingReport.photo_required === "required" ? "📷 필수" : "📷 선택"} {pendingReport.photo_message || "사진을 첨부하시겠습니까?"}
+                      </div>
+                      {cardPhoto
+                        ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <img src={cardPhoto.url} style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 6 }} />
+                          <span style={{ fontSize: 12, color: "#065F46", flex: 1 }}>✅ 사진 첨부됨</span>
+                          <button onClick={() => setCardPhoto(null)} style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer" }}>✕</button>
+                        </div>
+                        : <div style={{ display: "flex", gap: 8 }}>
+                          <input id="card-photo-input" type="file" accept="image/*" capture="environment" onChange={e => {
+                            const file = e.target.files[0];
+                            if (file) setCardPhoto({ file, url: URL.createObjectURL(file) });
+                          }} style={{ display: "none" }} />
+                          <button onClick={() => document.getElementById("card-photo-input").click()}
+                            style={{ background: "#fff", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>
+                            📷 사진 선택
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  )}
                   {!pendingReport.sent
                     ? <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={handleSendReport} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
+                      <button onClick={() => {
+                        if (pendingReport.photo_required === "required" && !attachedPhoto) {
+                          alert("사진을 첨부해주세요.");
+                          return;
+                        }
+                        handleSendReport();
+                      }} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
                       <button style={{ flex: 1, background: "#F3F4F6", color: "#374151", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>✏️ 수정</button>
                     </div>
                     : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 전송 완료</div>}
@@ -3156,7 +3566,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 <div style={{ background: "#fff", border: `2px solid #10B981`, borderRadius: 14, padding: "14px 16px" }}>
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, fontWeight: 600 }}>🚜 AI 장비 투입 파싱 결과</div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 8 }}>
-                    {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
+                    {pendingEquipment.type === "return" ? "🔄 반납" : "🚜 투입"} — {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
                   </div>
                   <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
                     <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
@@ -3171,8 +3581,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   </div>
                   {!pendingEquipment.sent
                     ? <button onClick={handleSendEquipment}
-                      style={{ width: "100%", background: "#10B981", color: "#fff", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                      ✅ 장비 투입 기록
+                      style={{ width: "100%", background: pendingEquipment.type === "return" ? "#6B7280" : "#10B981", color: "#fff", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                      {pendingEquipment.type === "return" ? "🔄 장비 반납 기록" : "✅ 장비 투입 기록"}
                     </button>
                     : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 기록 완료</div>
                   }
@@ -3190,7 +3600,23 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 ))}
                 <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 20, padding: "5px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", marginLeft: "auto" }}>🔄 초기화</button>
               </div>
+              {/* 사진 첨부 미리보기 */}
+
+              {attachedPhoto && (
+                <div style={{ padding: "0 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <img src={attachedPhoto.url} alt="첨부" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, border: "1.5px solid #E5E7EB" }} />
+                  <div style={{ flex: 1, fontSize: 12, color: "#6B7280" }}>{attachedPhoto.file.name}</div>
+                  <button onClick={() => setAttachedPhoto(null)}
+                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer" }}>✕</button>
+                </div>
+              )}
               <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
+                <input ref={photoRef} type="file" accept="image/*" capture="environment" onChange={e => {
+                  const file = e.target.files[0];
+                  if (file) setAttachedPhoto({ file, url: URL.createObjectURL(file) });
+                }} style={{ display: "none" }} />
+                <button onClick={() => photoRef.current?.click()}
+                  style={{ background: "#F3F4F6", border: "1.5px solid #E5E7EB", borderRadius: 12, padding: "0 14px", fontSize: 20, cursor: "pointer", minHeight: 48 }}>📷</button>
                 <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 16, outline: "none", background: "#fff" }} />
                 <button onClick={handleReportSubmit} disabled={loading} style={{ background: YELLOW, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer", minHeight: 48 }}>전송</button>
               </div>
@@ -3198,7 +3624,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
           </div>
         ) : (
           activeRoom
-            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} />
+            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
             : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
         )}
       </div>
@@ -3208,7 +3634,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 // ── Desktop View ──────────────────────────────────────────────────────
 const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
 { id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
-{ id: "3w", label: "📅 3주 공정표", tiers: ["macro", "meso"] },
+{ id: "3w", label: "📅 3주 공정표", tiers: ["macro", "mes o"] },
 { id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
 { id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
 { id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
@@ -3216,6 +3642,7 @@ const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers:
 { id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
 { id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
 { id: "settings", label: "⚙️ 프로젝트 설정", tiers: ["macro"] },
+{ id: "docs", label: "📁 문서 보관함", tiers: ["macro", "meso"] },
 ];
 function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -4617,7 +5044,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} />}
           {activeMenu === "chat" && (
             activeRoom
-              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} />
+              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
               : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
@@ -4630,7 +5057,8 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               setLogs={setEquipmentLogs}
             />)}        {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
-          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} />}        </div>
+          {activeMenu === "docs" && <DocumentVault />}
+          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
       </div>
     </div>
   );
@@ -4880,7 +5308,7 @@ export default function App() {
         </div>
       </div>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} />
         : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} />
       }
     </div>
