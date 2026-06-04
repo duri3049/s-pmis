@@ -1027,110 +1027,339 @@ function Dashboard({ activities, progressReports, issues, weather, project }) {
   );
 }
 
-function ThreeWeekView({ activities, milestones, setMilestones }) {
+function ThreeWeekView({ activities, milestones, setMilestones, progressReports }) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", milestone_date: "", type: "complete", zone: "", status: "planned" });
+  const [weeklyPlans, setWeeklyPlans] = useState([]);
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [msForm, setMsForm] = useState({ title: "", milestone_date: "", type: "complete", status: "planned" });
   const [saving, setSaving] = useState(false);
-  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const DAYS = 21, COL_W = 44, LEFT_W = 200, BAR_H = 12, ROW_H = 58;
-  const days = [];
-  const baseDate = new Date(TODAY);
-  baseDate.setDate(baseDate.getDate() + weekOffset * 7);
-  for (let i = 0; i < DAYS; i++) { const d = new Date(baseDate); d.setDate(d.getDate() + i); days.push(d); }
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const getMonday = (offset) => {
+    const d = new Date(TODAY);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff + offset * 7);
+    return d;
+  };
+  const weekStart = getMonday(weekOffset - 1);
+  const weeks = [0, 1, 2].map(i => {
+    const start = new Date(weekStart);
+    start.setDate(start.getDate() + i * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return { start, end, startStr: dayStr(start), endStr: dayStr(end) };
+  });
   const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
-  const dayName = d => "일월화수목금토"[d.getDay()];
-  const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
-  const isTodayFn = d => d.toDateString() === TODAY.toDateString();
-  const startDateStr = dayStr(days[0]);
-  const dateToX = ds => Math.max(0, Math.min(diffDays(ds, startDateStr) * COL_W, DAYS * COL_W));
-  const active = activities.filter(a => a.done_qty < a.plan_qty && diffDays(a.pf, TODAY) >= 0);
-  const totalW = LEFT_W + DAYS * COL_W;
-  const todayX = dateToX(dayStr(TODAY));
-  const handleSave = async () => {
-    if (!form.title || !form.milestone_date) return;
+  const weekLabel = (w, i) => i === 0 ? "지난주" : i === 1 ? "이번주" : "다음주";
+  const weekBg = (i) => i === 0 ? "#F8FAFF" : i === 1 ? "#FFFBEB" : "#F0FDF4";
+  const weekBorder = (i) => i === 0 ? "#BFDBFE" : i === 1 ? YELLOW : "#6EE7B7";
+  const weekLabelColor = (i) => i === 0 ? "#1D4ED8" : i === 1 ? "#92400E" : "#065F46";
+
+  const rangeStart = weeks[0].startStr;
+  const rangeEnd = weeks[2].endStr;
+  const active = activities.filter(a => a.phys < 100 && a.ps <= rangeEnd && a.pf >= rangeStart);
+
+  useEffect(() => {
+    sb.get("weekly_plans").then(data => setWeeklyPlans(data || [])).catch(() => {});
+  }, [weekOffset]);
+
+  const getPlan = (actId, weekStartStr) =>
+    weeklyPlans.find(p => p.activity_id === actId && p.week_start === weekStartStr);
+
+  const getActual = (actId, weekStartStr, weekEndStr) =>
+    (progressReports || [])
+      .filter(r => r.activity_id === actId && r.status === "approved" && r.created_at >= weekStartStr && r.created_at <= weekEndStr + "T23:59:59")
+      .reduce((s, r) => s + (r.new_done_qty - r.prev_done_qty), 0);
+
+  const handlePlanSave = async (actId, weekStartStr, field, value) => {
+    const existing = getPlan(actId, weekStartStr);
+    try {
+      if (existing) {
+        await sb.patch("weekly_plans", existing.id, { [field]: value });
+        setWeeklyPlans(p => p.map(x => x.id === existing.id ? { ...x, [field]: value } : x));
+      } else {
+        const act = activities.find(a => a.id === actId);
+        const [saved] = await sb.post("weekly_plans", {
+          week_start: weekStartStr, activity_id: actId,
+          plan_qty: field === "plan_qty" ? Number(value) : 0,
+          actual_qty: 0,
+          workers: field === "workers" ? Number(value) : 0,
+          note: field === "note" ? value : "",
+          subcon: act?.subcon || "", status: "draft",
+        });
+        setWeeklyPlans(p => [...p, saved]);
+      }
+    } catch (err) { alert("저장 실패: " + err.message); }
+  };
+
+  const handleAIRecommend = async () => {
+    if (active.length === 0) { alert("이 기간에 진행 중인 공종이 없습니다."); return; }
+    setAiLoading(true);
+    try {
+      const nextWeek = weeks[2];
+      const prevWeek = weeks[0];
+      const calcOverlap = (w, a) => {
+        const os = w.startStr > a.ps ? w.startStr : a.ps;
+        const oe = w.endStr < a.pf ? w.endStr : a.pf;
+        const od = Math.max(0, diffDays(oe, os) + 1);
+        const td = Math.max(1, diffDays(a.pf, a.ps) + 1);
+        return Math.round(a.plan_qty * od / td);
+      };
+      const actCtx = active.map(a => ({
+        id: a.id, name: a.name, subcon: a.subcon, phys: a.phys,
+        plan_qty: a.plan_qty, unit: a.unit, ps: a.ps, pf: a.pf, delay_days: a.delay_days,
+        prev_plan: getPlan(a.id, prevWeek.startStr)?.plan_qty ?? calcOverlap(prevWeek, a),
+        prev_actual: getActual(a.id, prevWeek.startStr, prevWeek.endStr),
+        next_base_plan: calcOverlap(nextWeek, a),
+      }));
+      const prompt = `너는 건설현장 공정관리 AI야. 아래 공종별 지난주 실적과 현재 진도율을 보고 다음 주 계획을 추천해줘.
+
+현재 날짜: ${dayStr(TODAY)}
+다음 주: ${nextWeek.startStr} ~ ${nextWeek.endStr}
+
+공종 현황:
+${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
+  현재 진도율: ${a.phys}% | 공사 기간: ${a.ps}~${a.pf} | 지연: ${a.delay_days}일
+  지난주 계획: ${a.prev_plan}${a.unit} | 지난주 실적: ${a.prev_actual}${a.unit}
+  다음주 기본 계획: ${a.next_base_plan}${a.unit}`).join("\n")}
+
+각 공종에 대해 다음 주 권장 계획 물량과 특이사항을 JSON으로만 반환해:
+[{"id":<공종ID>,"plan_qty":<숫자>,"note":"<한줄 특이사항>"}]
+
+규칙:
+- 지연 공종은 만회 계획 반영해서 plan_qty 상향
+- 지난주 실적이 계획 미달이면 현실적으로 조정
+- 실적이 계획 초과면 다음주 상향 가능
+- note는 20자 이내, 없으면 ""
+- JSON 배열만 반환, 마크다운 금지`;
+
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      });
+      const data = await r.json();
+      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("AI 응답 파싱 실패");
+      const recs = JSON.parse(match[0]);
+      const saved = [];
+      for (const rec of recs) {
+        const act = activities.find(a => a.id === rec.id);
+        if (!act) continue;
+        const existing = getPlan(rec.id, nextWeek.startStr);
+        if (existing) {
+          await sb.patch("weekly_plans", existing.id, { plan_qty: rec.plan_qty, note: rec.note, status: "ai_recommended" });
+          saved.push({ ...existing, plan_qty: rec.plan_qty, note: rec.note, status: "ai_recommended" });
+        } else {
+          const [s] = await sb.post("weekly_plans", { week_start: nextWeek.startStr, activity_id: rec.id, plan_qty: rec.plan_qty, actual_qty: 0, workers: 0, note: rec.note, subcon: act?.subcon || "", status: "ai_recommended" });
+          saved.push(s);
+        }
+      }
+      setWeeklyPlans(p => {
+        const filtered = p.filter(x => !(x.week_start === nextWeek.startStr && saved.some(s => s.activity_id === x.activity_id)));
+        return [...filtered, ...saved];
+      });
+      alert(`✅ AI 추천 완료 — ${recs.length}개 공종 다음 주 계획이 업데이트됐습니다.`);
+    } catch (err) { alert("AI 추천 실패: " + err.message); }
+    setAiLoading(false);
+  };
+
+  const handleMsSave = async () => {
+    if (!msForm.title || !msForm.milestone_date) return;
     setSaving(true);
-    try { const [saved] = await sb.post("milestones", form); setMilestones(p => [...p, saved].sort((a, b) => a.milestone_date.localeCompare(b.milestone_date))); setShowForm(false); setForm({ title: "", milestone_date: "", type: "complete", zone: "", status: "planned" }); } catch (err) { alert("저장 실패: " + err.message); }
+    try {
+      const [saved] = await sb.post("milestones", msForm);
+      setMilestones(p => [...p, saved].sort((a, b) => a.milestone_date.localeCompare(b.milestone_date)));
+      setShowMilestoneForm(false);
+      setMsForm({ title: "", milestone_date: "", type: "complete", status: "planned" });
+    } catch (err) { alert("저장 실패: " + err.message); }
     setSaving(false);
   };
-  const handleStatusToggle = async (m) => {
-    const newStatus = m.status === "achieved" ? "planned" : "achieved";
-    try { await sb.patch("milestones", m.id, { status: newStatus }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: newStatus } : x)); } catch { }
-  };
-  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box", background: "#fff" };
-  const labelStyle = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+  const msIcon = t => ({ complete: "★", gate: "🔷", inspection: "🔍", equipment: "🏗" }[t] || "★");
+
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 3주 공정표</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
-          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 140, textAlign: "center" }}>{fmt(days[0])} ~ {fmt(days[DAYS - 1])}{weekOffset === 0 && <span style={{ fontSize: 11, color: YELLOW, marginLeft: 6 }}>오늘</span>}</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 180, textAlign: "center" }}>
+            {fmt(weeks[0].start)} ~ {fmt(weeks[2].end)}
+            {weekOffset === 0 && <span style={{ fontSize: 11, color: YELLOW, marginLeft: 6 }}>이번주</span>}
+          </div>
           <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
           <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
+          <button onClick={handleAIRecommend} disabled={aiLoading}
+            style={{ background: aiLoading ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: aiLoading ? "#9CA3AF" : "#fff", cursor: aiLoading ? "default" : "pointer" }}>
+            {aiLoading ? "AI 분석 중..." : "🤖 AI 계획 추천"}
+          </button>
+          <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
         </div>
-        <button onClick={() => setShowForm(true)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
       </div>
-      {showForm && (
-        <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-            <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>제목 *</label><input value={form.title} onChange={e => setF("title", e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>날짜 *</label><input type="date" value={form.milestone_date} onChange={e => setF("milestone_date", e.target.value)} style={inputStyle} /></div>
-            <div><label style={labelStyle}>유형</label><select value={form.type} onChange={e => setF("type", e.target.value)} style={inputStyle}><option value="complete">★ 완료</option><option value="gate">🔷 Gate</option><option value="inspection">🔍 검사</option><option value="equipment">🏗 장비</option></select></div>
+
+      {/* 마일스톤 등록 폼 */}
+      {showMilestoneForm && (
+        <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: 2, minWidth: 160 }}>
+            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>제목 *</div>
+            <input value={msForm.title} onChange={e => setMsForm(p => ({ ...p, title: e.target.value }))} style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
           </div>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button onClick={() => setShowForm(false)} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
-            <button onClick={handleSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
+          <div>
+            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>날짜 *</div>
+            <input type="date" value={msForm.milestone_date} onChange={e => setMsForm(p => ({ ...p, milestone_date: e.target.value }))} style={{ border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>유형</div>
+            <select value={msForm.type} onChange={e => setMsForm(p => ({ ...p, type: e.target.value }))} style={{ border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }}>
+              <option value="complete">★ 완료</option>
+              <option value="gate">🔷 Gate</option>
+              <option value="inspection">🔍 검사</option>
+              <option value="equipment">🏗 장비</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowMilestoneForm(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>취소</button>
+            <button onClick={handleMsSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
           </div>
         </div>
       )}
-      <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: 16 }}>
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: totalW }}>
-            <div style={{ display: "flex", borderBottom: "2px solid #334155" }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, background: NAVY, color: "#fff", padding: "10px 16px", fontWeight: 600, fontSize: 12 }}>공정명</div>
-              {days.map((d, i) => (<div key={i} style={{ width: COL_W, flexShrink: 0, background: isTodayFn(d) ? YELLOW : isWeekend(d) ? "#374151" : NAVY, color: isTodayFn(d) ? NAVY : isWeekend(d) ? "#9CA3AF" : "#fff", textAlign: "center", padding: "6px 0", borderLeft: "1px solid rgba(255,255,255,0.08)" }}><div style={{ fontSize: 11 }}>{fmt(d)}</div><div style={{ fontSize: 9, opacity: 0.7 }}>{dayName(d)}</div></div>))}
-            </div>
-            <div style={{ display: "flex", borderBottom: "2px solid #E2E8F0", background: "#1E293B", height: 36, position: "relative" }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, color: YELLOW, fontWeight: 700, fontSize: 12, padding: "0 16px", display: "flex", alignItems: "center" }}>★ 마일스톤</div>
-              <div style={{ flex: 1, position: "relative" }}>
-                <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: 36, background: YELLOW, zIndex: 3 }} />
-                {(milestones || []).map(m => { const x = dateToX(m.milestone_date); if (diffDays(m.milestone_date, startDateStr) < 0 || diffDays(m.milestone_date, startDateStr) >= DAYS) return null; return (<div key={m.id} onClick={() => handleStatusToggle(m)} style={{ position: "absolute", left: x + COL_W / 2 - 10, top: 7, width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, cursor: "pointer", opacity: m.status === "achieved" ? 0.35 : 1, zIndex: 2 }}>{msIcon(m.type)}</div>); })}
+
+      {/* 마일스톤 행 */}
+      <div style={{ background: "#1E293B", borderRadius: 12, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: YELLOW, fontWeight: 700, minWidth: 60 }}>★ 마일스톤</span>
+        <div style={{ display: "flex", flex: 1, gap: 8 }}>
+          {weeks.map((w, i) => {
+            const wMs = (milestones || []).filter(m => m.milestone_date >= w.startStr && m.milestone_date <= w.endStr);
+            return (
+              <div key={i} style={{ flex: 1, background: "rgba(255,255,255,0.05)", borderRadius: 8, padding: "6px 10px", minHeight: 32, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                {wMs.length === 0
+                  ? <span style={{ fontSize: 11, color: "#4B5563" }}>-</span>
+                  : wMs.map(m => (
+                    <span key={m.id} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}
+                      style={{ fontSize: 11, background: m.status === "achieved" ? "#374151" : YELLOW, color: m.status === "achieved" ? "#6B7280" : NAVY, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
+                      {msIcon(m.type)} {m.title}
+                    </span>
+                  ))}
               </div>
-            </div>
-            {active.map((a, ri) => {
-              const { daily_target, plan_daily } = calcTodayTarget(a);
-              const isDelayed = a.delay_days > 0, isCritical = a.critical;
-              const planStartX = dateToX(a.ps), planEndX = dateToX(a.pf), planW = Math.max(planEndX - planStartX, 4);
-              const actualStartX = a.as_ ? dateToX(a.as_) : null;
-              const actualEndX = a.as_ ? Math.min(dateToX(a.af ? a.af : dayStr(TODAY)), planEndX) : null;
-              const actualW = actualStartX !== null ? Math.max(actualEndX - actualStartX, 4) : 0;
-              return (
-                <div key={a.id} style={{ display: "flex", alignItems: "center", borderBottom: "1px solid #F1F5F9", background: ri % 2 === 0 ? "#fff" : "#FAFAFA", height: ROW_H }}>
-                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "0 16px", borderRight: "2px solid #E5E7EB", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2 }}>
-                    <div style={{ display: "flex", gap: 4 }}>{isCritical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}{isDelayed && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}</div>
-                    <div style={{ fontWeight: 600, fontSize: 12, color: isCritical ? "#DC2626" : NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div>
-                    <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon}</div>
-                  </div>
-                  <div style={{ flex: 1, position: "relative", height: ROW_H }}>
-                    {days.map((d, i) => isWeekend(d) && <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: COL_W, height: ROW_H, background: "rgba(0,0,0,0.025)" }} />)}
-                    {days.map((_, i) => <div key={i} style={{ position: "absolute", left: i * COL_W, top: 0, width: 1, height: ROW_H, background: "#F1F5F9" }} />)}
-                    <div style={{ position: "absolute", left: todayX, top: 0, width: 2, height: ROW_H, background: YELLOW, zIndex: 3 }} />
-                    <div style={{ position: "absolute", left: planStartX, top: ROW_H / 2 - BAR_H - 4, width: planW, height: BAR_H, background: isDelayed ? "#FECACA" : "#BFDBFE", borderRadius: 3, zIndex: 1, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}><span style={{ fontSize: 9, fontWeight: 600, color: isDelayed ? "#991B1B" : "#1E40AF", whiteSpace: "nowrap" }}>계획 {plan_daily}{a.unit}</span></div>
-                    {a.as_ && actualW > 0 && <div style={{ position: "absolute", left: actualStartX, top: ROW_H / 2 + 4, width: actualW, height: BAR_H, background: "#6EE7B7", borderRadius: 3, zIndex: 1 }} />}
-                    {!a.as_ && <div style={{ position: "absolute", left: planStartX + 4, top: ROW_H / 2 + 4, height: BAR_H, display: "flex", alignItems: "center" }}><span style={{ fontSize: 9, color: "#9CA3AF" }}>미착수</span></div>}
-                  </div>
-                </div>
-              );
-            })}
-            <div style={{ display: "flex", gap: 20, padding: "10px 16px", borderTop: "1px solid #E5E7EB", background: "#F9FAFB", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#BFDBFE", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 24, height: 10, background: "#6EE7B7", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 2, height: 14, background: YELLOW }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* 주 헤더 */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <div style={{ width: 220, flexShrink: 0 }} />
+        {weeks.map((w, i) => (
+          <div key={i} style={{ flex: 1, background: weekBg(i), border: `2px solid ${weekBorder(i)}`, borderRadius: 10, padding: "8px 12px", textAlign: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: weekLabelColor(i) }}>{weekLabel(w, i)}</div>
+            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>{fmt(w.start)} ~ {fmt(w.end)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 공종 없을 때 */}
+      {active.length === 0 && (
+        <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#9CA3AF" }}>
+          이 기간에 진행 예정인 공종이 없습니다
+        </div>
+      )}
+
+      {/* 공종별 행 */}
+      {active.map(a => {
+        // 주간 계획 물량 = 해당 주와 공종 기간의 겹치는 일수 비율 × plan_qty
+        const calcWeekPlan = (w) => {
+          const overlapStart = w.startStr > a.ps ? w.startStr : a.ps;
+          const overlapEnd = w.endStr < a.pf ? w.endStr : a.pf;
+          const overlapDays = Math.max(0, diffDays(overlapEnd, overlapStart) + 1);
+          const totalDays = Math.max(1, diffDays(a.pf, a.ps) + 1);
+          return Math.round(a.plan_qty * overlapDays / totalDays);
+        };
+        // 주간 실제 투입 인원 집계
+        const calcWeekWorkers = (w) =>
+          (progressReports || [])
+            .filter(r => r.activity_id === a.id && r.status === "approved"
+              && r.created_at >= w.startStr && r.created_at <= w.endStr + "T23:59:59"
+              && r.workers > 0)
+            .reduce((s, r) => s + (r.workers || 0), 0);
+        return (
+          <div key={a.id} style={{ background: "#fff", borderRadius: 12, marginBottom: 8, border: "1px solid #E5E7EB", overflow: "hidden" }}>
+            {/* 공종 헤더 */}
+            <div style={{ background: a.critical ? "#FEF2F2" : "#F8FAFC", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E5E7EB" }}>
+              {a.critical && <span style={{ fontSize: 10, background: "#FEE2E2", color: "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>CP</span>}
+              {a.delay_days > 0 && <span style={{ fontSize: 10, background: "#FEE2E2", color: "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+              <span style={{ fontWeight: 700, fontSize: 14, color: NAVY, flex: 1 }}>{a.name}</span>
+              <span style={{ fontSize: 11, color: "#6B7280" }}>{a.subcon !== "미정" ? a.subcon : ""}</span>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: a.phys >= 80 ? "#10B981" : a.phys >= 40 ? "#F59E0B" : "#EF4444" }}>{a.phys}%</span>
+            </div>
+            {/* 주차별 계획/실적 */}
+            <div style={{ display: "flex", gap: 0 }}>
+              {/* 라벨 컬럼 */}
+              <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid #E5E7EB" }}>
+                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>계획 물량</div>
+                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>실적 물량</div>
+                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>투입 인원</div>
+                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", background: "#FAFAFA" }}>특이사항</div>
+              </div>
+              {/* 주차별 데이터 */}
+              {weeks.map((w, wi) => {
+                const plan = getPlan(a.id, w.startStr);
+                const actualQty = getActual(a.id, w.startStr, w.endStr);
+                const weekPlanQty = plan?.plan_qty ?? calcWeekPlan(w);
+                const weekWorkers = calcWeekWorkers(w);
+                const isPast = wi === 0;
+                return (
+                  <div key={wi} style={{ flex: 1, borderRight: wi < 2 ? "1px solid #E5E7EB" : "none" }}>
+                    {/* 계획 물량 */}
+                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi), display: "flex", alignItems: "center", gap: 6 }}>
+                      {plan?.status === "ai_recommended" && wi === 2 && (
+                        <span style={{ fontSize: 9, background: "#EDE9FE", color: "#7C3AED", borderRadius: 4, padding: "1px 5px", fontWeight: 700, whiteSpace: "nowrap" }}>AI</span>
+                      )}
+                      {!isPast ? (
+                        <input
+                          type="number"
+                          defaultValue={weekPlanQty}
+                          onBlur={e => handlePlanSave(a.id, w.startStr, "plan_qty", Number(e.target.value))}
+                          style={{ width: "100%", border: "1px solid #D1D5DB", borderRadius: 6, padding: "3px 6px", fontSize: 12, outline: "none", boxSizing: "border-box" }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{weekPlanQty}{a.unit}</span>
+                      )}
+                    </div>
+                    {/* 실적 물량 */}
+                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi) }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: actualQty > 0 ? "#10B981" : "#9CA3AF" }}>{actualQty > 0 ? `${actualQty}${a.unit}` : "-"}</span>
+                        {weekPlanQty > 0 && actualQty > 0 && (
+                          <span style={{ fontSize: 10, background: actualQty >= weekPlanQty ? "#D1FAE5" : "#FEE2E2", color: actualQty >= weekPlanQty ? "#065F46" : "#991B1B", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
+                            {Math.round(actualQty / weekPlanQty * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* 투입 인원 — progress_reports 자동 집계 */}
+                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi) }}>
+                      <span style={{ fontSize: 12, fontWeight: weekWorkers > 0 ? 700 : 400, color: weekWorkers > 0 ? NAVY : "#9CA3AF" }}>
+                        {weekWorkers > 0 ? `${weekWorkers}명` : "-"}
+                      </span>
+                    </div>
+                    {/* 특이사항 */}
+                    <div style={{ padding: "4px 12px", background: weekBg(wi) }}>
+                      <input
+                        defaultValue={plan?.note || ""}
+                        placeholder="특이사항"
+                        onBlur={e => handlePlanSave(a.id, w.startStr, "note", e.target.value)}
+                        style={{ width: "100%", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 6px", fontSize: 11, outline: "none", boxSizing: "border-box", background: "transparent" }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2224,6 +2453,7 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
     end_date: project?.end_date || "",
   });
   const [saving, setSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   useEffect(() => {
     if (project) {
       setForm({
@@ -2846,6 +3076,104 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
+  const today = dayStr(TODAY);
+  const [rows, setRows] = useState(
+    activities
+      .filter(a => a.phys < 100 && a.ps <= today && a.pf >= today)
+      .map(a => ({ actId: a.id, actName: a.name, subcon: a.subcon, details: [{ job: "일반인부", count: "" }] }))
+  );
+  const [saving, setSaving] = useState(false);
+
+  const addJob = (actIdx) => setRows(p => p.map((r, i) => i === actIdx ? { ...r, details: [...r.details, { job: "", count: "" }] } : r));
+  const updateDetail = (actIdx, jobIdx, field, val) => setRows(p => p.map((r, i) => i === actIdx ? { ...r, details: r.details.map((d, j) => j === jobIdx ? { ...d, [field]: val } : d) } : r));
+  const removeJob = (actIdx, jobIdx) => setRows(p => p.map((r, i) => i === actIdx ? { ...r, details: r.details.filter((_, j) => j !== jobIdx) } : r));
+
+  const handleSubmit = async () => {
+    const toSave = rows.filter(r => r.details.some(d => Number(d.count) > 0));
+    if (toSave.length === 0) { alert("투입 인원을 입력해주세요."); return; }
+    setSaving(true);
+    try {
+      for (const r of toSave) {
+        const workerDetails = r.details.filter(d => Number(d.count) > 0).map(d => ({ job: d.job || "일반인부", count: Number(d.count) }));
+        const totalWorkers = workerDetails.reduce((s, d) => s + d.count, 0);
+        await sb.post("progress_reports", {
+          activity_id: r.actId,
+          reporter: user.name,
+          reporter_company: user.role,
+          raw_input: `일일 인원 보고: ${workerDetails.map(d => `${d.job} ${d.count}명`).join(", ")}`,
+          new_done_qty: 0,
+          workers: totalWorkers,
+          worker_details: workerDetails,
+          special_note: "",
+          delay_days: 0,
+          delay_reason: "",
+          prev_done_qty: 0,
+          plan_qty: 0,
+          unit: "명",
+          ai_summary: `인원 보고: ${workerDetails.map(d => `${d.job} ${d.count}명`).join(", ")}`,
+          matching_reason: "일일 인원 직접 입력",
+          matching_confidence: "high",
+          matched_sub_id: null,
+          photo_url: null,
+          status: "approved",
+          report_type: "worker",
+        });
+      }
+      onSubmit();
+    } catch (err) { alert("저장 실패: " + err.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ background: "#fff", border: `2px solid ${NAVY}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>👷 일일 인원 입력</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 11, color: "#9CA3AF" }}>{today}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
+        </div>
+      </div>
+
+      {rows.length === 0
+        ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "16px 0" }}>오늘 진행 중인 공종이 없습니다</div>
+        : rows.map((r, ai) => (
+          <div key={r.actId} style={{ marginBottom: 12, border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ background: "#F8FAFC", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{r.actName}</div>
+                {r.subcon && r.subcon !== "미정" && <div style={{ fontSize: 11, color: "#6B7280" }}>{r.subcon}</div>}
+              </div>
+              <button onClick={() => addJob(ai)} style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>+ 직종 추가</button>
+            </div>
+            <div style={{ padding: "8px 12px" }}>
+              {r.details.map((d, ji) => (
+                <div key={ji} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                  <input value={d.job} onChange={e => updateDetail(ai, ji, "job", e.target.value)}
+                    placeholder="직종 (예: 철근공)"
+                    style={{ flex: 2, border: "1px solid #D1D5DB", borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none" }} />
+                  <input type="number" value={d.count} onChange={e => updateDetail(ai, ji, "count", e.target.value)}
+                    placeholder="인원"
+                    style={{ flex: 1, border: "1px solid #D1D5DB", borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none", textAlign: "center" }} />
+                  <span style={{ fontSize: 12, color: "#6B7280" }}>명</span>
+                  {r.details.length > 1 && (
+                    <button onClick={() => removeJob(ai, ji)} style={{ background: "#FEE2E2", border: "none", borderRadius: 6, width: 24, height: 24, color: "#991B1B", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+
+      <button onClick={handleSubmit} disabled={saving}
+        style={{ width: "100%", background: NAVY, color: "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 4 }}>
+        {saving ? "저장 중..." : "✅ 인원 보고 제출"}
+      </button>
     </div>
   );
 }
@@ -3714,7 +4042,8 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
 
-  const CHIPS = ["이번 주 공정 어때?", "오늘 뭐 했어?", "지연 있어?"];
+  const CHIPS = [];
+  const [showWorker, setShowWorker] = useState(false);
 
 
   const callAI = async (userMsg, history) => {
@@ -4281,6 +4610,17 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 </div>
               )}
 
+              {showWorker && (
+                <DailyWorkerCard
+                  user={user}
+                  activities={activities}
+                  onClose={() => setShowWorker(false)}
+                  onSubmit={() => {
+                    setShowWorker(false);
+                    setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "👷 일일 인원이 보고되었습니다." }]);
+                  }}
+                />
+              )}
               {showInvoice && (
                 <InvoiceCard
                   user={user}
@@ -4300,12 +4640,13 @@ JSON 없이 자연스럽게 한국어로만 답해.
             {/* 하단 고정 입력창 */}
             <div style={{ flexShrink: 0, background: "#fff", borderTop: "1px solid #E5E7EB" }}>
               <div style={{ padding: "6px 12px 4px", display: "flex", gap: 6, overflowX: "auto", alignItems: "center" }}>
-                {CHIPS.map((c, i) => (
-                  <button key={i} onClick={() => setInput(c)} style={{ whiteSpace: "nowrap", background: "#fff", border: `1px solid ${YELLOW}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer" }}>{c}</button>
-                ))}
-                <button onClick={() => setShowInvoice(v => !v)}
+                <button onClick={() => { setShowInvoice(v => !v); setShowWorker(false); }}
                   style={{ whiteSpace: "nowrap", background: showInvoice ? YELLOW : "#fff", border: `1px solid ${showInvoice ? YELLOW : NAVY}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer", fontWeight: showInvoice ? 700 : 400 }}>
                   💰 기성청구
+                </button>
+                <button onClick={() => { setShowWorker(v => !v); setShowInvoice(false); }}
+                  style={{ whiteSpace: "nowrap", background: showWorker ? NAVY : "#fff", border: `1px solid ${showWorker ? NAVY : "#6B7280"}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: showWorker ? "#fff" : "#374151", cursor: "pointer", fontWeight: showWorker ? 700 : 400 }}>
+                  👷 일일 인원
                 </button>
                 <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 20, padding: "5px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", marginLeft: "auto" }}>🔄 초기화</button>
               </div>
@@ -5764,6 +6105,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
             />)}        {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
+          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
