@@ -1034,7 +1034,8 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
   const [msForm, setMsForm] = useState({ title: "", milestone_date: "", type: "complete", status: "planned" });
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const getMonday = (offset) => {
     const d = new Date(TODAY);
     const day = d.getDay();
@@ -1165,6 +1166,46 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
     setAiLoading(false);
   };
 
+  const handleConfirm = async () => {
+    if (active.length === 0) { alert("공종 데이터가 없습니다."); return; }
+    setConfirming(true);
+    try {
+      const snapshot = active.map(a => {
+        const calcOverlap = (w) => {
+          const os = w.startStr > a.ps ? w.startStr : a.ps;
+          const oe = w.endStr < a.pf ? w.endStr : a.pf;
+          const od = Math.max(0, diffDays(oe, os) + 1);
+          const td = Math.max(1, diffDays(a.pf, a.ps) + 1);
+          return Math.round(a.plan_qty * od / td);
+        };
+        return {
+          id: a.id, name: a.name, subcon: a.subcon, phys: a.phys,
+          unit: a.unit, ps: a.ps, pf: a.pf, delay_days: a.delay_days,
+          weeks: weeks.map((w, wi) => ({
+            label: wi === 0 ? "지난주" : wi === 1 ? "이번주" : "다음주",
+            startStr: w.startStr, endStr: w.endStr,
+            plan_qty: getPlan(a.id, w.startStr)?.plan_qty ?? calcOverlap(w),
+            actual_qty: getActual(a.id, w.startStr, w.endStr),
+            workers: (progressReports || [])
+              .filter(r => r.activity_id === a.id && r.status === "approved"
+                && r.created_at >= w.startStr && r.created_at <= w.endStr + "T23:59:59" && r.workers > 0)
+              .reduce((s, r) => s + (r.workers || 0), 0),
+            note: getPlan(a.id, w.startStr)?.note || "",
+          })),
+        };
+      });
+      await sb.post("weekly_plan_snapshots", {
+        week_start: weeks[1].startStr,
+        week_end: weeks[1].endStr,
+        snapshot,
+        confirmed_by: "공무과장",
+        status: "confirmed",
+      });
+      setShowPdfPreview(true);
+    } catch (err) { alert("확정 실패: " + err.message); }
+    setConfirming(false);
+  };
+
   const handleMsSave = async () => {
     if (!msForm.title || !msForm.milestone_date) return;
     setSaving(true);
@@ -1180,6 +1221,125 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
+      {/* PDF 미리보기 모달 */}
+      {showPdfPreview && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: 20 }}>
+          <style>{`@media print { body * { visibility: hidden; } #wp-content, #wp-content * { visibility: visible; } #wp-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
+          <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
+            <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+            <button onClick={() => setShowPdfPreview(false)} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
+          </div>
+          <div id="wp-content" style={{ maxWidth: 900, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6 }}>
+            {/* 제목 */}
+            <div style={{ textAlign: "center", borderBottom: "2px solid #1A2332", paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1A2332" }}>3 주 공 정 표</div>
+              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>Three-Week Lookahead Schedule</div>
+            </div>
+            {/* 기본 정보 */}
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+              <tbody>
+                <tr>
+                  <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, width: "15%" }}>기준일</td>
+                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px", width: "35%" }}>{dayStr(TODAY)}</td>
+                  <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, width: "15%" }}>대상기간</td>
+                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>{weeks[0].startStr} ~ {weeks[2].endStr}</td>
+                </tr>
+                <tr>
+                  <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600 }}>작성자</td>
+                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>공무과장</td>
+                  <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600 }}>이번주</td>
+                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>{weeks[1].startStr} ~ {weeks[1].endStr}</td>
+                </tr>
+              </tbody>
+            </table>
+            {/* 공정표 테이블 */}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#1A2332" }}>
+                  <th style={{ color: "#fff", padding: "6px 8px", border: "1px solid #374151", fontSize: 11, width: "20%" }}>공종명</th>
+                  <th style={{ color: "#fff", padding: "6px 8px", border: "1px solid #374151", fontSize: 11, width: "8%" }}>진도율</th>
+                  {weeks.map((w, i) => (
+                    <th key={i} colSpan={3} style={{ color: i === 1 ? "#FFB800" : "#fff", padding: "6px 8px", border: "1px solid #374151", fontSize: 11, textAlign: "center" }}>
+                      {i === 0 ? "지난주" : i === 1 ? "이번주" : "다음주"}<br />
+                      <span style={{ fontSize: 9, fontWeight: 400 }}>{fmt(w.start)}~{fmt(w.end)}</span>
+                    </th>
+                  ))}
+                </tr>
+                <tr style={{ background: "#374151" }}>
+                  <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
+                  <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
+                  {[0,1,2].map(i => (
+                    <th key={`p${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>계획</th>
+                  )).concat([0,1,2].map(i => (
+                    <th key={`a${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>실적</th>
+                  ))).concat([0,1,2].map(i => (
+                    <th key={`w${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>인원</th>
+                  )))}
+                </tr>
+              </thead>
+              <tbody>
+                {active.map((a, ri) => {
+                  const calcOverlap = (w) => {
+                    const os = w.startStr > a.ps ? w.startStr : a.ps;
+                    const oe = w.endStr < a.pf ? w.endStr : a.pf;
+                    const od = Math.max(0, diffDays(oe, os) + 1);
+                    const td = Math.max(1, diffDays(a.pf, a.ps) + 1);
+                    return Math.round(a.plan_qty * od / td);
+                  };
+                  return (
+                    <tr key={a.id} style={{ background: ri % 2 === 0 ? "#fff" : "#F9FAFB" }}>
+                      <td style={{ padding: "5px 8px", border: "1px solid #E5E7EB", fontSize: 11, fontWeight: 600 }}>
+                        {a.name}
+                        {a.delay_days > 0 && <span style={{ color: "#EF4444", fontSize: 9, marginLeft: 4 }}>+{a.delay_days}일</span>}
+                      </td>
+                      <td style={{ padding: "5px 8px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", fontWeight: 700, color: a.phys >= 80 ? "#10B981" : a.phys >= 40 ? "#F59E0B" : "#EF4444" }}>{a.phys}%</td>
+                      {weeks.map((w, wi) => {
+                        const plan = getPlan(a.id, w.startStr);
+                        const planQty = plan?.plan_qty ?? calcOverlap(w);
+                        const actualQty = getActual(a.id, w.startStr, w.endStr);
+                        const workers = (progressReports || [])
+                          .filter(r => r.activity_id === a.id && r.status === "approved" && r.created_at >= w.startStr && r.created_at <= w.endStr + "T23:59:59" && r.workers > 0)
+                          .reduce((s, r) => s + (r.workers || 0), 0);
+                        const isThisWeek = wi === 1;
+                        return [
+                          <td key={`p${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{planQty}{a.unit}</td>,
+                          <td key={`a${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent", color: actualQty > 0 ? "#10B981" : "#9CA3AF", fontWeight: actualQty > 0 ? 700 : 400 }}>{actualQty > 0 ? `${actualQty}${a.unit}` : "-"}</td>,
+                          <td key={`w${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{workers > 0 ? `${workers}명` : "-"}</td>
+                        ];
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {/* 특이사항 */}
+            <div style={{ marginTop: 16, border: "1px solid #D1D5DB", borderRadius: 4 }}>
+              <div style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, fontSize: 11 }}>특이사항</div>
+              <div style={{ padding: "8px 10px", minHeight: 60, fontSize: 11 }}>
+                {active.filter(a => getPlan(a.id, weeks[1].startStr)?.note).map(a => (
+                  <div key={a.id} style={{ marginBottom: 4 }}>· {a.name}: {getPlan(a.id, weeks[1].startStr)?.note}</div>
+                ))}
+                {active.filter(a => getPlan(a.id, weeks[1].startStr)?.note).length === 0 && <span style={{ color: "#9CA3AF" }}>없음</span>}
+              </div>
+            </div>
+            {/* 서명란 */}
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+              <tbody>
+                <tr>
+                  {["작 성", "검 토", "승 인", "발 주 처"].map(r => (
+                    <td key={r} style={{ border: "1px solid #D1D5DB", textAlign: "center", padding: "8px", width: "25%", height: 48, fontWeight: 600, fontSize: 11, color: "#1A2332" }}>{r}</td>
+                  ))}
+                </tr>
+                <tr>
+                  {[0,1,2,3].map(i => (
+                    <td key={i} style={{ border: "1px solid #D1D5DB", height: 48 }} />
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 3주 공정표</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1193,6 +1353,10 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           <button onClick={handleAIRecommend} disabled={aiLoading}
             style={{ background: aiLoading ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: aiLoading ? "#9CA3AF" : "#fff", cursor: aiLoading ? "default" : "pointer" }}>
             {aiLoading ? "AI 분석 중..." : "🤖 AI 계획 추천"}
+          </button>
+          <button onClick={handleConfirm} disabled={confirming}
+            style={{ background: confirming ? "#E5E7EB" : "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: confirming ? "default" : "pointer" }}>
+            {confirming ? "저장 중..." : "✅ 확정/등록"}
           </button>
           <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
         </div>
@@ -1843,6 +2007,8 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, on
   const [openCat, setOpenCat] = useState({});
   const [showSubForm, setShowSubForm] = useState(null); // activity_id
   const [aiLoading, setAiLoading] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [subInput, setSubInput] = useState("");
   const [editingSubId, setEditingSubId] = useState(null);
   const [editingSubName, setEditingSubName] = useState("");
