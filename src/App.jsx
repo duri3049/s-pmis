@@ -11,6 +11,7 @@ TODAY.setHours(0, 0, 0, 0);
 const downloadTemplate = () => {
   const XLSX = window.XLSX;
   const headers = [
+    "대공종(건축/토목/기계/전기)",
     "대분류",
     "중분류(동/구역)",
     "공종명",
@@ -22,16 +23,16 @@ const downloadTemplate = () => {
     "비고"
   ];
   const examples = [
-    ["공통가설공사", "", "공통가설공사", "3.65", "2022-11", "2026-02", "", "", ""],
-    ["골조공사", "지하주차장", "지하주차장 골조", "3.0", "2023-07", "2024-01", "-3", "-1", ""],
-    ["골조공사", "101동", "101동 골조", "2.5", "2024-02", "2024-05", "2", "5", ""],
-    ["골조공사", "101동", "101동 골조", "2.5", "2024-05", "2024-08", "6", "10", ""],
-    ["골조공사", "102동", "102동 골조", "2.5", "2024-03", "2024-06", "2", "5", ""],
-    ["미장공사", "101동", "101동 미장", "1.5", "2024-08", "2024-11", "2", "5", ""],
+    ["건축", "공통가설공사", "", "공통가설공사", "3.65", "2022-11", "2026-02", "", "", ""],
+    ["건축", "골조공사", "지하주차장", "지하주차장 골조", "3.0", "2023-07", "2024-01", "-3", "-1", ""],
+    ["건축", "골조공사", "101동", "101동 골조", "2.5", "2024-02", "2024-05", "2", "5", ""],
+    ["건축", "골조공사", "101동", "101동 골조", "2.5", "2024-05", "2024-08", "6", "10", ""],
+    ["토목", "파일공사", "", "파일공사", "2.6", "2026-04", "2026-08", "", "", ""],
+    ["건축", "미장공사", "101동", "101동 미장", "1.5", "2024-08", "2024-11", "2", "5", ""],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
   ws["!cols"] = [
-    { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 12 },
+    { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 20 }, { wch: 12 },
     { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }
   ];
   // 헤더 스타일
@@ -1610,6 +1611,7 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, on
   const [open, setOpen] = useState(null);
   const [openAct, setOpenAct] = useState(null);
   const [predModalAct, setPredModalAct] = useState(null);
+  const [openCat, setOpenCat] = useState({});
   const [showSubForm, setShowSubForm] = useState(null); // activity_id
   const [aiLoading, setAiLoading] = useState(false);
   const [subInput, setSubInput] = useState("");
@@ -1780,9 +1782,18 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
     const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
     XLSX.writeFile(wb, `P6_Import_${dateStr}.xlsx`);
   };
-  const groups = {};
-  activities.forEach(a => { if (!groups[a.group_name]) groups[a.group_name] = []; groups[a.group_name].push(a); });
-  const gl = Object.entries(groups).map(([g, acts]) => rollup(g, acts));
+  const categories = {};
+  activities.forEach(a => {
+    const cat = a.category || "건축";
+    if (!categories[cat]) categories[cat] = {};
+    if (!categories[cat][a.group_name]) categories[cat][a.group_name] = [];
+    categories[cat][a.group_name].push(a);
+  });
+  const gl = Object.entries(categories).map(([cat, groupMap]) => ({
+    category: cat,
+    groups: Object.entries(groupMap).map(([g, acts]) => rollup(g, acts)),
+    rollup: rollup(cat, Object.values(groupMap).flat()),
+  }));
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -1795,7 +1806,26 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
         </div>
       </div>
-      {gl.map(g => {
+      {gl.map((catGroup, ci) => (
+          <div key={ci} style={{ marginBottom: 24 }}>
+            {/* 대공종 헤더 */}
+            {(() => {
+              const isCatOpen = openCat[catGroup.category] !== false;
+              const catWf = project?.total_budget > 0
+                ? (catGroup.rollup.total_budget / project.total_budget * 100).toFixed(1)
+                : (catGroup.rollup.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0) * 100).toFixed(1);
+              return (
+                <>
+                  <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
+                    style={{ background: NAVY, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+                    <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", flex: 1 }}>🏗️ {catGroup.category}</span>
+                    <span style={{ fontSize: 11, background: "rgba(255,184,0,0.2)", color: YELLOW, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
+                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>EV {fmtM(catGroup.rollup.ev)}</span>
+                    <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: YELLOW }}>{pct(catGroup.rollup.phys)}</span>
+                  </div>
+                  {isCatOpen && catGroup.groups.map(g => {
         const isOpen = open === g.group;
         const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
         return (
@@ -2013,6 +2043,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           </div>
         );
       })}
+                </>
+              );
+            })()}
+          </div>
+        ))}
     </div>
   );
 }
@@ -2368,6 +2403,26 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24 }}>
           {toast && <span style={{ fontSize: 13, color: "#10B981", fontWeight: 600 }}>{toast}</span>}
+          <button
+            onClick={async () => {
+              if (!window.confirm("⚠️ 모든 공정 데이터를 초기화합니다.\n등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n정말 초기화하시겠습니까?")) return;
+              try {
+                // FK 순서: progress_reports → issues → sub_activities → activities
+                const allReports = await sb.get("progress_reports");
+                for (const r of allReports) await sb.delete("progress_reports", r.id);
+                const allIssues = await sb.get("issues");
+                for (const i of allIssues) await sb.delete("issues", i.id);
+                const allSubs = await sb.get("sub_activities");
+                for (const s of allSubs) await sb.delete("sub_activities", s.id);
+                const allActs = await sb.get("activities");
+                for (const a of allActs) await sb.delete("activities", a.id);
+                setActivities([]);
+                setToast("🗑️ 데이터 초기화 완료");
+              } catch (err) { alert("초기화 실패: " + err.message); }
+            }}
+            style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "11px 20px", fontWeight: 700, fontSize: 13, color: "#991B1B", cursor: "pointer" }}>
+            🗑️ 데이터 초기화
+          </button>
           <button onClick={handleSave} disabled={saving}
             style={{ marginLeft: "auto", background: YELLOW, border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
             {saving ? "저장 중..." : "✅ 저장"}
@@ -2414,24 +2469,25 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
         // 헤더 제외하고 데이터 파싱
-        const data = rows.slice(1).filter(r => r[1]).map((r, i) => {
-          const name = String(r[2] || "");
+        const data = rows.slice(1).filter(r => r[3]).map((r, i) => {
+          const name = String(r[3] || "");
           const existing = activities.find(a => a.name === name);
           return {
             id: i,
-            checked: !existing, // 중복이면 기본 체크 해제
+            checked: !existing,
             duplicate: !!existing,
             existing_id: existing?.id || null,
-            group_name: String(r[0] || r[2] || ""),
-            sub_group: String(r[1] || ""),
+            category: String(r[0] || "건축"),
+            group_name: String(r[1] || r[3] || ""),
+            sub_group: String(r[2] || ""),
             name,
-            weight: Number(r[3]) || 0,
-            ps_ym: String(r[4] || ""),
-            pf_ym: String(r[5] || ""),
-            floor_start: r[6] !== "" ? Number(r[6]) : null,
-            floor_end: r[7] !== "" ? Number(r[7]) : null,
-            ps: toStartDate(String(r[4] || "")),
-            pf: toEndDate(String(r[5] || "")),
+            weight: Number(r[4]) || 0,
+            ps_ym: String(r[5] || ""),
+            pf_ym: String(r[6] || ""),
+            floor_start: r[7] !== "" && r[7] !== null && r[7] !== undefined ? Number(r[7]) : null,
+            floor_end: r[8] !== "" && r[8] !== null && r[8] !== undefined ? Number(r[8]) : null,
+            ps: toStartDate(String(r[5] || "")),
+            pf: toEndDate(String(r[6] || "")),
           };
         });
 
@@ -2461,6 +2517,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
         const origDur = Math.max(1, diffDays(item.pf, item.ps));
         const pvBudget = Math.round(BASE_BUDGET * (item.weight / 100));
         const [act] = await sb.post("activities", {
+          category: item.category || "건축",
           group_name: item.group_name || item.name,
           sub_group: item.sub_group || null,
           building: item.sub_group || null,
@@ -2476,6 +2533,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
           pf: item.pf,
           as_: null,
           af: null,
+          category: item.category || "건축",
           bl_s: item.ps,
           bl_f: item.pf,
           original_ps: item.ps,
@@ -2578,6 +2636,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                   <thead>
                     <tr style={{ background: NAVY, color: "#fff" }}>
                       <th style={{ padding: "8px 12px", textAlign: "center", width: 40 }}>✓</th>
+                      <th style={{ padding: "8px 12px", textAlign: "left" }}>대공종</th>
                       <th style={{ padding: "8px 12px", textAlign: "left" }}>대분류</th>
                       <th style={{ padding: "8px 12px", textAlign: "left" }}>중분류</th>
                       <th style={{ padding: "8px 12px", textAlign: "left" }}>공종명</th>
@@ -2593,6 +2652,11 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                       <tr key={item.id} style={{ background: item.duplicate ? "#FFF7ED" : item.checked ? "#fff" : "#F9FAFB", borderBottom: "1px solid #F3F4F6", opacity: item.checked ? 1 : 0.5 }}>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input type="checkbox" checked={item.checked} onChange={() => toggleCheck(item.id)} />
+                        </td>
+                        <td style={{ padding: "8px 12px" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, background: "#EFF6FF", borderRadius: 6, padding: "3px 8px" }}>
+                            {item.category || "건축"}
+                          </span>
                         </td>
                         <td style={{ padding: "8px 12px" }}>
                           <input value={item.group_name} onChange={e => updateField(item.id, "group_name", e.target.value)}
@@ -2699,7 +2763,7 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
   const totalW = form.steps.reduce((s, st) => s + (Number(st.w) || 0), 0);
   const togglePred = (id) => { const exists = form.predecessors.find(p => p.id === id); if (exists) setForm(p => ({ ...p, predecessors: p.predecessors.filter(x => x.id !== id) })); else setForm(p => ({ ...p, predecessors: [...p.predecessors, { id, type: "FS", lag: 0 }] })); };
   const validate = () => { const e = {}, g = form.group === "직접입력" ? form.group_custom : form.group; if (!g) e.group = "공종 그룹을 선택하세요"; if (!form.name) e.name = "공정명을 입력하세요"; if (!form.loc) e.loc = "위치를 입력하세요"; if (!form.ps || !form.pf) e.date = "착수/완료일을 입력하세요"; if (form.ps && form.pf && form.ps > form.pf) e.date = "완료일이 착수일보다 빠릅니다"; if (!form.plan_qty || Number(form.plan_qty) <= 0) e.plan_qty = "계획 물량을 입력하세요"; if (!form.pv_budget || Number(form.pv_budget) <= 0) e.pv_budget = "예산을 입력하세요"; if (totalW !== 100) e.steps = `가중치 합계 ${totalW}%`; return e; };
-  const handleSave = async () => { const e = validate(); setErrors(e); if (Object.keys(e).length > 0) return; setSaving(true); const g = form.group === "직접입력" ? form.group_custom : form.group; try { const [saved] = await sb.post("activities", { group_name: g, wbs: autoWBS(), name: form.name, floor: form.floor, loc: form.loc, subcon: form.subcon, resp: form.resp, ps: form.ps, pf: form.pf, as_: null, af: null, bl_s: form.ps, bl_f: form.pf, original_ps: form.ps, original_pf: form.pf, orig_dur: diffDays(form.pf, form.ps), plan_qty: Number(form.plan_qty), done_qty: 0, unit: form.unit, steps: form.steps.map(s => ({ ...s, done: false })), predecessors: form.predecessors, pv_budget: Number(form.pv_budget) * 10000, ac: 0, risk: form.risk, weather: form.weather, critical: form.critical, delay_days: 0 }); onSave(calcAct(saved)); } catch (err) { alert("저장 실패: " + err.message); } setSaving(false); };
+  const handleSave = async () => { const e = validate(); setErrors(e); if (Object.keys(e).length > 0) return; setSaving(true); const g = form.group === "직접입력" ? form.group_custom : form.group; try { const [saved] = await sb.post("activities", { category: form.category || "건축", group_name: g, wbs: autoWBS(), name: form.name, floor: form.floor, loc: form.loc, subcon: form.subcon, resp: form.resp, ps: form.ps, pf: form.pf, as_: null, af: null, bl_s: form.ps, bl_f: form.pf, original_ps: form.ps, original_pf: form.pf, orig_dur: diffDays(form.pf, form.ps), plan_qty: Number(form.plan_qty), done_qty: 0, unit: form.unit, steps: form.steps.map(s => ({ ...s, done: false })), predecessors: form.predecessors, pv_budget: Number(form.pv_budget) * 10000, ac: 0, risk: form.risk, weather: form.weather, critical: form.critical, delay_days: 0 }); onSave(calcAct(saved)); } catch (err) { alert("저장 실패: " + err.message); } setSaving(false); };
   const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box", background: "#fff" };
   const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
   const es = { fontSize: 11, color: "#EF4444", marginTop: 3 };
@@ -2716,7 +2780,12 @@ function ActivityFormModal({ onClose, onSave, activities, existingGroups }) {
         <div style={{ padding: "20px 24px" }}>
           {step === 1 && (<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div><label style={ls}>공종 그룹 *</label><select value={form.group} onChange={e => set("group", e.target.value)} style={is}><option value="">선택하세요</option>{allGroups.map(g => <option key={g} value={g}>{g}</option>)}<option value="직접입력">+ 직접 입력</option></select>{form.group === "직접입력" && <input value={form.group_custom} onChange={e => set("group_custom", e.target.value)} style={{ ...is, marginTop: 6 }} />}{errors.group && <div style={es}>{errors.group}</div>}</div>
+              <div><label style={ls}>대공종</label>
+                <select value={form.category || "건축"} onChange={e => set("category", e.target.value)} style={is}>
+                  {["건축", "토목", "기계", "전기", "통신", "소방"].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div><label style={ls}>공종그룹 *</label><select value={form.group} onChange={e => set("group", e.target.value)} style={is}><option value="">선택하세요</option>{allGroups.map(g => <option key={g} value={g}>{g}</option>)}<option value="직접입력">+ 직접 입력</option></select>{form.group === "직접입력" && <input value={form.group_custom} onChange={e => set("group_custom", e.target.value)} style={{ ...is, marginTop: 6 }} />}{errors.group && <div style={es}>{errors.group}</div>}</div>
               <div><label style={ls}>공정명 *</label><input value={form.name} onChange={e => set("name", e.target.value)} style={is} />{errors.name && <div style={es}>{errors.name}</div>}</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
