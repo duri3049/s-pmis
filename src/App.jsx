@@ -177,10 +177,17 @@ function recalcCPM(activities, changedId, delayDays) {
       else newStart = addDays(src.ps, pred.lag || 0);
       if (newStart > tgt.ps) {
         const shift = diffDays(newStart, tgt.ps);
-        tgt.ps = newStart; tgt.pf = addDays(tgt.pf, shift);
-        tgt.delay_days = (tgt.delay_days || 0) + shift;
+        tgt.ps = newStart;
+        tgt.pf = addDays(tgt.pf, shift);
+        // delay_days는 original_ps 기준으로 실제 밀린 만큼만
+        // original_ps 가 없으면 delay 계산 안 함
+        if (tgt.original_ps) {
+          const overrun = diffDays(tgt.ps, tgt.original_ps);
+          tgt.delay_days = Math.max(0, overrun);
+        }
         propagate(a.id);
       }
+
     });
   };
   propagate(changedId);
@@ -561,6 +568,8 @@ ${(activities || []).map(a => {
 - workers: worker_details의 count 합계. worker_details 없으면 총 인원수.
 - 직종 언급 없이 총 인원만 말하면 worker_details: [{"job":"일반인부","count":<총인원>}]
 - new_done_qty: 반드시 포함. progress나 다른 필드명 쓰지 마. 전체 완료면 해당 공종의 plan_qty 값을 그대로 넣어.
+- 지연만 보고하고 실제 작업량 언급이 없으면 new_done_qty는 현재 done_qty 값 그대로 유지 (작업량 변화 없음).
+- "공기지연", "지연됐어", "못했어", "작업 못함" 등 작업 미완료 표현이면 new_done_qty 올리지 마.
 - 작업 보고가 아니면 그냥 텍스트로만 답해
 - JSON 앞뒤에 마크다운 붙이지 마. 순수 JSON만.`;
 
@@ -2955,6 +2964,13 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
     setSaving(true);
     try {
       await sb.patch("activities", act.id, { predecessors: preds });
+      // 선행공정 연결 시점의 ps/pf 를 original 로 갱신
+      // (recalcCPM 이 이후 밀릴 때 이 값 기준으로 delay 계산)
+      await sb.patch("activities", act.id, {
+        predecessors: preds,
+        original_ps: act.ps,
+        original_pf: act.pf,
+      });
       onSave(preds);
     } catch (err) { alert("저장 실패: " + err.message); }
     setSaving(false);
@@ -3101,7 +3117,17 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
 
 function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush, subActivities, setSubActivities }) {
   const [flashId, setFlashId] = useState(null);
+  const [approvalTab, setApprovalTab] = useState("work");
   const pending = progressReports.filter(r => r.status === "pending");
+  const pendingWork = pending.filter(r => r.report_type !== "invoice");
+  const pendingInvoice = pending.filter(r => r.report_type === "invoice");
+  const pendingDelay = pending.filter(r => r.delay_days > 0);
+  const APPROVAL_TABS = [
+    { key: "work", label: "작업보고", count: pendingWork.length },
+    { key: "invoice", label: "기성청구", count: pendingInvoice.length },
+    { key: "delay", label: "공기지연", count: pendingDelay.length },
+  ];
+  const tabPending = approvalTab === "work" ? pendingWork : approvalTab === "invoice" ? pendingInvoice : pendingDelay;
   const handleApprove = async (report) => {
     setFlashId(report.id); setTimeout(() => setFlashId(null), 500);
     try {
@@ -3132,6 +3158,8 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           ));
           newDoneQty = act.plan_qty;
         }
+        let newDoneQty = report.new_done_qty;
+        
         if (report.matched_sub_id) {
           await sb.patch("sub_activities", report.matched_sub_id, { phys: 100 });
           const updatedSubs = subActivities.map(s =>
@@ -3163,6 +3191,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           });
         }
         const finalDoneQty = (report.matched_sub_id || report.complete_all_subs) ? newDoneQty : report.new_done_qty;
+        
         let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: finalDoneQty, as_: act.as_ || dayStr(TODAY) }) : a); if (report.delay_days > 0) {
           updated = recalcCPM(updated, report.activity_id, report.delay_days);
           for (const u of updated) { const orig = activities.find(a => a.id === u.id); if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days }); }
@@ -3180,80 +3209,97 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   };
   const handleReject = async (report) => { try { await sb.patch("progress_reports", report.id, { status: "rejected" }); setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "rejected" } : r)); setToast("반려되었습니다"); } catch (err) { alert("반려 실패: " + err.message); } };
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>✅ 결재 라인</div>
-      {pending.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>대기 중인 결재가 없습니다</div>}
-      {pending.map(report => {
-        const act = activities.find(a => a.id === report.activity_id);
-        const flash = flashId === report.id;
-        const newPct = Math.round((report.new_done_qty / report.plan_qty) * 100);
-        const oldPct = Math.round((report.prev_done_qty / report.plan_qty) * 100);
-        const { daily_target } = act ? calcTodayTarget(act) : { daily_target: 0 };
-        const today_qty = report.new_done_qty - report.prev_done_qty;
-        const isInvoice = report.report_type === "invoice";
-        return (
-          <div key={report.id} style={{ background: flash ? "#D1FAE5" : "#fff", border: `1.5px solid ${flash ? "#10B981" : isInvoice ? NAVY : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14, transition: "background 0.3s" }}>
-            {/* 카드 헤더 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{act?.name}</div>
-              {isInvoice && <span style={{ background: NAVY, color: YELLOW, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>💰 기성청구</span>}
-            </div>
-            <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10 }}>{report.reporter} · {report.reporter_company}</div>
+    <div style={{ padding: 20 }}>
+      <div style={{ fontWeight: 700, fontSize: 17, color: NAVY, marginBottom: 12 }}>📋 결재 라인</div>
+      {/* 탭 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F3F4F6", borderRadius: 12, padding: 4 }}>
+        {APPROVAL_TABS.map(t => (
+          <button key={t.key} onClick={() => setApprovalTab(t.key)}
+            style={{ flex: 1, background: approvalTab === t.key ? "#fff" : "none", border: "none", borderRadius: 9, padding: "8px 0", fontSize: 13, fontWeight: approvalTab === t.key ? 700 : 400, color: approvalTab === t.key ? NAVY : "#6B7280", cursor: "pointer", boxShadow: approvalTab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s", position: "relative" }}>
+            {t.label}
+            {t.count > 0 && (
+              <span style={{ marginLeft: 4, background: approvalTab === t.key ? YELLOW : "#E5E7EB", color: approvalTab === t.key ? NAVY : "#6B7280", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {tabPending.length === 0
+        ? <div style={{ textAlign: "center", color: "#9CA3AF", padding: 40 }}>
+          {approvalTab === "work" ? "대기 중인 작업보고가 없습니다" : approvalTab === "invoice" ? "대기 중인 기성청구가 없습니다" : "대기 중인 공기지연 보고가 없습니다"}
+        </div>
+        : tabPending.map(report => {
+          const act = activities.find(a => a.id === report.activity_id);
+          const flash = flashId === report.id;
+          const newPct = Math.round((report.new_done_qty / report.plan_qty) * 100);
+          const oldPct = Math.round((report.prev_done_qty / report.plan_qty) * 100);
+          const { daily_target } = act ? calcTodayTarget(act) : { daily_target: 0 };
+          const today_qty = report.new_done_qty - report.prev_done_qty;
+          const isInvoice = report.report_type === "invoice";
+          return (
+            <div key={report.id} style={{ background: flash ? "#D1FAE5" : "#fff", border: `1.5px solid ${flash ? "#10B981" : isInvoice ? NAVY : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14, transition: "background 0.3s" }}>
+              {/* 카드 헤더 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{act?.name}</div>
+                {isInvoice && <span style={{ background: NAVY, color: YELLOW, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>💰 기성청구</span>}
+              </div>
+              <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10 }}>{report.reporter} · {report.reporter_company}</div>
 
-            {isInvoice ? (
-              /* 기성청구 전용 UI */
-              <div style={{ background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
-                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>청구 금액</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: NAVY }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6B7280", marginLeft: 4 }}>만원</span></div>
-                <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>BAC 대비 {act ? Math.round(report.invoice_amount / act.pv_budget * 100) : 0}%</div>
-              </div>
-            ) : (
-              /* 작업보고 기존 UI */
-              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span>{report.prev_done_qty}{report.unit}</span><span style={{ color: "#9CA3AF" }}>→</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{report.new_done_qty}{report.unit}</span>
-                  <span style={{ color: "#10B981", fontWeight: 700 }}>+{today_qty}</span>
+              {isInvoice ? (
+                /* 기성청구 전용 UI */
+                <div style={{ background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>청구 금액</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: NAVY }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6B7280", marginLeft: 4 }}>만원</span></div>
+                  <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>BAC 대비 {act ? Math.round(report.invoice_amount / act.pv_budget * 100) : 0}%</div>
                 </div>
-                <div style={{ background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
-                  <div style={{ position: "absolute", left: 0, top: 0, width: `${oldPct}%`, height: "100%", background: "#D1D5DB", borderRadius: 4 }} />
-                  <div style={{ position: "absolute", left: 0, top: 0, width: `${newPct}%`, height: "100%", background: YELLOW, borderRadius: 4, transition: "width 0.8s ease" }} />
+              ) : (
+                /* 작업보고 기존 UI */
+                <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <span>{report.prev_done_qty}{report.unit}</span><span style={{ color: "#9CA3AF" }}>→</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{report.new_done_qty}{report.unit}</span>
+                    <span style={{ color: "#10B981", fontWeight: 700 }}>+{today_qty}</span>
+                  </div>
+                  <div style={{ background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
+                    <div style={{ position: "absolute", left: 0, top: 0, width: `${oldPct}%`, height: "100%", background: "#D1D5DB", borderRadius: 4 }} />
+                    <div style={{ position: "absolute", left: 0, top: 0, width: `${newPct}%`, height: "100%", background: YELLOW, borderRadius: 4, transition: "width 0.8s ease" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: NAVY }}>승인 후 {newPct}%</span></div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: NAVY }}>승인 후 {newPct}%</span></div>
-              </div>
-            )}
+              )}
 
-            {report.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{report.delay_days}일</div></div>}
-            {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
-            {report.photo_url && (
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>{isInvoice ? "📄 첨부 서류" : "📷 첨부 사진"}</div>
-                <img src={report.photo_url} alt="첨부" onClick={() => window.open(report.photo_url, "_blank")}
-                  style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #E5E7EB" }} />
-              </div>
-            )}
-            {!isInvoice && <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>}
-            {!isInvoice && report.matching_reason && (
-              <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>🤖 AI 매핑 근거</span>
-                  <span style={{ fontSize: 10, background: report.matching_confidence === "high" ? "#D1FAE5" : report.matching_confidence === "medium" ? "#FEF3C7" : "#FEE2E2", color: report.matching_confidence === "high" ? "#065F46" : report.matching_confidence === "medium" ? "#92400E" : "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>
-                    {report.matching_confidence === "high" ? "높음" : report.matching_confidence === "medium" ? "보통" : "낮음"}
-                  </span>
+              {report.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{report.delay_days}일</div></div>}
+              {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
+              {report.photo_url && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>{isInvoice ? "📄 첨부 서류" : "📷 첨부 사진"}</div>
+                  <img src={report.photo_url} alt="첨부" onClick={() => window.open(report.photo_url, "_blank")}
+                    style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #E5E7EB" }} />
                 </div>
-                <div style={{ fontSize: 12, color: "#374151" }}>{report.matching_reason}</div>
+              )}
+              {!isInvoice && <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>}
+              {!isInvoice && report.matching_reason && (
+                <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>🤖 AI 매핑 근거</span>
+                    <span style={{ fontSize: 10, background: report.matching_confidence === "high" ? "#D1FAE5" : report.matching_confidence === "medium" ? "#FEF3C7" : "#FEE2E2", color: report.matching_confidence === "high" ? "#065F46" : report.matching_confidence === "medium" ? "#92400E" : "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>
+                      {report.matching_confidence === "high" ? "높음" : report.matching_confidence === "medium" ? "보통" : "낮음"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#374151" }}>{report.matching_reason}</div>
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
+                {CHAIN_ROLES.map((rank, i) => { const done = i < 2, active = i === 2; return (<div key={i} style={{ display: "flex", alignItems: "center" }}><div style={{ background: done ? "#10B981" : active ? YELLOW : "#F3F4F6", border: `1px solid ${done ? "#10B981" : active ? YELLOW : "#D1D5DB"}`, borderRadius: 6, padding: "3px 6px", textAlign: "center", minWidth: 44 }}><div style={{ fontSize: 10, color: done ? "#fff" : active ? NAVY : "#6B7280" }}>{rank}</div><div style={{ fontSize: 10, fontWeight: 600, color: done ? "#fff" : active ? NAVY : "#9CA3AF" }}>{done ? "✓" : active ? "⏳" : "—"}</div><div style={{ fontSize: 9, color: done ? "#d1fae5" : active ? "#78350f" : "#9CA3AF" }}>{CHAIN_NAMES[i]}</div></div>{i < 4 && <div style={{ width: 5, height: 1, background: "#D1D5DB" }} />}</div>); })}
               </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
-              {CHAIN_ROLES.map((rank, i) => { const done = i < 2, active = i === 2; return (<div key={i} style={{ display: "flex", alignItems: "center" }}><div style={{ background: done ? "#10B981" : active ? YELLOW : "#F3F4F6", border: `1px solid ${done ? "#10B981" : active ? YELLOW : "#D1D5DB"}`, borderRadius: 6, padding: "3px 6px", textAlign: "center", minWidth: 44 }}><div style={{ fontSize: 10, color: done ? "#fff" : active ? NAVY : "#6B7280" }}>{rank}</div><div style={{ fontSize: 10, fontWeight: 600, color: done ? "#fff" : active ? NAVY : "#9CA3AF" }}>{done ? "✓" : active ? "⏳" : "—"}</div><div style={{ fontSize: 9, color: done ? "#d1fae5" : active ? "#78350f" : "#9CA3AF" }}>{CHAIN_NAMES[i]}</div></div>{i < 4 && <div style={{ width: 5, height: 1, background: "#D1D5DB" }} />}</div>); })}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => handleApprove(report)} style={{ flex: 1, background: YELLOW, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>✅ 승인</button>
+                <button onClick={() => handleReject(report)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 600, fontSize: 14, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => handleApprove(report)} style={{ flex: 1, background: YELLOW, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>✅ 승인</button>
-              <button onClick={() => handleReject(report)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 600, fontSize: 14, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }
@@ -3621,7 +3667,7 @@ ${activities.map(a => {
       const subStr = subs.length > 0
         ? `\n  세부공정: ${subs.map(s => `[ID:${s.id}] ${s.name} (${s.phys}%)`).join(", ")}`
         : "";
-      return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}%${subStr}`;
+      return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}% | plan_qty: ${a.plan_qty} | done_qty: ${a.done_qty} | 단위: ${a.unit}${subStr}`;
     }).join("\n")}
 
 입력 유형을 판단해서 아래 중 하나로 응답해:
@@ -3632,6 +3678,17 @@ ${activities.map(a => {
   new_done_qty (progress, progress_percent, completion_rate 금지)
   workers (worker_count 금지)
 - new_done_qty: 전체 완료면 해당 공종 plan_qty 그대로. 예) plan_qty=100이면 new_done_qty=100
+- new_done_qty: 지연만 보고하고 실제 작업량 언급이 없으면 현재 done_qty 값 그대로 유지. 작업량 변화 없음.
+- new_done_qty 판단 기준 (반드시 준수):
+  * 완료 표현("완료", "다 했어", "끝났어", "마쳤어", "finished") → new_done_qty 올림
+  * 지연 표현만 있고 완료 표현 없음("지연", "하루 지연", "기상악화로 지연", "못했어", "밀릴 것 같아") → new_done_qty = 현재 done_qty 그대로 (절대 올리지 마)
+  * 완료 + 지연 동시("완료했는데 하루 지연됐어") → new_done_qty 올리고 delay_days도 채움
+- 예시:
+  * "101동 6층 철근배근 기상악화로 하루지연" → new_done_qty = 현재 done_qty(변화없음), delay_days = 1
+  * "101동 6층 철근배근 완료, 다음 작업 하루 지연" → new_done_qty = plan_qty, delay_days = 1
+  * "오늘 철근배근 다 했어" → new_done_qty = plan_qty, delay_days = 0
+- 단, 지연/완료 여부와 무관하게 반드시 work_report JSON으로 반환해.
+- special_note 필드명 반드시 사용. note 금지.
 - 세부공정이 있으면 반드시 세부공정 ID를 matched_sub_id에 넣어. 세부공정이 없을 때만 상위 공종만 매핑해.
 - 층수 정보가 언급되면 반드시 층수가 일치하는 세부공정에 매핑해. "지하3층"이면 B3, "2층"이면 2F 등.
 - 확실하지 않으면 needs_clarification: true로 반환해.
@@ -3694,6 +3751,13 @@ JSON 없이 자연스럽게 한국어로만 답해.
           if (res.type === "work_report") {
             const matchedId = res.matched_activity_id || res.matched_id || null;
             const matched = matchedId ? activities.find(a => a.id === matchedId) : null;
+
+            // 지연 보고인데 완료 표현 없으면 new_done_qty 강제 고정
+            const COMPLETE_KEYWORDS = ["완료", "다 했", "끝났", "마쳤", "finished", "done"];
+            const hasComplete = COMPLETE_KEYWORDS.some(k => msg.includes(k));
+            if (res.delay_days > 0 && !hasComplete && matched) {
+              res.new_done_qty = matched.done_qty;
+            }
             // new_done_qty 없으면 다양한 필드명으로 대체 시도
             if (!res.new_done_qty && matched) {
               const pct = res.progress ?? res.progress_percent ?? res.phys ?? res.completion_rate ?? null;
@@ -3713,6 +3777,13 @@ JSON 없이 자연스럽게 한국어로만 답해.
               res.matched_sub_name = matchedSub.name;
             }
             setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            // 이미 완료된 세부공정 재보고 차단
+            const matchedSub2 = res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id) : null;
+            if (matchedSub2?.phys === 100 && res.new_done_qty <= matched.done_qty) {
+              setChatMessages(p => [...p.slice(0, -0), { id: uid + 2, role: "ai", content: `✅ ${matchedSub2.name}은 이미 완료된 작업입니다. 다음 세부공정을 진행해주세요.` }]);
+              setLoading(false);
+              return;
+            }
             if (!res.needs_clarification && matched) {
               setPendingReport({
                 activity: matched,
@@ -3852,7 +3923,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
         newDoneQty = a.plan_qty;
       }
 
-      if (pendingReport.matched_sub_id) {
+      if (pendingReport.matched_sub_id && pendingReport.new_done_qty > pendingReport.activity.done_qty) {
         await sb.patch("sub_activities", pendingReport.matched_sub_id, { phys: 100 });
         const updatedSubs = subActivities.map(s =>
           s.id === Number(pendingReport.matched_sub_id) ? { ...s, phys: 100 } : s
@@ -4010,11 +4081,16 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", margin: "10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                       {pendingReport.matched_sub_id
-                        ? <>
+                        ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontSize: 13, color: "#6B7280" }}>{pendingReport.matched_sub_name || "세부공정"}</span>
                           <span style={{ color: "#9CA3AF" }}>→</span>
-                          <span style={{ fontSize: 16, fontWeight: 800, color: "#10B981" }}>완료 ✅</span>
-                        </>
+                          {pendingReport.new_done_qty > pendingReport.activity.done_qty
+                            ? <span style={{ fontSize: 16, fontWeight: 800, color: "#10B981" }}>완료 ✅</span>
+                            : pendingReport.delay_days > 0
+                              ? <span style={{ fontSize: 16, fontWeight: 800, color: "#F59E0B" }}>공기지연 🚨</span>
+                              : <span style={{ fontSize: 16, fontWeight: 800, color: "#9CA3AF" }}>이미 완료됨</span>
+                          }
+                         </div>
                         : <>
                           <span>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
                           <span style={{ color: "#9CA3AF" }}>→</span>
@@ -4179,7 +4255,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   const file = e.target.files[0];
                   if (file) setAttachedPhoto({ file, url: URL.createObjectURL(file) });
                 }} style={{ display: "none" }} />
-                
+
                 <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 16, outline: "none", background: "#fff" }} />
                 <button onClick={handleReportSubmit} disabled={loading} style={{ background: YELLOW, border: "none", borderRadius: 12, padding: "0 18px", fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer", minHeight: 48 }}>전송</button>
               </div>
