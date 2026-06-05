@@ -5374,7 +5374,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 // ── Desktop View ──────────────────────────────────────────────────────
 const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
 { id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
-{ id: "3w", label: "📅 3주 공정표", tiers: ["macro", "meso"] },
+{ id: "3w", label: "📅 공정표", tiers: ["macro", "meso"] },
 { id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
 { id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
 { id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
