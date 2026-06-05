@@ -599,6 +599,13 @@ ${(activities || []).map(a => {
           const parsed = JSON.parse(jsonMatch[0]);
           aiText = parsed.ai_message || rawText;
 
+          // 착수 보고 감지 시 세부공정 start_date 업데이트
+          if (parsed.type === "start_report" && parsed.matched_sub_id) {
+            await sb.patch("sub_activities", parsed.matched_sub_id, { start_date: dayStr(TODAY) });
+            setSubActivities && setSubActivities(p => p.map(s => s.id === parsed.matched_sub_id ? { ...s, start_date: dayStr(TODAY) } : s));
+            aiText += "\n\n🔨 착수 보고가 반영됐습니다.";
+          }
+
           // 작업 보고 감지 시 결재 라인으로 전송
           if (parsed.type === "work_report" && parsed.matched_activity_id) {
             const act = activities.find(a => a.id === parsed.matched_activity_id);
@@ -2373,7 +2380,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                               {/* 상태 표시 */}
                               {sub.status === "pending_approval"
                                 ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
-                                : <span style={{ fontSize: 10, background: "#F0FDF4", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>{sub.phys === 100 ? "완료" : "진행"}</span>
+                                : sub.phys === 100
+                                  ? <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>✅완료</span>
+                                  : sub.start_date
+                                    ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>🔨진행중</span>
+                                    : <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
                               }
                               {/* 이름 + 진도율 */}
                               {editingSubId === sub.id
@@ -2398,12 +2409,81 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                               <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
                                 {sub.weight || 0}%
                               </span>
+                              {sub.start_date && (
+                                <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap" }}>
+                                  {sub.start_date}{sub.end_date ? ` ~ ${sub.end_date}` : " ~"}
+                                </span>
+                              )}
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
                                   <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
                                 </div>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
                               </div>
+                              {/* 착수 / 완료 버튼 */}
+                              {sub.status === "active" && sub.phys < 100 && editingSubId !== sub.id && (
+                                !sub.start_date
+                                  ? <button onClick={async () => {
+                                      await sb.patch("sub_activities", sub.id, { start_date: dayStr(TODAY) });
+                                      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: dayStr(TODAY) } : s));
+                                      setToast(`🔨 ${sub.name} 착수`);
+                                    }}
+                                    style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                    🔨 착수
+                                  </button>
+                                  : <button onClick={async () => {
+                                      if (!window.confirm(`${sub.name} 완료 처리하시겠습니까?`)) return;
+                                      const today = dayStr(TODAY);
+                                      await sb.patch("sub_activities", sub.id, { phys: 100, end_date: today });
+                                      const updatedSubs = subActivities.map(s => s.id === sub.id ? { ...s, phys: 100, end_date: today } : s);
+                                      setSubActivities(updatedSubs);
+
+                                      // 상위 공종 진도율 재계산
+                                      const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
+                                      const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
+                                      const newPhys = totalWeight > 0
+                                        ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
+                                        : Math.round(actSubs.filter(s => s.phys === 100).length / Math.max(actSubs.length, 1) * 100);
+                                      const newDoneQty = Math.round(a.plan_qty * newPhys / 100);
+                                      const isActComplete = newPhys === 100;
+                                      const actualFinish = today;
+
+                                      await sb.patch("activities", a.id, {
+                                        done_qty: newDoneQty,
+                                        af: isActComplete ? actualFinish : null,
+                                      });
+
+                                      // 상위 공종 완료 + 지연 체크 → CPM 전파
+                                      if (isActComplete && actualFinish > a.pf) {
+                                        const delayDays = diffDays(actualFinish, a.pf);
+                                        await sb.patch("activities", a.id, { delay_days: (a.delay_days || 0) + delayDays });
+                                        const recalced = recalcCPM(
+                                          activities.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: actualFinish, delay_days: (a.delay_days || 0) + delayDays }) : x),
+                                          a.id,
+                                          delayDays
+                                        );
+                                        // 영향받은 후행 공종 DB patch
+                                        for (const u of recalced) {
+                                          const orig = activities.find(x => x.id === u.id);
+                                          if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) {
+                                            await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days });
+                                          }
+                                        }
+                                        setActivities(recalced);
+                                        const affectedCount = recalced.filter(u => {
+                                          const orig = activities.find(x => x.id === u.id);
+                                          return orig && orig.id !== a.id && orig.pf !== u.pf;
+                                        }).length;
+                                        setToast(`✅ ${sub.name} 완료 — ${a.name} ${delayDays}일 지연${affectedCount > 0 ? ` · ${affectedCount}개 후행 공종 일정 조정` : ""}`);
+                                      } else {
+                                        setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: isActComplete ? actualFinish : null }) : x));
+                                        setToast(isActComplete ? `🎉 ${a.name} 전체 완료!` : `✅ ${sub.name} 완료`);
+                                      }
+                                    }}
+                                    style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#065F46", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                    ✅ 완료
+                                  </button>
+                              )}
                               {/* 수정 버튼 */}
                               {editingSubId === sub.id
                                 ? <button onClick={() => handleEditSub(sub)}
@@ -4370,6 +4450,7 @@ ${activities.map(a => {
   * "101동 6층 철근배근 기상악화로 하루지연" → new_done_qty = 현재 done_qty(변화없음), delay_days = 1
   * "101동 6층 철근배근 완료, 다음 작업 하루 지연" → new_done_qty = plan_qty, delay_days = 1
   * "오늘 철근배근 다 했어" → new_done_qty = plan_qty, delay_days = 0
+- "시작", "착수", "시작했어", "시작합니다", "시작할게" 등 착수 표현이 있으면 type을 "start_report"로 반환. new_done_qty는 현재 done_qty 그대로 유지.
 - 단, 지연/완료 여부와 무관하게 반드시 work_report JSON으로 반환해.
 - special_note 필드명 반드시 사용. note 금지.
 - 세부공정이 있으면 반드시 세부공정 ID를 matched_sub_id에 넣어. 세부공정이 없을 때만 상위 공종만 매핑해.
@@ -4493,6 +4574,26 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 raw: msg,
                 sent: false
               });
+            }
+          } else if (res.type === "start_report") {
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            if (res.matched_sub_id) {
+              const sub = subActivities.find(s => s.id === res.matched_sub_id);
+              if (sub && !sub.start_date) {
+                await sb.patch("sub_activities", res.matched_sub_id, { start_date: dayStr(TODAY) });
+                setSubActivities(p => p.map(s => s.id === res.matched_sub_id ? { ...s, start_date: dayStr(TODAY) } : s));
+                setChatMessages(p => [...p.slice(0, -0), { id: uid + 3, role: "system", content: `🔨 ${sub.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
+              } else if (sub?.start_date) {
+                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `ℹ️ ${sub.name}은 이미 ${sub.start_date}에 착수됐습니다.` }]);
+              }
+            } else if (res.matched_activity_id) {
+              // 세부공정 없이 상위 공종 착수
+              const act = activities.find(a => a.id === res.matched_activity_id);
+              if (act && !act.as_) {
+                await sb.patch("activities", res.matched_activity_id, { as_: dayStr(TODAY) });
+                setActivities(p => p.map(a => a.id === res.matched_activity_id ? { ...a, as_: dayStr(TODAY) } : a));
+                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `🔨 ${act.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
+              }
             }
           } else if (res.type === "worker_report") {
             setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
