@@ -1093,9 +1093,9 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
     </body></html>`);
     w.document.close();
   };
-  
 
-  
+
+
   const getMonday = (offset) => {
     const d = new Date(TODAY);
     const day = d.getDay();
@@ -1281,7 +1281,8 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           body * { visibility: hidden; }
           #gantt-print-area, #gantt-print-area * { visibility: visible; }
@@ -1346,9 +1347,9 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
               </thead>
               <tbody>
                 {(viewMode === "3w" ? active : activities.filter(a => {
-                  const base = new Date(TODAY.getFullYear(), TODAY.getMonth()-1, 1);
-                  const end = new Date(TODAY.getFullYear(), TODAY.getMonth()+2, 0);
-                  return a.phys < 100 && a.ps <= end.toISOString().slice(0,10) && a.pf >= base.toISOString().slice(0,10);
+                  const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
+                  const end = new Date(TODAY.getFullYear(), TODAY.getMonth() + 2, 0);
+                  return a.phys < 100 && a.ps <= end.toISOString().slice(0, 10) && a.pf >= base.toISOString().slice(0, 10);
                 })).map((a, ri) => {
                   const calcOverlap = (w) => {
                     const os = w.startStr > a.ps ? w.startStr : a.ps;
@@ -1412,7 +1413,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : "3개월 공정표"}</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
           <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 180, textAlign: "center" }}>
@@ -1425,7 +1426,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
             <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
             <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
-          </div>
+            <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
           <button onClick={handleAIRecommend} disabled={aiLoading}
             style={{ background: aiLoading ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: aiLoading ? "#9CA3AF" : "#fff", cursor: aiLoading ? "default" : "pointer" }}>
             {aiLoading ? "AI 분석 중..." : "🤖 AI 계획 추천"}
@@ -1493,6 +1494,203 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         </div>
       </div>
 
+      {/* 전체 공정표 */}
+      {viewMode === "all" && (() => {
+        if (activities.length === 0) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>공종 데이터가 없습니다</div>;
+        const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
+        const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
+        if (!allPs || !allPf) return null;
+        const totalDays = diffDays(allPf, allPs) + 1;
+        const todayStr = dayStr(TODAY);
+        const LEFT_W = 200;
+
+        // 기간별 단위 결정
+        const useMonthly = totalDays > 365 * 3;  // 3년 이상 → 월별
+        const useWeekly = totalDays > 365;         // 1~3년 → 주별
+        // 일별은 1년 미만
+
+        // 컬럼 생성
+        const cols = [];
+        if (useMonthly) {
+          const cur = new Date(allPs.slice(0,7) + "-01");
+          const end = new Date(allPf.slice(0,7) + "-01");
+          while (cur <= end) {
+            cols.push({ str: dayStr(cur), label: `${cur.getMonth()+1}월`, subLabel: `${cur.getFullYear()}`, type: "month", daysInCol: new Date(cur.getFullYear(), cur.getMonth()+1, 0).getDate() });
+            cur.setMonth(cur.getMonth() + 1);
+          }
+        } else if (useWeekly) {
+          const cur = new Date(allPs);
+          const end = new Date(allPf);
+          while (cur <= end) {
+            cols.push({ str: dayStr(cur), label: `${cur.getMonth()+1}/${cur.getDate()}`, subLabel: "주", type: "week", daysInCol: 7 });
+            cur.setDate(cur.getDate() + 7);
+          }
+        } else {
+          const cur = new Date(allPs);
+          const end = new Date(allPf);
+          while (cur <= end) {
+            cols.push({ str: dayStr(cur), label: `${cur.getDate()}`, subLabel: ["일","월","화","수","목","금","토"][cur.getDay()], type: "day", daysInCol: 1, dow: cur.getDay() });
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+
+        const COL_W = useMonthly ? 48 : useWeekly ? 38 : 30;
+        const totalColW = cols.length * COL_W;
+
+        // 바 계산 (공종 ps~pf 기준으로 컬럼 인덱스 찾기)
+        const findColIdx = (dateStr) => {
+          if (useMonthly) return cols.findIndex(c => c.str.slice(0,7) >= dateStr.slice(0,7));
+          if (useWeekly) {
+            for (let i = cols.length-1; i >= 0; i--) {
+              if (cols[i].str <= dateStr) return i;
+            }
+            return 0;
+          }
+          return cols.findIndex(c => c.str >= dateStr);
+        };
+        const findColIdxEnd = (dateStr) => {
+          if (useMonthly) return cols.findLastIndex(c => c.str.slice(0,7) <= dateStr.slice(0,7));
+          if (useWeekly) return cols.findLastIndex(c => c.str <= dateStr);
+          return cols.findLastIndex(c => c.str <= dateStr);
+        };
+        const todayIdx = useMonthly
+          ? cols.findIndex(c => c.str.slice(0,7) === todayStr.slice(0,7))
+          : useWeekly
+            ? cols.findLastIndex(c => c.str <= todayStr)
+            : cols.findIndex(c => c.str === todayStr);
+
+        // 대공종 그룹
+        const grouped = {};
+        activities.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
+
+        // 연도별 그룹핑 (월별일 때 상단에 연도 표시)
+        const yearGroups = [];
+        if (useMonthly) {
+          let cur = null;
+          cols.forEach((c, ci) => {
+            const y = c.str.slice(0,4);
+            if (!cur || cur.year !== y) { if (cur) yearGroups.push(cur); cur = { year: y, startIdx: ci, count: 1 }; }
+            else cur.count++;
+          });
+          if (cur) yearGroups.push(cur);
+        }
+
+        return (
+          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+            {/* 헤더 */}
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + totalColW }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: NAVY, display: "flex", alignItems: "center", padding: "0 12px" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                {/* 연도 행 (월별일 때만) */}
+                {useMonthly && (
+                  <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB" }}>
+                    {yearGroups.map((y, yi) => (
+                      <div key={yi} style={{ width: COL_W * y.count, flexShrink: 0, background: NAVY, borderRight: "1px solid #374151", textAlign: "center", padding: "3px 0" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{y.year}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* 컬럼 헤더 */}
+                <div style={{ display: "flex" }}>
+                  {cols.map((c, ci) => {
+                    const isToday = useMonthly ? c.str.slice(0,7) === todayStr.slice(0,7) : useWeekly ? (ci === todayIdx) : c.str === todayStr;
+                    const isSun = c.dow === 0;
+                    return (
+                      <div key={ci} style={{ width: COL_W, flexShrink: 0, borderRight: `1px solid ${useMonthly ? "#D1D5DB" : "#F3F4F6"}`, background: isToday ? "#FEF3C7" : isSun ? "#FFF5F5" : "transparent", textAlign: "center", padding: "2px 0" }}>
+                        <div style={{ fontSize: useMonthly ? 10 : 9, color: isToday ? "#92400E" : isSun ? "#EF4444" : "#374151", fontWeight: isToday ? 800 : 400 }}>{c.label}</div>
+                        {!useMonthly && <div style={{ fontSize: 8, color: isSun ? "#EF4444" : "#D1D5DB" }}>{c.subLabel}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 마일스톤 행 */}
+            <div style={{ display: "flex", borderBottom: "1px solid #374151", background: "#1E293B", minWidth: LEFT_W + totalColW }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ flex: 1, position: "relative", height: 24 }}>
+                {(milestones || []).map(m => {
+                  const ci = useMonthly ? cols.findIndex(c => c.str.slice(0,7) === m.milestone_date?.slice(0,7))
+                    : useWeekly ? cols.findLastIndex(c => c.str <= m.milestone_date)
+                    : cols.findIndex(c => c.str === m.milestone_date);
+                  if (ci < 0) return null;
+                  return <span key={m.id} title={m.title} style={{ position: "absolute", left: ci * COL_W + COL_W/2 - 6, top: 4, fontSize: 12, color: YELLOW, cursor: "pointer" }}>▼</span>;
+                })}
+                {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W/2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
+              </div>
+            </div>
+
+            {/* 공종 없을 때 */}
+            {activities.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>공종이 없습니다</div>}
+
+            {/* 대공종 + 공종 행 */}
+            {Object.entries(grouped).map(([cat, acts]) => (
+              <div key={cat}>
+                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY, minWidth: LEFT_W + totalColW }}>
+                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                  <div style={{ flex: 1, background: NAVY }} />
+                </div>
+                {acts.map((a, ai) => {
+                  const planSi = Math.max(0, findColIdx(a.ps));
+                  const planEi = Math.min(cols.length-1, findColIdxEnd(a.pf));
+                  const actualSi = a.as_ ? Math.max(0, findColIdx(a.as_)) : -1;
+                  const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
+                  const actualEi = actualSi >= 0 ? Math.min(cols.length-1, findColIdxEnd(actualEndStr)) : -1;
+                  return (
+                    <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + totalColW }}>
+                      <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "5px 12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
+                          {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
+                          {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                        <div style={{ fontSize: 9, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
+                      </div>
+                      <div style={{ flex: 1, position: "relative", height: 48 }}>
+                        {/* 셀 배경 */}
+                        <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
+                          {cols.map((c, ci) => (
+                            <div key={ci} style={{ width: COL_W, flexShrink: 0, borderRight: `1px solid ${useMonthly ? "#E5E7EB" : c.dow === 0 ? "#E5E7EB" : "#F9FAFB"}`, background: (useMonthly ? c.str.slice(0,7) === todayStr.slice(0,7) : ci === todayIdx) ? "#FFFDE7" : (!useMonthly && c.dow === 0) ? "#FFF5F5" : "transparent", height: "100%" }} />
+                          ))}
+                        </div>
+                        {/* 계획 바 */}
+                        {planSi >= 0 && planEi >= 0 && planSi <= planEi && (
+                          <div style={{ position: "absolute", top: 8, left: planSi * COL_W + 1, width: (planEi - planSi + 1) * COL_W - 2, height: 10, background: "#10B981", borderRadius: 5, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                            <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>{a.ps?.slice(5)}~{a.pf?.slice(5)}</span>
+                          </div>
+                        )}
+                        {/* 실적 바 */}
+                        {actualSi >= 0 && actualEi >= 0 && actualSi <= actualEi && (
+                          <div style={{ position: "absolute", top: 28, left: actualSi * COL_W + 1, width: (actualEi - actualSi + 1) * COL_W - 2, height: 10, background: "#3B82F6", borderRadius: 5, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                            <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>{a.as_?.slice(5)}{a.af ? `~${a.af.slice(5)}` : "~"}</span>
+                          </div>
+                        )}
+                        {/* 오늘 기준선 */}
+                        {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W/2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* 범례 */}
+            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
+              <div style={{ marginLeft: "auto", fontSize: 11, color: "#9CA3AF" }}>
+                {useMonthly ? "월별 보기" : useWeekly ? "주별 보기" : "일별 보기"} · 총 {activities.length}개 공종 · {allPs} ~ {allPf}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3개월 간트 차트 */}
       {viewMode === "3m" && (() => {
         const days = [];
@@ -1514,7 +1712,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           reportMap[r.activity_id].add(d);
         });
         const grouped = {};
-        const active3m = activities.filter(a => a.phys < 100 && a.ps <= days[days.length-1].str && a.pf >= days[0].str);
+        const active3m = activities.filter(a => a.phys < 100 && a.ps <= days[days.length - 1].str && a.pf >= days[0].str);
         active3m.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
 
         // 월별 그룹핑
@@ -3165,15 +3363,15 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
             onClick={async () => {
               if (!window.confirm("⚠️ 모든 공정 데이터를 초기화합니다.\n등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n정말 초기화하시겠습니까?")) return;
               try {
-                // FK 순서: progress_reports → issues → sub_activities → activities
-                const allReports = await sb.get("progress_reports");
-                for (const r of allReports) await sb.delete("progress_reports", r.id);
-                const allIssues = await sb.get("issues");
-                for (const i of allIssues) await sb.delete("issues", i.id);
-                const allSubs = await sb.get("sub_activities");
-                for (const s of allSubs) await sb.delete("sub_activities", s.id);
-                const allActs = await sb.get("activities");
-                for (const a of allActs) await sb.delete("activities", a.id);
+                const headers = { "Content-Type": "application/json", "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Prefer": "return=minimal" };
+                // FK 순서: progress_reports → weekly_plans → issues → sub_activities → activities
+                await fetch(`${SB_URL}/rest/v1/progress_reports?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/weekly_plans?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/weekly_plan_snapshots?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/issues?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/milestones?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/sub_activities?id=gt.0`, { method: "DELETE", headers });
+                await fetch(`${SB_URL}/rest/v1/activities?id=gt.0`, { method: "DELETE", headers });
                 setActivities([]);
                 setToast("🗑️ 데이터 초기화 완료");
               } catch (err) { alert("초기화 실패: " + err.message); }
@@ -4712,7 +4910,7 @@ ${activities.map(a => {
       const subStr = subs.length > 0
         ? `\n  세부공정: ${subs.map(s => `[ID:${s.id}] ${s.name} (${s.phys}%)`).join(", ")}`
         : "";
-      return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}% | plan_qty: ${a.plan_qty} | done_qty: ${a.done_qty} | 단위: ${a.unit}${subStr}`;
+      return `- 공종ID ${a.id}: ${a.name} | 전체 ${a.phys}% | plan_qty: ${a.plan_qty} | done_qty: ${a.done_qty} | 단위: ${a.unit} | 계획기간: ${a.orig_dur}일${subStr}`;
     }).join("\n")}
 
 입력 유형을 판단해서 아래 중 하나로 응답해:
@@ -4720,6 +4918,7 @@ ${activities.map(a => {
 규칙:
 - 반드시 아래 필드명을 정확히 사용해. 다른 이름 절대 쓰지 마:
   matched_activity_id (matched_id 금지)
+- matching_reason과 matching_confidence는 반드시 포함해. 왜 이 공종/세부공종에 매핑했는지 한 줄로 명확히 써.
   new_done_qty (progress, progress_percent, completion_rate 금지)
   workers (worker_count 금지)
 - new_done_qty: 전체 완료면 해당 공종 plan_qty 그대로. 예) plan_qty=100이면 new_done_qty=100
@@ -4736,6 +4935,13 @@ ${activities.map(a => {
 - 단, 지연/완료 여부와 무관하게 반드시 work_report JSON으로 반환해.
 - special_note 필드명 반드시 사용. note 금지.
 - 세부공정이 있으면 반드시 세부공정 ID를 matched_sub_id에 넣어. 세부공정이 없을 때만 상위 공종만 매핑해.
+- matched_sub_id를 선택했으면 matched_activity_id는 반드시 그 세부공정이 속한 상위 공종 ID여야 해. 절대 다른 공종 ID를 넣지 마.
+- 층수가 포함된 공종명(예: 6F~10F, 2F~5F)은 사용자가 언급한 층수와 정확히 일치하는 공종을 선택해.
+- 사용자가 특정 층수를 언급했는데 해당 층수의 세부공정이 존재하지 않으면 needs_clarification: true로 설정하고 "말씀하신 층수의 세부공정이 등록되어 있지 않습니다. 공정 현황에서 세부공정을 먼저 등록해주시거나, 정확한 작업 내용을 알려주시면 기록하겠습니다."라고 되물어봐.
+- 사용자가 언급한 층수와 매핑된 세부공정의 층수가 다르면 절대 임의로 매핑하지 마.
+- 상위 공종을 전체 완료(new_done_qty = plan_qty)로 처리하려는 경우 아래 조건을 모두 확인해:
+  * 공종의 계획기간이 7일 이상이면 하루 보고로 전체 완료 처리 금지. needs_clarification: true로 설정하고 "해당 공종은 계획 기간이 길어 하루에 완료 처리하기 어렵습니다. 오늘 완료된 세부 작업 내용을 구체적으로 알려주시면 정확히 기록하겠습니다."라고 되물어봐.  * 세부공정이 있는 공종에서 matched_sub_id 없이 전체 완료 처리하려는 경우도 needs_clarification: true로 설정하고 어떤 세부공정이 완료됐는지 되물어봐.
+  * 사용자가 "전체 완료", "모두 끝", "다 완료"처럼 명시적으로 전체 완료를 표현하고 orig_dur이 7일 미만이면 그냥 처리해도 돼.
 - 층수 정보가 언급되면 반드시 층수가 일치하는 세부공정에 매핑해. "지하3층"이면 B3, "2층"이면 2F 등.
 - 확실하지 않으면 needs_clarification: true로 반환해.
 - JSON 앞뒤에 \`\`\`json 같은 마크다운 절대 붙이지 마. 순수 JSON만 반환해.
@@ -4955,9 +5161,10 @@ JSON 없이 자연스럽게 한국어로만 답해.
       } else {
         setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
       }
-    } catch {
+    } catch (err) {
+      console.error("AI 보고 오류:", err);
       setChatMessages(p => [...p.filter(m => m.id !== uid + 1),
-      { id: uid + 2, role: "ai", content: "오류가 발생했습니다. 다시 시도해주세요." }
+      { id: uid + 2, role: "ai", content: `오류가 발생했습니다: ${err?.message || err}` }
       ]);
     }
     setLoading(false);
@@ -6133,7 +6340,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
 
 
 function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady }) {
-  const [refreshKey, setRefreshKey] = useState(0); 
+  const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
@@ -6254,7 +6461,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               setEquipment={setSiteEquipment}
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
-            />)}        
+            />)}
           {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
