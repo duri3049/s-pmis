@@ -6267,7 +6267,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 // ── Root ──────────────────────────────────────────────────────────────
 function SplashScreen({ onDone }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 4800);
+    const t = setTimeout(onDone, 3800);
     return () => clearTimeout(t);
   }, []);
 
@@ -6279,7 +6279,7 @@ function SplashScreen({ onDone }) {
         @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes splashOut { to { opacity: 0; pointer-events: none; } }
         .sp-line { stroke-dasharray: 300; stroke-dashoffset: 300; animation: drawLine 0.4s ease forwards; }
-        .sp-wrap { animation: splashOut 0.6s ease 4.2s forwards; }
+        .sp-wrap { animation: splashOut 0.6s ease 3.2s forwards; }
       ` }} />
       <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
         <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
