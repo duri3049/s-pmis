@@ -1054,6 +1054,48 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
   const [aiLoading, setAiLoading] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [viewMode, setViewMode] = useState("3w");
+
+  const handlePrint = async () => {
+    const el = document.getElementById("gantt-print-area");
+    if (!el) return;
+    if (!window.html2canvas) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const canvas = await window.html2canvas(el, {
+      scale: 1.5, useCORS: true,
+      scrollX: 0, scrollY: 0,
+      width: el.scrollWidth, height: el.scrollHeight,
+      windowWidth: el.scrollWidth
+    });
+    const imgData = canvas.toDataURL("image/png");
+    const title = viewMode === "3w" ? "3 주 공 정 표" : "3 개 월 공 정 표";
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>${title}</title>
+      <style>
+        body { margin: 0; padding: 8px; font-family: 'Malgun Gothic', sans-serif; }
+        h2 { text-align: center; margin: 4px 0; font-size: 16px; }
+        p { text-align: center; margin: 2px 0 8px; font-size: 11px; color: #666; }
+        img { width: 100%; display: block; }
+        @page { size: A3 landscape; margin: 5mm; }
+        @media print { body { padding: 0; } }
+      </style></head><body>
+      <h2>${title}</h2>
+      <p>기준일: ${dayStr(TODAY)}</p>
+      <img src="${imgData}"/>
+      <script>setTimeout(() => { window.print(); }, 600);<\/script>
+    </body></html>`);
+    w.document.close();
+  };
+  
+
+  
   const getMonday = (offset) => {
     const d = new Date(TODAY);
     const day = d.getDay();
@@ -1239,7 +1281,14 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
-      {/* PDF 미리보기 모달 */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          body * { visibility: hidden; }
+          #gantt-print-area, #gantt-print-area * { visibility: visible; }
+          #gantt-print-area { position: fixed; left: 0; top: 0; width: 100vw; overflow: visible; }
+        }
+        @page { size: A3 landscape; margin: 8mm; }
+      ` }} />
       {showPdfPreview && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: 20 }}>
           <style>{`@media print { body * { visibility: hidden; } #wp-content, #wp-content * { visibility: visible; } #wp-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
@@ -1250,8 +1299,8 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           <div id="wp-content" style={{ maxWidth: 900, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6 }}>
             {/* 제목 */}
             <div style={{ textAlign: "center", borderBottom: "2px solid #1A2332", paddingBottom: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#1A2332" }}>3 주 공 정 표</div>
-              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>Three-Week Lookahead Schedule</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1A2332" }}>{viewMode === "3w" ? "3 주 공 정 표" : "3 개 월 공 정 표"}</div>
+              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>{viewMode === "3w" ? "Three-Week Lookahead Schedule" : "Three-Month Schedule"}</div>
             </div>
             {/* 기본 정보 */}
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
@@ -1296,7 +1345,11 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                 </tr>
               </thead>
               <tbody>
-                {active.map((a, ri) => {
+                {(viewMode === "3w" ? active : activities.filter(a => {
+                  const base = new Date(TODAY.getFullYear(), TODAY.getMonth()-1, 1);
+                  const end = new Date(TODAY.getFullYear(), TODAY.getMonth()+2, 0);
+                  return a.phys < 100 && a.ps <= end.toISOString().slice(0,10) && a.pf >= base.toISOString().slice(0,10);
+                })).map((a, ri) => {
                   const calcOverlap = (w) => {
                     const os = w.startStr > a.ps ? w.startStr : a.ps;
                     const oe = w.endStr < a.pf ? w.endStr : a.pf;
@@ -1359,7 +1412,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 3주 공정표</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : "3개월 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
           <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 180, textAlign: "center" }}>
@@ -1368,13 +1421,24 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           </div>
           <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
           <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
+          {/* 뷰 토글 */}
+          <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
+            <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
+            <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
+          </div>
           <button onClick={handleAIRecommend} disabled={aiLoading}
             style={{ background: aiLoading ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: aiLoading ? "#9CA3AF" : "#fff", cursor: aiLoading ? "default" : "pointer" }}>
             {aiLoading ? "AI 분석 중..." : "🤖 AI 계획 추천"}
           </button>
-          <button onClick={handleConfirm} disabled={confirming}
-            style={{ background: confirming ? "#E5E7EB" : "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: confirming ? "default" : "pointer" }}>
-            {confirming ? "저장 중..." : "✅ 확정/등록"}
+          {viewMode === "3w" && (
+            <button onClick={handleConfirm} disabled={confirming}
+              style={{ background: confirming ? "#E5E7EB" : "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: confirming ? "default" : "pointer" }}>
+              {confirming ? "저장 중..." : "✅ 확정/등록"}
+            </button>
+          )}
+          <button onClick={handlePrint}
+            style={{ background: NAVY, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
+            🖨️ PDF 출력
           </button>
           <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
         </div>
@@ -1429,119 +1493,326 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         </div>
       </div>
 
-      {/* 주 헤더 */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        <div style={{ width: 220, flexShrink: 0 }} />
-        {weeks.map((w, i) => (
-          <div key={i} style={{ flex: 1, background: weekBg(i), border: `2px solid ${weekBorder(i)}`, borderRadius: 10, padding: "8px 12px", textAlign: "center" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: weekLabelColor(i) }}>{weekLabel(w, i)}</div>
-            <div style={{ fontSize: 11, color: "#6B7280", marginTop: 2 }}>{fmt(w.start)} ~ {fmt(w.end)}</div>
-          </div>
-        ))}
-      </div>
+      {/* 3개월 간트 차트 */}
+      {viewMode === "3m" && (() => {
+        const days = [];
+        // 이번 달 1일 기준 -1개월 ~ +2개월 (90일)
+        const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
+        for (let i = 0; i < 92; i++) {
+          const d = new Date(base);
+          d.setDate(d.getDate() + i);
+          days.push({ date: d, str: dayStr(d), dow: d.getDay(), month: d.getMonth(), day: d.getDate() });
+        }
+        const todayStr = dayStr(TODAY);
+        const LEFT_W = 200;
+        const DAY_W = 22;
+        const reportMap = {};
+        (progressReports || []).filter(r => r.status === "approved").forEach(r => {
+          const d = r.created_at?.slice(0, 10);
+          if (!d) return;
+          if (!reportMap[r.activity_id]) reportMap[r.activity_id] = new Set();
+          reportMap[r.activity_id].add(d);
+        });
+        const grouped = {};
+        const active3m = activities.filter(a => a.phys < 100 && a.ps <= days[days.length-1].str && a.pf >= days[0].str);
+        active3m.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
 
-      {/* 공종 없을 때 */}
-      {active.length === 0 && (
-        <div style={{ background: "#fff", borderRadius: 14, padding: 40, textAlign: "center", color: "#9CA3AF" }}>
-          이 기간에 진행 예정인 공종이 없습니다
-        </div>
-      )}
+        // 월별 그룹핑
+        const months = [];
+        let cur = null;
+        days.forEach((d, di) => {
+          if (!cur || cur.month !== d.month) {
+            if (cur) months.push(cur);
+            cur = { month: d.month, year: d.date.getFullYear(), startIdx: di, count: 1 };
+          } else { cur.count++; }
+        });
+        if (cur) months.push(cur);
 
-      {/* 공종별 행 */}
-      {active.map(a => {
-        // 주간 계획 물량 = 해당 주와 공종 기간의 겹치는 일수 비율 × plan_qty
-        const calcWeekPlan = (w) => {
-          const overlapStart = w.startStr > a.ps ? w.startStr : a.ps;
-          const overlapEnd = w.endStr < a.pf ? w.endStr : a.pf;
-          const overlapDays = Math.max(0, diffDays(overlapEnd, overlapStart) + 1);
-          const totalDays = Math.max(1, diffDays(a.pf, a.ps) + 1);
-          return Math.round(a.plan_qty * overlapDays / totalDays);
-        };
-        // 주간 실제 투입 인원 집계
-        const calcWeekWorkers = (w) =>
-          (progressReports || [])
-            .filter(r => r.activity_id === a.id && r.status === "approved"
-              && r.created_at >= w.startStr && r.created_at <= w.endStr + "T23:59:59"
-              && r.workers > 0)
-            .reduce((s, r) => s + (r.workers || 0), 0);
         return (
-          <div key={a.id} style={{ background: "#fff", borderRadius: 12, marginBottom: 8, border: "1px solid #E5E7EB", overflow: "hidden" }}>
-            {/* 공종 헤더 */}
-            <div style={{ background: a.critical ? "#FEF2F2" : "#F8FAFC", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #E5E7EB" }}>
-              {a.critical && <span style={{ fontSize: 10, background: "#FEE2E2", color: "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>CP</span>}
-              {a.delay_days > 0 && <span style={{ fontSize: 10, background: "#FEE2E2", color: "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>+{a.delay_days}일</span>}
-              <span style={{ fontWeight: 700, fontSize: 14, color: NAVY, flex: 1 }}>{a.name}</span>
-              <span style={{ fontSize: 11, color: "#6B7280" }}>{a.subcon !== "미정" ? a.subcon : ""}</span>
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: a.phys >= 80 ? "#10B981" : a.phys >= 40 ? "#F59E0B" : "#EF4444" }}>{a.phys}%</span>
-            </div>
-            {/* 주차별 계획/실적 */}
-            <div style={{ display: "flex", gap: 0 }}>
-              {/* 라벨 컬럼 */}
-              <div style={{ width: 220, flexShrink: 0, borderRight: "1px solid #E5E7EB" }}>
-                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>계획 물량</div>
-                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>실적 물량</div>
-                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", borderBottom: "1px solid #F3F4F6", background: "#FAFAFA" }}>투입 인원</div>
-                <div style={{ padding: "6px 16px", fontSize: 11, color: "#6B7280", background: "#FAFAFA" }}>특이사항</div>
+          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+            {/* 날짜 헤더 */}
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + DAY_W * days.length }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: NAVY, display: "flex", alignItems: "center", padding: "0 12px" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
               </div>
-              {/* 주차별 데이터 */}
-              {weeks.map((w, wi) => {
-                const plan = getPlan(a.id, w.startStr);
-                const actualQty = getActual(a.id, w.startStr, w.endStr);
-                const weekPlanQty = plan?.plan_qty ?? calcWeekPlan(w);
-                const weekWorkers = calcWeekWorkers(w);
-                const isPast = wi === 0;
-                return (
-                  <div key={wi} style={{ flex: 1, borderRight: wi < 2 ? "1px solid #E5E7EB" : "none" }}>
-                    {/* 계획 물량 */}
-                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi), display: "flex", alignItems: "center", gap: 6 }}>
-                      {plan?.status === "ai_recommended" && wi === 2 && (
-                        <span style={{ fontSize: 9, background: "#EDE9FE", color: "#7C3AED", borderRadius: 4, padding: "1px 5px", fontWeight: 700, whiteSpace: "nowrap" }}>AI</span>
-                      )}
-                      {!isPast ? (
-                        <input
-                          type="number"
-                          defaultValue={weekPlanQty}
-                          onBlur={e => handlePlanSave(a.id, w.startStr, "plan_qty", Number(e.target.value))}
-                          style={{ width: "100%", border: "1px solid #D1D5DB", borderRadius: 6, padding: "3px 6px", fontSize: 12, outline: "none", boxSizing: "border-box" }}
-                        />
-                      ) : (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{weekPlanQty}{a.unit}</span>
-                      )}
+              <div style={{ flex: 1, position: "relative" }}>
+                {/* 월 헤더 */}
+                <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB" }}>
+                  {months.map((m, mi) => {
+                    const isThis = m.month === TODAY.getMonth() && m.year === TODAY.getFullYear();
+                    const isPast = new Date(m.year, m.month) < new Date(TODAY.getFullYear(), TODAY.getMonth());
+                    return (
+                      <div key={mi} style={{ width: DAY_W * m.count, flexShrink: 0, background: isThis ? "#FFFBEB" : isPast ? "#EFF6FF" : "#F0FDF4", borderRight: "1px solid #D1D5DB", textAlign: "center", padding: "3px 0" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: isThis ? "#92400E" : isPast ? "#1D4ED8" : "#065F46" }}>
+                          {m.year}.{String(m.month + 1).padStart(2, "0")} {isThis ? "(이번달)" : isPast ? "(지난달)" : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* 일 헤더 */}
+                <div style={{ display: "flex" }}>
+                  {days.map((d, di) => {
+                    const isSun = d.dow === 0;
+                    const isSat = d.dow === 6;
+                    const isToday = d.str === todayStr;
+                    const isFirst = d.day === 1;
+                    return (
+                      <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: `1px solid ${isFirst ? "#D1D5DB" : "#F3F4F6"}`, background: isToday ? "#FEF3C7" : isSun ? "#FFF5F5" : "transparent", textAlign: "center", padding: "2px 0" }}>
+                        <div style={{ fontSize: 9, color: isSun ? "#EF4444" : isSat ? "#9CA3AF" : "#6B7280", fontWeight: isToday ? 800 : 400 }}>
+                          {d.day === 1 ? `${d.month + 1}/1` : d.day}
+                        </div>
+                        <div style={{ fontSize: 8, color: isSun ? "#EF4444" : "#D1D5DB" }}>
+                          {isSun ? "일" : ""}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 마일스톤 행 */}
+            <div style={{ display: "flex", borderBottom: "1px solid #374151", background: "#1E293B", minWidth: LEFT_W + DAY_W * days.length }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ flex: 1, position: "relative", height: 24 }}>
+                {days.map((d, di) => {
+                  const ms = (milestones || []).filter(m => m.milestone_date === d.str);
+                  return (
+                    <div key={di} style={{ position: "absolute", left: di * DAY_W, width: DAY_W, top: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {ms.map(m => <span key={m.id} title={m.title} style={{ fontSize: 10, color: YELLOW, cursor: "pointer" }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>)}
                     </div>
-                    {/* 실적 물량 */}
-                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi) }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: actualQty > 0 ? "#10B981" : "#9CA3AF" }}>{actualQty > 0 ? `${actualQty}${a.unit}` : "-"}</span>
-                        {weekPlanQty > 0 && actualQty > 0 && (
-                          <span style={{ fontSize: 10, background: actualQty >= weekPlanQty ? "#D1FAE5" : "#FEE2E2", color: actualQty >= weekPlanQty ? "#065F46" : "#991B1B", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-                            {Math.round(actualQty / weekPlanQty * 100)}%
-                          </span>
+                  );
+                })}
+                {/* 오늘 기준선 */}
+                {(() => { const ti = days.findIndex(d => d.str === todayStr); return ti >= 0 ? <div style={{ position: "absolute", left: ti * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} /> : null; })()}
+              </div>
+            </div>
+
+            {/* 공종 없을 때 */}
+            {active3m.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>이 기간에 진행 예정인 공종이 없습니다</div>}
+
+            {/* 대공종 + 공종별 행 */}
+            {Object.entries(grouped).map(([cat, acts]) => (
+              <div key={cat}>
+                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY, minWidth: LEFT_W + DAY_W * days.length }}>
+                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                  <div style={{ flex: 1, background: NAVY }} />
+                </div>
+                {acts.map((a, ai) => {
+                  const todayIdx = days.findIndex(d => d.str === todayStr);
+                  const planSi = days.findIndex(d => d.str >= a.ps);
+                  const planEi = days.findLastIndex(d => d.str <= a.pf);
+                  const actualSi = a.as_ ? days.findIndex(d => d.str >= a.as_) : -1;
+                  const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
+                  const actualEi = a.as_ ? days.findLastIndex(d => d.str <= actualEndStr) : -1;
+                  return (
+                    <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + DAY_W * days.length }}>
+                      <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "6px 12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                          {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
+                          {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                        <div style={{ fontSize: 10, color: "#9CA3A F" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
+                      </div>
+                      <div style={{ flex: 1, position: "relative", height: 52 }}>
+                        {/* 셀 배경 */}
+                        <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
+                          {days.map((d, di) => (
+                            <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: `1px solid ${d.day === 1 ? "#D1D5DB" : d.dow === 0 ? "#E5E7EB" : "#F9FAFB"}`, background: d.str === todayStr ? "#FFFDE7" : d.dow === 0 ? "#FFF5F5" : "transparent", height: "100%" }} />
+                          ))}
+                        </div>
+                        {/* 계획 바 */}
+                        {planSi >= 0 && planEi >= 0 && (
+                          <div style={{ position: "absolute", top: 10, left: planSi * DAY_W + 1, width: (planEi - planSi + 1) * DAY_W - 2, height: 10, background: "#10B981", borderRadius: 5, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                            <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>{a.ps?.slice(5)}~{a.pf?.slice(5)}</span>
+                          </div>
                         )}
+                        {/* 실적 바 */}
+                        {actualSi >= 0 && actualEi >= 0 && (
+                          <div style={{ position: "absolute", top: 30, left: actualSi * DAY_W + 1, width: (actualEi - actualSi + 1) * DAY_W - 2, height: 10, background: "#3B82F6", borderRadius: 5, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 4, overflow: "hidden" }}>
+                            <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>{a.as_?.slice(5)}{a.af ? `~${a.af.slice(5)}` : "~"}</span>
+                          </div>
+                        )}
+                        {/* 오늘 기준선 */}
+                        {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
                       </div>
                     </div>
-                    {/* 투입 인원 — progress_reports 자동 집계 */}
-                    <div style={{ padding: "4px 12px", borderBottom: "1px solid #F3F4F6", background: weekBg(wi) }}>
-                      <span style={{ fontSize: 12, fontWeight: weekWorkers > 0 ? 700 : 400, color: weekWorkers > 0 ? NAVY : "#9CA3AF" }}>
-                        {weekWorkers > 0 ? `${weekWorkers}명` : "-"}
-                      </span>
-                    </div>
-                    {/* 특이사항 */}
-                    <div style={{ padding: "4px 12px", background: weekBg(wi) }}>
-                      <input
-                        defaultValue={plan?.note || ""}
-                        placeholder="특이사항"
-                        onBlur={e => handlePlanSave(a.id, w.startStr, "note", e.target.value)}
-                        style={{ width: "100%", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 6px", fontSize: 11, outline: "none", boxSizing: "border-box", background: "transparent" }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            ))}
+
+            {/* 범례 */}
+            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
             </div>
           </div>
         );
-      })}
+      })()}
+
+      {/* 3주 간트 차트 */}
+      {viewMode === "3w" && (() => {
+        const days = [];
+        for (let i = 0; i < 21; i++) {
+          const d = new Date(weeks[0].start);
+          d.setDate(d.getDate() + i);
+          days.push({ date: d, str: dayStr(d), dow: d.getDay() });
+        }
+        const todayStr = dayStr(TODAY);
+        const LEFT_W = 200;
+        const DAY_W = 36;
+        const TOTAL_W = LEFT_W + DAY_W * 21;
+
+        // 날짜별 approved 보고 맵
+        const reportMap = {};
+        (progressReports || []).filter(r => r.status === "approved").forEach(r => {
+          const d = r.created_at?.slice(0, 10);
+          if (!d) return;
+          if (!reportMap[r.activity_id]) reportMap[r.activity_id] = new Set();
+          reportMap[r.activity_id].add(d);
+        });
+
+        return (
+          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+            {/* 날짜 헤더 */}
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + DAY_W * 21 }}>
+              {/* 좌측 라벨 */}
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB" }}>
+                {/* 주차 헤더 */}
+                <div style={{ display: "flex", height: 28 }}>
+                  {weeks.map((w, wi) => (
+                    <div key={wi} style={{ flex: 1, background: wi === 0 ? "#EFF6FF" : wi === 1 ? "#FFFBEB" : "#F0FDF4", borderRight: wi < 2 ? "1px solid #E5E7EB" : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: wi === 0 ? "#1D4ED8" : wi === 1 ? "#92400E" : "#065F46" }}>
+                        {wi === 0 ? "지난주" : wi === 1 ? "이번주" : "다음주"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: "0 12px", fontSize: 11, fontWeight: 700, color: NAVY, display: "flex", alignItems: "center", height: 28, borderTop: "1px solid #E5E7EB" }}>공종명</div>
+              </div>
+              {/* 날짜 컬럼 */}
+              <div style={{ display: "flex", flex: 1, overflowX: "auto" }}>
+                {/* 주차 구분선 */}
+                <div style={{ display: "flex", width: DAY_W * 21, flexShrink: 0 }}>
+                  {days.map((d, di) => {
+                    const isSun = d.dow === 0;
+                    const isSat = d.dow === 6;
+                    const isToday = d.str === todayStr;
+                    const weekIdx = Math.floor(di / 7);
+                    const weekBgColor = weekIdx === 0 ? "#EFF6FF" : weekIdx === 1 ? "#FFFBEB" : "#F0FDF4";
+                    return (
+                      <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: isToday ? "#FEF3C7" : isSun ? "#FEF2F2" : weekBgColor }}>
+                        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: isToday ? 800 : 400, color: isSun ? "#EF4444" : isSat ? "#6B7280" : "#374151" }}>
+                          {d.date.getMonth() + 1}/{d.date.getDate()}
+                        </div>
+                        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isSun ? "#EF4444" : isSat ? "#9CA3AF" : "#9CA3AF", borderTop: "1px solid #E5E7EB" }}>
+                          {["일", "월", "화", "수", "목", "금", "토"][d.dow]}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* 마일스톤 행 */}
+            <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: "#1E293B" }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ display: "flex", flex: 1, position: "relative", height: 28 }}>
+                {days.map((d, di) => {
+                  const ms = (milestones || []).filter(m => m.milestone_date === d.str);
+                  return (
+                    <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: "1px solid #374151", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                      {ms.map(m => (
+                        <span key={m.id} title={m.title} style={{ fontSize: 14, cursor: "pointer", color: YELLOW }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>
+                      ))}
+                    </div>
+                  );
+                })}
+                {/* 오늘 기준선 */}
+                {days.findIndex(d => d.str === todayStr) >= 0 && (
+                  <div style={{ position: "absolute", left: days.findIndex(d => d.str === todayStr) * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />
+                )}
+              </div>
+            </div>
+
+            {/* 공종 없을 때 */}
+            {active.length === 0 && (
+              <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>이 기간에 진행 예정인 공종이 없습니다</div>
+            )}
+
+            {/* 대공종 그룹 + 공종별 행 */}
+            {(() => {
+              const grouped = {};
+              active.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
+              return Object.entries(grouped).map(([cat, acts]) => (
+                <div key={cat}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY }}>
+                    <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                    <div style={{ flex: 1, background: NAVY }} />
+                  </div>
+                  {acts.map((a, ai) => {
+                    const hasReport = reportMap[a.id] || new Set();
+                    const plan = getPlan(a.id, weeks[1].startStr);
+                    const isUnderAchieved = (() => { const pp = getPlan(a.id, weeks[0].startStr); const pq = pp?.plan_qty ?? 0; const aq = getActual(a.id, weeks[0].startStr, weeks[0].endStr); return pq > 0 && aq < pq; })();
+                    const todayIdx = days.findIndex(d => d.str === todayStr);
+                    const planSi = days.findIndex(d => d.str >= a.ps);
+                    const planEi = days.findLastIndex(d => d.str <= a.pf);
+                    const actualSi = a.as_ ? days.findIndex(d => d.str >= a.as_) : -1;
+                    const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
+                    const actualEi = a.as_ ? days.findLastIndex(d => d.str <= actualEndStr) : -1;
+                    return (
+                      <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA" }}>
+                        <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "6px 12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                            {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
+                            {isUnderAchieved && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>⚠️</span>}
+                            {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                          <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
+                          <input defaultValue={plan?.note || ""} placeholder="특이사항" onBlur={e => handlePlanSave(a.id, weeks[1].startStr, "note", e.target.value)} style={{ marginTop: 3, width: "100%", border: "1px solid #E5E7EB", borderRadius: 4, padding: "2px 6px", fontSize: 10, outline: "none", boxSizing: "border-box", background: "transparent" }} />
+                        </div>
+                        <div style={{ flex: 1, position: "relative", height: 64, minWidth: DAY_W * 21 }}>
+                          <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
+                            {days.map((d, di) => (
+                              <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: `1px solid ${di % 7 === 6 ? "#D1D5DB" : "#F3F4F6"}`, background: d.str === todayStr ? "#FFFDE7" : d.dow === 0 ? "#FFF5F5" : Math.floor(di / 7) === 0 ? "#F8FAFF" : Math.floor(di / 7) === 1 ? "#FFFBEB" : "#F0FDF4", height: "100%" }} />
+                            ))}
+                          </div>
+                          {planSi >= 0 && planEi >= 0 && (
+                            <div style={{ position: "absolute", top: 10, left: planSi * DAY_W + 2, width: (planEi - planSi + 1) * DAY_W - 4, height: 12, background: "#10B981", borderRadius: 6, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden" }}>
+                              <span style={{ fontSize: 9, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>계획 {a.ps?.slice(5)}~{a.pf?.slice(5)}</span>
+                            </div>
+                          )}
+                          {actualSi >= 0 && actualEi >= 0 && (
+                            <div style={{ position: "absolute", top: 34, left: actualSi * DAY_W + 2, width: (actualEi - actualSi + 1) * DAY_W - 4, height: 12, background: "#3B82F6", borderRadius: 6, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden" }}>
+                              <span style={{ fontSize: 9, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>실적 {a.as_?.slice(5)}{a.af ? `~${a.af.slice(5)}` : "~"}</span>
+                            </div>
+                          )}
+                          {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ));
+            })()}
+
+            {/* 범례 */}
+            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#10B981", borderRadius: 2, opacity: 0.7 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#3B82F6", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적 (보고 완료)</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#93C5FD", borderRadius: 2, opacity: 0.5 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>진행중</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: YELLOW, fontSize: 12 }}>▼</span><span style={{ fontSize: 11, color: "#6B7280" }}>마일스톤</span></div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -5017,6 +5288,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   onSubmit={(msg) => {
                     setQuickType(null);
                     setChatMessages(p => [...p, { id: Date.now(), role: "system", content: `📋 보고 제출 완료: ${msg}` }]);
+                    setTab("report");
                   }}
                 />
               )}
