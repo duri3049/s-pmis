@@ -2743,13 +2743,16 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                             <div key={a.id} style={{ background: a.group_name === "기타(미입력)" ? "#F9FAFB" : "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : a.group_name === "기타(미입력)" ? "#E5E7EB" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.group_name === "기타(미입력)" ? "#9CA3AF" : a.critical ? "#EF4444" : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.7 : 1 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                                 <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
+                                  {a.sub_group && a.sub_group !== "-" && a.sub_group !== "" && (
+                                    <span style={{ fontSize: 12, color: "#6B7280", marginRight: 4 }}>({a.sub_group})</span>
+                                  )}
                                   {a.name}
                                   {a.floor_start !== null && a.floor_end !== null && (
                                     <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
                                       ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
                                     </span>
                                   )}
-                                </span>                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                                </span>                     {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                                 {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
                                 <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
 
@@ -4193,6 +4196,7 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
     typeof act.predecessors === "string" ? JSON.parse(act.predecessors) : act.predecessors || []
   );
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
 
   const toggle = (id) => {
     const exists = preds.find(p => p.id === id);
@@ -4217,7 +4221,9 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
     setSaving(false);
   };
 
-  const others = activities.filter(a => a.id !== act.id && a.group_name !== "기타(미입력)");
+  const others = activities.filter(a => a.id !== act.id && a.group_name !== "기타(미입력)"
+    && (search === "" || a.name.includes(search) || a.group_name?.includes(search))
+  );
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -4228,6 +4234,15 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
             <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{act.name}</div>
           </div>
           <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+        <div style={{ padding: "12px 20px 0", borderBottom: "1px solid #E5E7EB" }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="공종명 검색..."
+            style={{ width: "100%", border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "8px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }}
+            autoFocus
+          />
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
           {others.length === 0
