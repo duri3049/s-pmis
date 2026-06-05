@@ -6536,101 +6536,43 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 // ── Root ──────────────────────────────────────────────────────────────
 function SplashScreen({ onDone }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 3200);
+    const t = setTimeout(onDone, 4800);
     return () => clearTimeout(t);
   }, []);
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: NAVY,
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      zIndex: 9999, animation: "splashFade 0.6s ease 2.8s forwards",
-      opacity: 1
-    }}>
-      <style>{`
-        @keyframes splashFade {
-          to { opacity: 0; pointer-events: none; }
-        }
-        @keyframes drawLine {
-          to { stroke-dashoffset: 0; }
-        }
-        .splash-line {
-          stroke-dasharray: 300;
-          stroke-dashoffset: 300;
-          animation: drawLine 0.35s ease forwards;
-        }
-      `}</style>
-
-      <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-        {/* 외곽선 — 5개 선분으로 분리해서 순서대로 그리기 */}
-        {/* 1. 좌하→좌상 */}
-        <line className="splash-line" x1="-58" y1="52" x2="-58" y2="-44"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.0s" }}/>
-        {/* 2. 좌상→꼭짓점 */}
-        <line className="splash-line" x1="-58" y1="-44" x2="0" y2="-80"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.2s" }}/>
-        {/* 3. 꼭짓점→우상 */}
-        <line className="splash-line" x1="0" y1="-80" x2="58" y2="-20"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.4s" }}/>
-        {/* 4. 우상→우하 */}
-        <line className="splash-line" x1="58" y1="-20" x2="58" y2="52"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.6s" }}/>
-        {/* 5. 부분 밑변 우측 */}
-        <line className="splash-line" x1="25" y1="52" x2="58" y2="52"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.8s" }}/>
-        {/* 6. 부분 밑변 좌측 */}
-        <line className="splash-line" x1="-58" y1="52" x2="-25" y2="52"
-          stroke="white" strokeWidth="11" strokeLinecap="round"
-          style={{ animationDelay: "0.8s" }}/>
-
-        {/* 내부선 순서대로 */}
-        {/* 7. 1번: 중심→위 */}
-        <line className="splash-line" x1="0" y1="4" x2="0" y2="-80"
-          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
-          style={{ animationDelay: "1.1s" }}/>
-        {/* 8. 2번: 중심→우상 */}
-        <line className="splash-line" x1="0" y1="4" x2="58" y2="-20"
-          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
-          style={{ animationDelay: "1.3s" }}/>
-        {/* 9. 3번: 중심→우하(5/7) */}
-        <line className="splash-line" x1="0" y1="4" x2="25" y2="52"
-          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
-          style={{ animationDelay: "1.5s" }}/>
-        {/* 10. 5번: 중심→좌하(2/7) */}
-        <line className="splash-line" x1="0" y1="4" x2="-25" y2="52"
-          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
-          style={{ animationDelay: "1.7s" }}/>
-        {/* 11. 6번: 중심→좌상 */}
-        <line className="splash-line" x1="0" y1="4" x2="-58" y2="-44"
-          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
-          style={{ animationDelay: "1.9s" }}/>
-      </svg>
-
-      {/* 텍스트 페이드인 */}
-      <div style={{
-        marginTop: 24, display: "flex", alignItems: "center", gap: 8,
-        opacity: 0, animation: "splashFade 0s, textIn 0.5s ease 2.1s forwards"
-      }}>
-        <style>{`
-          @keyframes textIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to   { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
-        <span style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: 4 }}>FIELD</span>
-        <span style={{ fontSize: 28, fontWeight: 800, color: YELLOW, letterSpacing: 4 }}>LOG</span>
+    <div style={{ position: "fixed", inset: 0, background: NAVY, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+        @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes splashOut { to { opacity: 0; pointer-events: none; } }
+        .sp-line { stroke-dasharray: 300; stroke-dashoffset: 300; animation: drawLine 0.4s ease forwards; }
+        .sp-wrap { animation: splashOut 0.6s ease 4.2s forwards; }
+      ` }} />
+      <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
+        <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
+          {/* 외곽선 — 한 줄씩 순서대로 */}
+          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.0s" }}/>
+          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.2s" }}/>
+          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.4s" }}/>
+          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.6s" }}/>
+          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }}/>
+          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }}/>
+          {/* 내부선 — (1,3,4)번 동시 → (2,5)번 동시 */}
+          <line className="sp-line" x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
+          <line className="sp-line" x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
+          <line className="sp-line" x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
+          <line className="sp-line" x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }}/>
+          <line className="sp-line" x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }}/>
+        </svg>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", opacity: 0, animation: "textIn 0.6s ease 2.2s forwards" }}>
+            <span style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: 4 }}>FIELD</span>
+            <span style={{ fontSize: 28, fontWeight: 800, color: YELLOW, letterSpacing: 4 }}>LOG</span>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 2, opacity: 0, animation: "textIn 0.6s ease 2.4s forwards" }}>건설현장 공정관리 플랫폼</div>
+        </div>
       </div>
-      <div style={{
-        marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.4)",
-        letterSpacing: 2, opacity: 0,
-        animation: "splashFade 0s, textIn 0.5s ease 2.3s forwards"
-      }}>건설현장 공정관리 플랫폼</div>
     </div>
   );
 }
