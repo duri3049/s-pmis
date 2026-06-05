@@ -1279,8 +1279,74 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
   };
   const msIcon = t => ({ complete: "★", gate: "🔷", inspection: "🔍", equipment: "🏗" }[t] || "★");
 
+  const handleWeightAI = async (g) => {
+    
+
+  
+    setWeightLoading(g.group);
+    try {
+      const totalWf = project?.total_budget > 0
+        ? (g.total_budget / project.total_budget * 100).toFixed(2)
+        : (g.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0) * 100).toFixed(2);
+      const prompt = `건설 공정관리 AI야. 아래 대분류의 총 가중치를 하위 공종들에 합리적으로 배분해줘.
+
+대분류: ${g.group}
+총 가중치: ${totalWf}%
+하위 공종 목록:
+${g.acts.map(a => `- [ID:${a.id}] ${a.name} | 기간: ${a.ps}~${a.pf} (${a.orig_dur}일)${a.sub_group ? ` | 구역: ${a.sub_group}` : ""}`).join("\n")}
+
+배분 기준:
+- 공사 기간이 길수록 가중치 높게
+- 층수 범위가 넓을수록 높게
+- 지하/기초 공사는 상대적으로 높게
+- 합계가 반드시 ${totalWf}%가 되도록
+
+JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
+마크다운 금지, JSON 배열만`;
+
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      });
+      const data = await r.json();
+      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("파싱 실패");
+      const recs = JSON.parse(match[0]);
+      const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+      // 각 공종의 새 예산 = 전체예산 × (AI가 준 가중치 / 100)
+      for (const rec of recs) {
+        const act = activities.find(a => a.id === rec.id);
+        if (!act) continue;
+        const newBudget = Math.round(totalBudgetAll * rec.weight / 100);
+        await sb.patch("activities", rec.id, { pv_budget: newBudget });
+        setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
+    } catch (err) { alert("AI 배분 실패: " + err.message); }
+    setWeightLoading(null);
+  };
+
+  const handleWeightEqual = async (g) => {
+    const count = g.acts.length;
+    if (count === 0) return;
+    const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+    const totalWf = project?.total_budget > 0
+      ? g.total_budget / project.total_budget
+      : g.total_budget / totalBudgetAll;
+    const perBudget = Math.round(totalBudgetAll * totalWf / count);
+    try {
+      for (const act of g.acts) {
+        await sb.patch("activities", act.id, { pv_budget: perBudget });
+        setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 균등 분배 완료`);
+    } catch (err) { alert("균등 분배 실패: " + err.message); }
+  };
+
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
+      
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
@@ -1512,24 +1578,24 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         // 컬럼 생성
         const cols = [];
         if (useMonthly) {
-          const cur = new Date(allPs.slice(0,7) + "-01");
-          const end = new Date(allPf.slice(0,7) + "-01");
+          const cur = new Date(allPs.slice(0, 7) + "-01");
+          const end = new Date(allPf.slice(0, 7) + "-01");
           while (cur <= end) {
-            cols.push({ str: dayStr(cur), label: `${cur.getMonth()+1}월`, subLabel: `${cur.getFullYear()}`, type: "month", daysInCol: new Date(cur.getFullYear(), cur.getMonth()+1, 0).getDate() });
+            cols.push({ str: dayStr(cur), label: `${cur.getMonth() + 1}월`, subLabel: `${cur.getFullYear()}`, type: "month", daysInCol: new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate() });
             cur.setMonth(cur.getMonth() + 1);
           }
         } else if (useWeekly) {
           const cur = new Date(allPs);
           const end = new Date(allPf);
           while (cur <= end) {
-            cols.push({ str: dayStr(cur), label: `${cur.getMonth()+1}/${cur.getDate()}`, subLabel: "주", type: "week", daysInCol: 7 });
+            cols.push({ str: dayStr(cur), label: `${cur.getMonth() + 1}/${cur.getDate()}`, subLabel: "주", type: "week", daysInCol: 7 });
             cur.setDate(cur.getDate() + 7);
           }
         } else {
           const cur = new Date(allPs);
           const end = new Date(allPf);
           while (cur <= end) {
-            cols.push({ str: dayStr(cur), label: `${cur.getDate()}`, subLabel: ["일","월","화","수","목","금","토"][cur.getDay()], type: "day", daysInCol: 1, dow: cur.getDay() });
+            cols.push({ str: dayStr(cur), label: `${cur.getDate()}`, subLabel: ["일", "월", "화", "수", "목", "금", "토"][cur.getDay()], type: "day", daysInCol: 1, dow: cur.getDay() });
             cur.setDate(cur.getDate() + 1);
           }
         }
@@ -1539,9 +1605,9 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
 
         // 바 계산 (공종 ps~pf 기준으로 컬럼 인덱스 찾기)
         const findColIdx = (dateStr) => {
-          if (useMonthly) return cols.findIndex(c => c.str.slice(0,7) >= dateStr.slice(0,7));
+          if (useMonthly) return cols.findIndex(c => c.str.slice(0, 7) >= dateStr.slice(0, 7));
           if (useWeekly) {
-            for (let i = cols.length-1; i >= 0; i--) {
+            for (let i = cols.length - 1; i >= 0; i--) {
               if (cols[i].str <= dateStr) return i;
             }
             return 0;
@@ -1549,12 +1615,12 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
           return cols.findIndex(c => c.str >= dateStr);
         };
         const findColIdxEnd = (dateStr) => {
-          if (useMonthly) return cols.findLastIndex(c => c.str.slice(0,7) <= dateStr.slice(0,7));
+          if (useMonthly) return cols.findLastIndex(c => c.str.slice(0, 7) <= dateStr.slice(0, 7));
           if (useWeekly) return cols.findLastIndex(c => c.str <= dateStr);
           return cols.findLastIndex(c => c.str <= dateStr);
         };
         const todayIdx = useMonthly
-          ? cols.findIndex(c => c.str.slice(0,7) === todayStr.slice(0,7))
+          ? cols.findIndex(c => c.str.slice(0, 7) === todayStr.slice(0, 7))
           : useWeekly
             ? cols.findLastIndex(c => c.str <= todayStr)
             : cols.findIndex(c => c.str === todayStr);
@@ -1568,7 +1634,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         if (useMonthly) {
           let cur = null;
           cols.forEach((c, ci) => {
-            const y = c.str.slice(0,4);
+            const y = c.str.slice(0, 4);
             if (!cur || cur.year !== y) { if (cur) yearGroups.push(cur); cur = { year: y, startIdx: ci, count: 1 }; }
             else cur.count++;
           });
@@ -1596,7 +1662,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                 {/* 컬럼 헤더 */}
                 <div style={{ display: "flex" }}>
                   {cols.map((c, ci) => {
-                    const isToday = useMonthly ? c.str.slice(0,7) === todayStr.slice(0,7) : useWeekly ? (ci === todayIdx) : c.str === todayStr;
+                    const isToday = useMonthly ? c.str.slice(0, 7) === todayStr.slice(0, 7) : useWeekly ? (ci === todayIdx) : c.str === todayStr;
                     const isSun = c.dow === 0;
                     return (
                       <div key={ci} style={{ width: COL_W, flexShrink: 0, borderRight: `1px solid ${useMonthly ? "#D1D5DB" : "#F3F4F6"}`, background: isToday ? "#FEF3C7" : isSun ? "#FFF5F5" : "transparent", textAlign: "center", padding: "2px 0" }}>
@@ -1614,13 +1680,13 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
               <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ flex: 1, position: "relative", height: 24 }}>
                 {(milestones || []).map(m => {
-                  const ci = useMonthly ? cols.findIndex(c => c.str.slice(0,7) === m.milestone_date?.slice(0,7))
+                  const ci = useMonthly ? cols.findIndex(c => c.str.slice(0, 7) === m.milestone_date?.slice(0, 7))
                     : useWeekly ? cols.findLastIndex(c => c.str <= m.milestone_date)
-                    : cols.findIndex(c => c.str === m.milestone_date);
+                      : cols.findIndex(c => c.str === m.milestone_date);
                   if (ci < 0) return null;
-                  return <span key={m.id} title={m.title} style={{ position: "absolute", left: ci * COL_W + COL_W/2 - 6, top: 4, fontSize: 12, color: YELLOW, cursor: "pointer" }}>▼</span>;
+                  return <span key={m.id} title={m.title} style={{ position: "absolute", left: ci * COL_W + COL_W / 2 - 6, top: 4, fontSize: 12, color: YELLOW, cursor: "pointer" }}>▼</span>;
                 })}
-                {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W/2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
+                {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
               </div>
             </div>
 
@@ -1636,10 +1702,10 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                 </div>
                 {acts.map((a, ai) => {
                   const planSi = Math.max(0, findColIdx(a.ps));
-                  const planEi = Math.min(cols.length-1, findColIdxEnd(a.pf));
+                  const planEi = Math.min(cols.length - 1, findColIdxEnd(a.pf));
                   const actualSi = a.as_ ? Math.max(0, findColIdx(a.as_)) : -1;
                   const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
-                  const actualEi = actualSi >= 0 ? Math.min(cols.length-1, findColIdxEnd(actualEndStr)) : -1;
+                  const actualEi = actualSi >= 0 ? Math.min(cols.length - 1, findColIdxEnd(actualEndStr)) : -1;
                   return (
                     <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + totalColW }}>
                       <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "5px 12px" }}>
@@ -1654,7 +1720,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                         {/* 셀 배경 */}
                         <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
                           {cols.map((c, ci) => (
-                            <div key={ci} style={{ width: COL_W, flexShrink: 0, borderRight: `1px solid ${useMonthly ? "#E5E7EB" : c.dow === 0 ? "#E5E7EB" : "#F9FAFB"}`, background: (useMonthly ? c.str.slice(0,7) === todayStr.slice(0,7) : ci === todayIdx) ? "#FFFDE7" : (!useMonthly && c.dow === 0) ? "#FFF5F5" : "transparent", height: "100%" }} />
+                            <div key={ci} style={{ width: COL_W, flexShrink: 0, borderRight: `1px solid ${useMonthly ? "#E5E7EB" : c.dow === 0 ? "#E5E7EB" : "#F9FAFB"}`, background: (useMonthly ? c.str.slice(0, 7) === todayStr.slice(0, 7) : ci === todayIdx) ? "#FFFDE7" : (!useMonthly && c.dow === 0) ? "#FFF5F5" : "transparent", height: "100%" }} />
                           ))}
                         </div>
                         {/* 계획 바 */}
@@ -1670,7 +1736,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                           </div>
                         )}
                         {/* 오늘 기준선 */}
-                        {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W/2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
+                        {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
                       </div>
                     </div>
                   );
@@ -2487,11 +2553,14 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, setActivities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project }) {
+function GanttPanel({ activities, setActivities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast }) {
   const [open, setOpen] = useState(null);
   const [openAct, setOpenAct] = useState(null);
   const [predModalAct, setPredModalAct] = useState(null);
   const [openCat, setOpenCat] = useState({});
+  const [weightLoading, setWeightLoading] = useState(null);
+  const [weightEditGroup, setWeightEditGroup] = useState(null); // 수정 중인 group
+  const [weightEdits, setWeightEdits] = useState({}); // {actId: weight}
   const [showSubForm, setShowSubForm] = useState(null); // activity_id
   const [aiLoading, setAiLoading] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -2500,6 +2569,71 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, on
   const [editingSubId, setEditingSubId] = useState(null);
   const [editingSubName, setEditingSubName] = useState("");
   const [editingSubWeight, setEditingSubWeight] = useState(0);
+
+  const handleWeightAI = async (g) => {
+    setWeightLoading(g.group);
+    try {
+      const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+      const groupWf = project?.total_budget > 0
+        ? (g.total_budget / project.total_budget * 100)
+        : (g.total_budget / totalBudgetAll * 100);
+      const prompt = `건설 공정관리 AI야. 아래 대분류의 총 가중치를 하위 공종들에 합리적으로 배분해줘.
+
+대분류: ${g.group}
+총 가중치: ${groupWf.toFixed(2)}% (이 값의 합계가 되도록 배분)
+현재 각 공종의 가중치는 모두 0이거나 의미없는 값임. 새로 배분해줘.
+하위 공종 목록:
+${g.acts.map(a => `- [ID:${a.id}] ${a.name} | 기간: ${a.ps}~${a.pf} (${a.orig_dur}일)${a.sub_group ? ` | 구역: ${a.sub_group}` : ""}`).join("\n")}
+
+배분 기준:
+- 공사 기간이 길수록 가중치 높게
+- 층수 범위가 넓을수록 높게
+- 지하/기초 공사는 상대적으로 높게
+- 합계가 반드시 ${groupWf.toFixed(2)}%가 되도록
+
+JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
+마크다운 금지, JSON 배열만`;
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      });
+      const data = await r.json();
+      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("파싱 실패");
+      const recs = JSON.parse(match[0]);
+      // AI 반환값 합계로 정규화 → 대분류 총 예산(g.total_budget) 보존
+      const recSum = recs.reduce((s, r) => s + (r.weight || 0), 0);
+      if (recSum === 0) throw new Error("AI 가중치 합계가 0");
+      for (const rec of recs) {
+        const act = activities.find(a => a.id === rec.id);
+        if (!act) continue;
+        // 대분류 총 예산을 AI 비율대로만 나눔 (총합 절대 변경 안됨)
+        const newBudget = Math.round(g.total_budget * rec.weight / recSum);
+        await sb.patch("activities", rec.id, { pv_budget: newBudget });
+        setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
+    } catch (err) { alert("AI 배분 실패: " + err.message); }
+    setWeightLoading(null);
+  };
+
+  const handleWeightEqual = async (g) => {
+    const count = g.acts.length;
+    if (count === 0) return;
+    const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+    const totalWf = project?.total_budget > 0
+      ? g.total_budget / project.total_budget
+      : g.total_budget / totalBudgetAll;
+    const perBudget = Math.round(totalBudgetAll * totalWf / count);
+    try {
+      for (const act of g.acts) {
+        await sb.patch("activities", act.id, { pv_budget: perBudget });
+        setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 균등 분배 완료`);
+    } catch (err) { alert("균등 분배 실패: " + err.message); }
+  };
 
   const handleAISuggest = async (act) => {
     setAiLoading(true);
@@ -2722,6 +2856,18 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                           {g.has_critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                           <Badge label={g.status} bg={statusColor(g.status) + "22"} color={statusColor(g.status)} />
                           {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
+                          <button onClick={e => { e.stopPropagation(); handleWeightAI(g); }} disabled={weightLoading === g.group}
+                            style={{ background: weightLoading === g.group ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: weightLoading === g.group ? "#9CA3AF" : "#fff", cursor: weightLoading === g.group ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                            {weightLoading === g.group ? "분석 중..." : "🤖 AI 배분"}
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); handleWeightEqual(g); }}
+                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            ⚖️ 균등
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); const edits = {}; g.acts.forEach(a => { edits[a.id] = parseFloat((project?.total_budget > 0 ? a.pv_budget / project.total_budget : a.pv_budget / activities.reduce((s, x) => s + x.pv_budget, 0)) * 100).toFixed(2); }); setWeightEdits(edits); setWeightEditGroup(g); }}
+                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            ✏️ 수정
+                          </button>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                           <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 6, height: 16, overflow: "hidden", position: "relative" }}>
@@ -2754,6 +2900,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                   )}
                                 </span>                     {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                                 {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
+                                {(() => {
+                                  const totalBudgetAll = activities.reduce((s, x) => s + x.pv_budget, 0);
+                                  const wf = totalBudgetAll > 0 ? (a.pv_budget / totalBudgetAll * 100).toFixed(2) : "0.00";
+                                  return <Badge label={`W/F ${wf}%`} bg="#EFF6FF" color="#1D4ED8" />;
+                                })()}
                                 <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
 
                                 {predModalAct?.id === a.id && (
@@ -3427,10 +3578,38 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
-        // 헤더 제외하고 데이터 파싱
-        const data = rows.slice(1).filter(r => r[3]).map((r, i) => {
+        // 대분류 요약행에서 가중치 추출 (공종명 = 대분류명인 행)
+        const groupWeightMap = {};
+        const groupChildCount = {};
+        rows.slice(1).forEach(r => {
+          if (!r[3]) return;
+          const name = String(r[3] || "").trim();
+          const groupName = String(r[1] || "").trim();
+          const weight = Number(r[4]) || 0;
+          if (name === groupName && groupName !== "" && weight > 0) {
+            groupWeightMap[groupName] = weight;
+          } else if (name !== groupName && groupName !== "") {
+            groupChildCount[groupName] = (groupChildCount[groupName] || 0) + 1;
+          }
+        });
+
+        // 헤더 제외하고 데이터 파싱 (요약행 제외)
+        const data = rows.slice(1).filter(r => {
+          if (!r[3]) return false;
+          const name = String(r[3] || "").trim();
+          const groupName = String(r[1] || "").trim();
+          // 공종명 = 대분류명인 요약행 제외
+          if (name === groupName && name !== "") return false;
+          return true;
+        }).map((r, i) => {
           const name = String(r[3] || "");
+          const groupName = String(r[1] || "").trim();
           const existing = activities.find(a => a.name === name);
+          // 가중치: 직접 입력값 있으면 사용, 없으면 대분류 가중치 균등 분배
+          const directWeight = Number(r[4]) || 0;
+          const groupWeight = groupWeightMap[groupName] || 0;
+          const childCount = groupChildCount[groupName] || 1;
+          const weight = directWeight > 0 ? directWeight : (groupWeight > 0 ? Math.round(groupWeight / childCount * 100) / 100 : 0);
           return {
             id: i,
             checked: !existing,
@@ -3440,7 +3619,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
             group_name: String(r[1] || r[3] || ""),
             sub_group: String(r[2] || ""),
             name,
-            weight: Number(r[4]) || 0,
+            weight,
             ps_ym: String(r[5] || ""),
             pf_ym: String(r[6] || ""),
             floor_start: r[7] !== "" && r[7] !== null && r[7] !== undefined ? Number(r[7]) : null,
@@ -6462,8 +6641,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
           )}
-          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} />}
-          {activeMenu === "chat" && (
+          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} />}          {activeMenu === "chat" && (
             activeRoom
               ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
               : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
