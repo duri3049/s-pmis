@@ -1280,9 +1280,9 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
   const msIcon = t => ({ complete: "★", gate: "🔷", inspection: "🔍", equipment: "🏗" }[t] || "★");
 
   const handleWeightAI = async (g) => {
-    
 
-  
+
+
     setWeightLoading(g.group);
     try {
       const totalWf = project?.total_budget > 0
@@ -1346,7 +1346,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
-      
+
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
@@ -1549,9 +1549,18 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                 {wMs.length === 0
                   ? <span style={{ fontSize: 11, color: "#4B5563" }}>-</span>
                   : wMs.map(m => (
-                    <span key={m.id} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}
-                      style={{ fontSize: 11, background: m.status === "achieved" ? "#374151" : YELLOW, color: m.status === "achieved" ? "#6B7280" : NAVY, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontWeight: 700, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
-                      {msIcon(m.type)} {m.title}
+                    <span key={m.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: m.status === "achieved" ? "#374151" : YELLOW, borderRadius: 6, padding: "2px 6px 2px 8px" }}>
+                      <span onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}
+                        style={{ fontSize: 11, color: m.status === "achieved" ? "#6B7280" : NAVY, cursor: "pointer", fontWeight: 700, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
+                        {msIcon(m.type)} {m.title}
+                      </span>
+                      <span onClick={async () => {
+                        if (!window.confirm(`"${m.title}" 마일스톤을 삭제할까요?`)) return;
+                        try {
+                          await sb.delete("milestones", m.id);
+                          setMilestones(p => p.filter(x => x.id !== m.id));
+                        } catch (err) { alert("삭제 실패: " + err.message); }
+                      }} style={{ fontSize: 10, color: m.status === "achieved" ? "#6B7280" : NAVY, cursor: "pointer", opacity: 0.7, fontWeight: 700, lineHeight: 1 }}>✕</span>
                     </span>
                   ))}
               </div>
@@ -2553,7 +2562,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, setActivities, progressReports, milestones, onRegister, onReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast }) {
+function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast }) {
   const [open, setOpen] = useState(null);
   const [openAct, setOpenAct] = useState(null);
   const [predModalAct, setPredModalAct] = useState(null);
@@ -2822,6 +2831,8 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
         </div>
       </div>
+      
+
       {gl.map((catGroup, ci) => (
         <div key={ci} style={{ marginBottom: 24 }}>
           {/* 대공종 헤더 */}
@@ -6641,10 +6652,11 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
           )}
-          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} />}          {activeMenu === "chat" && (
+          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} setMilestones={setMilestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} />}
+          {activeMenu === "chat" && (
             activeRoom
-              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
-              : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
+            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
+            : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
           {activeMenu === "equipment" && (
