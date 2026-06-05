@@ -306,7 +306,18 @@ function AuthScreen({ onAuth }) {
     <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: YELLOW }}>F</div>
+          <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round"/>
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+            </svg>
+          </div>
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
@@ -6523,13 +6534,115 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 }
 
 // ── Root ──────────────────────────────────────────────────────────────
-export default function App() {
+function SplashScreen({ onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3200);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: NAVY,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      zIndex: 9999, animation: "splashFade 0.6s ease 2.8s forwards",
+      opacity: 1
+    }}>
+      <style>{`
+        @keyframes splashFade {
+          to { opacity: 0; pointer-events: none; }
+        }
+        @keyframes drawLine {
+          to { stroke-dashoffset: 0; }
+        }
+        .splash-line {
+          stroke-dasharray: 300;
+          stroke-dashoffset: 300;
+          animation: drawLine 0.35s ease forwards;
+        }
+      `}</style>
+
+      <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
+        {/* 외곽선 — 5개 선분으로 분리해서 순서대로 그리기 */}
+        {/* 1. 좌하→좌상 */}
+        <line className="splash-line" x1="-58" y1="52" x2="-58" y2="-44"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.0s" }}/>
+        {/* 2. 좌상→꼭짓점 */}
+        <line className="splash-line" x1="-58" y1="-44" x2="0" y2="-80"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.2s" }}/>
+        {/* 3. 꼭짓점→우상 */}
+        <line className="splash-line" x1="0" y1="-80" x2="58" y2="-20"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.4s" }}/>
+        {/* 4. 우상→우하 */}
+        <line className="splash-line" x1="58" y1="-20" x2="58" y2="52"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.6s" }}/>
+        {/* 5. 부분 밑변 우측 */}
+        <line className="splash-line" x1="25" y1="52" x2="58" y2="52"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.8s" }}/>
+        {/* 6. 부분 밑변 좌측 */}
+        <line className="splash-line" x1="-58" y1="52" x2="-25" y2="52"
+          stroke="white" strokeWidth="11" strokeLinecap="round"
+          style={{ animationDelay: "0.8s" }}/>
+
+        {/* 내부선 순서대로 */}
+        {/* 7. 1번: 중심→위 */}
+        <line className="splash-line" x1="0" y1="4" x2="0" y2="-80"
+          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
+          style={{ animationDelay: "1.1s" }}/>
+        {/* 8. 2번: 중심→우상 */}
+        <line className="splash-line" x1="0" y1="4" x2="58" y2="-20"
+          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
+          style={{ animationDelay: "1.3s" }}/>
+        {/* 9. 3번: 중심→우하(5/7) */}
+        <line className="splash-line" x1="0" y1="4" x2="25" y2="52"
+          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
+          style={{ animationDelay: "1.5s" }}/>
+        {/* 10. 5번: 중심→좌하(2/7) */}
+        <line className="splash-line" x1="0" y1="4" x2="-25" y2="52"
+          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
+          style={{ animationDelay: "1.7s" }}/>
+        {/* 11. 6번: 중심→좌상 */}
+        <line className="splash-line" x1="0" y1="4" x2="-58" y2="-44"
+          stroke={YELLOW} strokeWidth="10" strokeLinecap="round"
+          style={{ animationDelay: "1.9s" }}/>
+      </svg>
+
+      {/* 텍스트 페이드인 */}
+      <div style={{
+        marginTop: 24, display: "flex", alignItems: "center", gap: 8,
+        opacity: 0, animation: "splashFade 0s, textIn 0.5s ease 2.1s forwards"
+      }}>
+        <style>{`
+          @keyframes textIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+        <span style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: 4 }}>FIELD</span>
+        <span style={{ fontSize: 28, fontWeight: 800, color: YELLOW, letterSpacing: 4 }}>LOG</span>
+      </div>
+      <div style={{
+        marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.4)",
+        letterSpacing: 2, opacity: 0,
+        animation: "splashFade 0s, textIn 0.5s ease 2.3s forwards"
+      }}>건설현장 공정관리 플랫폼</div>
+    </div>
+  );
+}
+export default App;
+function App() {
   const [siteEquipment, setSiteEquipment] = useState([]);
   const [subActivities, setSubActivities] = useState([]);
   const [equipmentLogs, setEquipmentLogs] = useState([]);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState(null);
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
@@ -6751,11 +6864,21 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
         <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ background: YELLOW, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: NAVY }}>F</div>
+            <svg width="22" height="26" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round"/>
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+            </svg>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
