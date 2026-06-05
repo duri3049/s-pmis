@@ -308,14 +308,14 @@ function AuthScreen({ onAuth }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round"/>
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
             </svg>
           </div>
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
@@ -1080,7 +1080,7 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
   const active = activities.filter(a => a.phys < 100 && a.ps <= rangeEnd && a.pf >= rangeStart);
 
   useEffect(() => {
-    sb.get("weekly_plans").then(data => setWeeklyPlans(data || [])).catch(() => {});
+    sb.get("weekly_plans").then(data => setWeeklyPlans(data || [])).catch(() => { });
   }, [weekOffset]);
 
   const getPlan = (actId, weekStartStr) =>
@@ -1286,11 +1286,11 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                 <tr style={{ background: "#374151" }}>
                   <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
                   <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
-                  {[0,1,2].map(i => (
+                  {[0, 1, 2].map(i => (
                     <th key={`p${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>계획</th>
-                  )).concat([0,1,2].map(i => (
+                  )).concat([0, 1, 2].map(i => (
                     <th key={`a${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>실적</th>
-                  ))).concat([0,1,2].map(i => (
+                  ))).concat([0, 1, 2].map(i => (
                     <th key={`w${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>인원</th>
                   )))}
                 </tr>
@@ -1349,7 +1349,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
                   ))}
                 </tr>
                 <tr>
-                  {[0,1,2,3].map(i => (
+                  {[0, 1, 2, 3].map(i => (
                     <td key={i} style={{ border: "1px solid #D1D5DB", height: 48 }} />
                   ))}
                 </tr>
@@ -2220,320 +2220,320 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
         </div>
       </div>
       {gl.map((catGroup, ci) => (
-          <div key={ci} style={{ marginBottom: 24 }}>
-            {/* 대공종 헤더 */}
-            {(() => {
-              const isCatOpen = openCat[catGroup.category] !== false;
-              const catWf = project?.total_budget > 0
-                ? (catGroup.rollup.total_budget / project.total_budget * 100).toFixed(1)
-                : (catGroup.rollup.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0) * 100).toFixed(1);
-              return (
-                <>
-                  <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
-                    style={{ background: NAVY, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-                    <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                    <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", flex: 1 }}>🏗️ {catGroup.category}</span>
-                    <span style={{ fontSize: 11, background: "rgba(255,184,0,0.2)", color: YELLOW, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
-                    <span style={{ fontSize: 12, color: "#9CA3AF" }}>EV {fmtM(catGroup.rollup.ev)}</span>
-                    <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: YELLOW }}>{pct(catGroup.rollup.phys)}</span>
-                  </div>
-                  {isCatOpen && catGroup.groups.map(g => {
-        const isOpen = open === g.group;
-        const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
-        return (
-          <div key={g.group} style={{ marginBottom: 10 }}>
-            <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: "#fff", border: `1.5px solid ${isOpen ? YELLOW : "#E5E7EB"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{g.group}</span>
-                <span style={{ fontSize: 11, background: g.group === "기타(미입력)" ? "#F3F4F6" : "#EFF6FF", color: g.group === "기타(미입력)" ? "#6B7280" : "#1D4ED8", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
-                  W/F {project?.total_budget > 0 ? ((g.total_budget / project.total_budget) * 100).toFixed(1) : ((g.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0)) * 100).toFixed(1)}%
-                </span>
-                {g.has_critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
-                <Badge label={g.status} bg={statusColor(g.status) + "22"} color={statusColor(g.status)} />
-                {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 6, height: 16, overflow: "hidden", position: "relative" }}>
-                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: "rgba(0,0,0,0.1)", borderRadius: 6 }} />
-                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6, transition: "width 0.8s ease" }} />
+        <div key={ci} style={{ marginBottom: 24 }}>
+          {/* 대공종 헤더 */}
+          {(() => {
+            const isCatOpen = openCat[catGroup.category] !== false;
+            const catWf = project?.total_budget > 0
+              ? (catGroup.rollup.total_budget / project.total_budget * 100).toFixed(1)
+              : (catGroup.rollup.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0) * 100).toFixed(1);
+            return (
+              <>
+                <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
+                  style={{ background: NAVY, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+                  <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", flex: 1 }}>🏗️ {catGroup.category}</span>
+                  <span style={{ fontSize: 11, background: "rgba(255,184,0,0.2)", color: YELLOW, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
+                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>EV {fmtM(catGroup.rollup.ev)}</span>
+                  <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: YELLOW }}>{pct(catGroup.rollup.phys)}</span>
                 </div>
-                <span style={{ fontWeight: 800, fontSize: 15, color: statusColor(g.status), minWidth: 38 }}>{pct(g.phys)}</span>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <KPI label="EV" value={fmtM(g.ev)} sub={`PV ${fmtM(g.pv)}`} />
-                <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
-                <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
-                <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? "#EF4444" : NAVY} />
-              </div>
-            </div>
-            {isOpen && (
-              <div style={{ marginLeft: 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
-                {g.acts.map(a => (
-                  <div key={a.id} style={{ background: a.group_name === "기타(미입력)" ? "#F9FAFB" : "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : a.group_name === "기타(미입력)" ? "#E5E7EB" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.group_name === "기타(미입력)" ? "#9CA3AF" : a.critical ? "#EF4444" : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.7 : 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
-                        {a.name}
-                        {a.floor_start !== null && a.floor_end !== null && (
-                          <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
-                            ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
+                {isCatOpen && catGroup.groups.map(g => {
+                  const isOpen = open === g.group;
+                  const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
+                  return (
+                    <div key={g.group} style={{ marginBottom: 10 }}>
+                      <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: "#fff", border: `1.5px solid ${isOpen ? YELLOW : "#E5E7EB"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{g.group}</span>
+                          <span style={{ fontSize: 11, background: g.group === "기타(미입력)" ? "#F3F4F6" : "#EFF6FF", color: g.group === "기타(미입력)" ? "#6B7280" : "#1D4ED8", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
+                            W/F {project?.total_budget > 0 ? ((g.total_budget / project.total_budget) * 100).toFixed(1) : ((g.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0)) * 100).toFixed(1)}%
                           </span>
-                        )}
-                      </span>                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
-                      {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
-                      <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
-
-                      {predModalAct?.id === a.id && (
-                        <PredecessorModal
-                          act={predModalAct}
-                          activities={activities}
-                          onClose={() => setPredModalAct(null)}
-                          onSave={(preds) => {
-                            setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
-                            setPredModalAct(null);
-                          }}
-                        />
-                      )}
-                      {/* 세부공정 드릴다운 버튼 */}
-                      <button onClick={(e) => { e.stopPropagation(); setOpenAct(openAct === a.id ? null : a.id); }}
-                        style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
-                        {openAct === a.id ? "▲ 세부공정" : `▼ 세부공정 ${subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}`}
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setPredModalAct(a); }}
-                        style={{ background: a.predecessors?.length > 0 ? "#FFFBEB" : "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: a.predecessors?.length > 0 ? "#92400E" : "#6B7280", cursor: "pointer", fontWeight: 600 }}>
-                        🔗 {a.predecessors?.length > 0 ? `선행 ${a.predecessors.length}개` : "선행공정"}
-                      </button>
-                      {a.done_qty === 0 && onDelete && (
-                        <button onClick={async (e) => {
-                          e.stopPropagation();
-                          if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
-                          try {
-                            await sb.delete("activities", a.id);
-                            onDelete(a.id);
-                          } catch (err) { alert("삭제 실패: " + err.message); }
-                        }}
-                          style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
-                          삭제
-                        </button>
-                      )}                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
-                      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280", alignItems: "center" }}>
-                      <span>📅 {a.ps} ~ {a.pf}</span>
-                      {!a.as_ && a.ps <= dayStr(TODAY) && (
-                        <button onClick={async (e) => {
-                          e.stopPropagation();
-                          if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
-                          try {
-                            await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
-                            setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
-                          } catch (err) { alert("착수 처리 실패: " + err.message); }
-                        }}
-                          style={{ background: "#DBEAFE", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
-                          🚀 착수
-                        </button>
-                      )}
-                      {a.as_ && (
-                        <span style={{ color: "#10B981", fontWeight: 600 }}>🚀 착수 {a.as_}</span>
-                      )}
-                      <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
-                      <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
-                      {a.floor_start !== null && a.floor_end !== null && (
-                        <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
-                          {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`} ~ {a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* 세부공정 패널 */}
-                    {openAct === a.id && (
-                      <div style={{ marginTop: 10, background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px" }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                          <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>세부공정</span>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button onClick={() => handleAISuggest(a)} disabled={aiLoading}
-                              style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
-                              {aiLoading ? "추천 중..." : "✨ AI 추천"}
-                            </button>
-                            <button onClick={() => handleAIReweight(a)} disabled={aiLoading}
-                              style={{ background: aiLoading ? "#F3F4F6" : "#8B5CF6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-                              {aiLoading ? "계산 중..." : "⚖️ 가중치 재계산"}
-                            </button>
-                            <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
-                              style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-                              + 직접 추가
-                            </button>
-                          </div>
+                          {g.has_critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                          <Badge label={g.status} bg={statusColor(g.status) + "22"} color={statusColor(g.status)} />
+                          {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
                         </div>
-
-                        {/* 직접 입력 폼 */}
-                        {showSubForm === a.id && (
-                          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                            <input value={subInput} onChange={e => setSubInput(e.target.value)}
-                              onKeyDown={e => e.key === "Enter" && handleAddSub(a)}
-                              placeholder="세부공정명 입력"
-                              style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none" }} />
-                            <button onClick={() => handleAddSub(a)}
-                              style={{ background: YELLOW, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
-                              추가
-                            </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 6, height: 16, overflow: "hidden", position: "relative" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: "rgba(0,0,0,0.1)", borderRadius: 6 }} />
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6, transition: "width 0.8s ease" }} />
                           </div>
-                        )}
-
-                        {/* 세부공정 목록 */}
-                        {subActivities.filter(s => s.activity_id === a.id).length === 0
-                          ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
-                          : subActivities.filter(s => s.activity_id === a.id).map(sub => (
-                            <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #E5E7EB" }}>
-                              {/* 상태 표시 */}
-                              {sub.status === "pending_approval"
-                                ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
-                                : sub.phys === 100
-                                  ? <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>✅완료</span>
-                                  : sub.start_date
-                                    ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>🔨진행중</span>
-                                    : <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
-                              }
-                              {/* 이름 + 진도율 */}
-                              {editingSubId === sub.id
-                                ? <div style={{ display: "flex", gap: 6, flex: 1 }}>
-                                  <input
-                                    value={editingSubName}
-                                    onChange={e => setEditingSubName(e.target.value)}
-                                    onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
-                                    autoFocus
-                                    style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
-                                  />
-                                  <input
-                                    type="number"
-                                    value={editingSubWeight}
-                                    onChange={e => setEditingSubWeight(e.target.value)}
-                                    style={{ width: 56, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
-                                  />
-                                  <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
-                                </div>
-                                : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
-                              }
-                              <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
-                                {sub.weight || 0}%
-                              </span>
-                              {sub.start_date && (
-                                <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap" }}>
-                                  {sub.start_date}{sub.end_date ? ` ~ ${sub.end_date}` : " ~"}
-                                </span>
-                              )}
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
-                                  <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
-                                </div>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
-                              </div>
-                              {/* 착수 / 완료 버튼 */}
-                              {sub.status === "active" && sub.phys < 100 && editingSubId !== sub.id && (
-                                !sub.start_date
-                                  ? <button onClick={async () => {
-                                      await sb.patch("sub_activities", sub.id, { start_date: dayStr(TODAY) });
-                                      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: dayStr(TODAY) } : s));
-                                      setToast(`🔨 ${sub.name} 착수`);
-                                    }}
-                                    style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                                    🔨 착수
-                                  </button>
-                                  : <button onClick={async () => {
-                                      if (!window.confirm(`${sub.name} 완료 처리하시겠습니까?`)) return;
-                                      const today = dayStr(TODAY);
-                                      await sb.patch("sub_activities", sub.id, { phys: 100, end_date: today });
-                                      const updatedSubs = subActivities.map(s => s.id === sub.id ? { ...s, phys: 100, end_date: today } : s);
-                                      setSubActivities(updatedSubs);
-
-                                      // 상위 공종 진도율 재계산
-                                      const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
-                                      const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
-                                      const newPhys = totalWeight > 0
-                                        ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
-                                        : Math.round(actSubs.filter(s => s.phys === 100).length / Math.max(actSubs.length, 1) * 100);
-                                      const newDoneQty = Math.round(a.plan_qty * newPhys / 100);
-                                      const isActComplete = newPhys === 100;
-                                      const actualFinish = today;
-
-                                      await sb.patch("activities", a.id, {
-                                        done_qty: newDoneQty,
-                                        af: isActComplete ? actualFinish : null,
-                                      });
-
-                                      // 상위 공종 완료 + 지연 체크 → CPM 전파
-                                      if (isActComplete && actualFinish > a.pf) {
-                                        const delayDays = diffDays(actualFinish, a.pf);
-                                        await sb.patch("activities", a.id, { delay_days: (a.delay_days || 0) + delayDays });
-                                        const recalced = recalcCPM(
-                                          activities.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: actualFinish, delay_days: (a.delay_days || 0) + delayDays }) : x),
-                                          a.id,
-                                          delayDays
-                                        );
-                                        // 영향받은 후행 공종 DB patch
-                                        for (const u of recalced) {
-                                          const orig = activities.find(x => x.id === u.id);
-                                          if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) {
-                                            await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days });
-                                          }
-                                        }
-                                        setActivities(recalced);
-                                        const affectedCount = recalced.filter(u => {
-                                          const orig = activities.find(x => x.id === u.id);
-                                          return orig && orig.id !== a.id && orig.pf !== u.pf;
-                                        }).length;
-                                        setToast(`✅ ${sub.name} 완료 — ${a.name} ${delayDays}일 지연${affectedCount > 0 ? ` · ${affectedCount}개 후행 공종 일정 조정` : ""}`);
-                                      } else {
-                                        setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: isActComplete ? actualFinish : null }) : x));
-                                        setToast(isActComplete ? `🎉 ${a.name} 전체 완료!` : `✅ ${sub.name} 완료`);
-                                      }
-                                    }}
-                                    style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#065F46", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                                    ✅ 완료
-                                  </button>
-                              )}
-                              {/* 수정 버튼 */}
-                              {editingSubId === sub.id
-                                ? <button onClick={() => handleEditSub(sub)}
-                                  style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
-                                  확인
-                                </button>
-                                : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); setEditingSubWeight(sub.weight || 0); }}
-                                  style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
-                                  수정
-                                </button>
-                              }
-                              {/* 승인 버튼 (승인대기 + 건축기사/소장만) */}
-                              {sub.status === "pending_approval" && ["공무과장", "현장소장", "기사", "대리"].includes(user.role) && (
-                                <button onClick={() => handleApproveSub(sub)}
-                                  style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
-                                  승인
-                                </button>
-                              )}
-                              <button onClick={() => handleDeleteSub(sub)}
-                                style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
-                                삭제
-                              </button>
-                            </div>
-                          ))
-                        }
+                          <span style={{ fontWeight: 800, fontSize: 15, color: statusColor(g.status), minWidth: 38 }}>{pct(g.phys)}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <KPI label="EV" value={fmtM(g.ev)} sub={`PV ${fmtM(g.pv)}`} />
+                          <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
+                          <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
+                          <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? "#EF4444" : NAVY} />
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-                </>
-              );
-            })()}
-          </div>
-        ))}
+                      {isOpen && (
+                        <div style={{ marginLeft: 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {g.acts.map(a => (
+                            <div key={a.id} style={{ background: a.group_name === "기타(미입력)" ? "#F9FAFB" : "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : a.group_name === "기타(미입력)" ? "#E5E7EB" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.group_name === "기타(미입력)" ? "#9CA3AF" : a.critical ? "#EF4444" : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.7 : 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
+                                  {a.name}
+                                  {a.floor_start !== null && a.floor_end !== null && (
+                                    <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
+                                      ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
+                                    </span>
+                                  )}
+                                </span>                      {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                                {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
+                                <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
+
+                                {predModalAct?.id === a.id && (
+                                  <PredecessorModal
+                                    act={predModalAct}
+                                    activities={activities}
+                                    onClose={() => setPredModalAct(null)}
+                                    onSave={(preds) => {
+                                      setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
+                                      setPredModalAct(null);
+                                    }}
+                                  />
+                                )}
+                                {/* 세부공정 드릴다운 버튼 */}
+                                <button onClick={(e) => { e.stopPropagation(); setOpenAct(openAct === a.id ? null : a.id); }}
+                                  style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                                  {openAct === a.id ? "▲ 세부공정" : `▼ 세부공정 ${subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}`}
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setPredModalAct(a); }}
+                                  style={{ background: a.predecessors?.length > 0 ? "#FFFBEB" : "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: a.predecessors?.length > 0 ? "#92400E" : "#6B7280", cursor: "pointer", fontWeight: 600 }}>
+                                  🔗 {a.predecessors?.length > 0 ? `선행 ${a.predecessors.length}개` : "선행공정"}
+                                </button>
+                                {a.done_qty === 0 && onDelete && (
+                                  <button onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                                    try {
+                                      await sb.delete("activities", a.id);
+                                      onDelete(a.id);
+                                    } catch (err) { alert("삭제 실패: " + err.message); }
+                                  }}
+                                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                    삭제
+                                  </button>
+                                )}                    </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
+                                <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
+                              </div>
+                              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280", alignItems: "center" }}>
+                                <span>📅 {a.ps} ~ {a.pf}</span>
+                                {!a.as_ && a.ps <= dayStr(TODAY) && (
+                                  <button onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
+                                    try {
+                                      await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
+                                      setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
+                                    } catch (err) { alert("착수 처리 실패: " + err.message); }
+                                  }}
+                                    style={{ background: "#DBEAFE", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                                    🚀 착수
+                                  </button>
+                                )}
+                                {a.as_ && (
+                                  <span style={{ color: "#10B981", fontWeight: 600 }}>🚀 착수 {a.as_}</span>
+                                )}
+                                <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
+                                <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
+                                {a.floor_start !== null && a.floor_end !== null && (
+                                  <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
+                                    {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`} ~ {a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* 세부공정 패널 */}
+                              {openAct === a.id && (
+                                <div style={{ marginTop: 10, background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                    <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>세부공정</span>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      <button onClick={() => handleAISuggest(a)} disabled={aiLoading}
+                                        style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                                        {aiLoading ? "추천 중..." : "✨ AI 추천"}
+                                      </button>
+                                      <button onClick={() => handleAIReweight(a)} disabled={aiLoading}
+                                        style={{ background: aiLoading ? "#F3F4F6" : "#8B5CF6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                                        {aiLoading ? "계산 중..." : "⚖️ 가중치 재계산"}
+                                      </button>
+                                      <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
+                                        style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                                        + 직접 추가
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* 직접 입력 폼 */}
+                                  {showSubForm === a.id && (
+                                    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                                      <input value={subInput} onChange={e => setSubInput(e.target.value)}
+                                        onKeyDown={e => e.key === "Enter" && handleAddSub(a)}
+                                        placeholder="세부공정명 입력"
+                                        style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none" }} />
+                                      <button onClick={() => handleAddSub(a)}
+                                        style={{ background: YELLOW, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                                        추가
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* 세부공정 목록 */}
+                                  {subActivities.filter(s => s.activity_id === a.id).length === 0
+                                    ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
+                                    : subActivities.filter(s => s.activity_id === a.id).map(sub => (
+                                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #E5E7EB" }}>
+                                        {/* 상태 표시 */}
+                                        {sub.status === "pending_approval"
+                                          ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
+                                          : sub.phys === 100
+                                            ? <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>✅완료</span>
+                                            : sub.start_date
+                                              ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>🔨진행중</span>
+                                              : <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
+                                        }
+                                        {/* 이름 + 진도율 */}
+                                        {editingSubId === sub.id
+                                          ? <div style={{ display: "flex", gap: 6, flex: 1 }}>
+                                            <input
+                                              value={editingSubName}
+                                              onChange={e => setEditingSubName(e.target.value)}
+                                              onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
+                                              autoFocus
+                                              style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
+                                            />
+                                            <input
+                                              type="number"
+                                              value={editingSubWeight}
+                                              onChange={e => setEditingSubWeight(e.target.value)}
+                                              style={{ width: 56, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
+                                            />
+                                            <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
+                                          </div>
+                                          : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                                        }
+                                        <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
+                                          {sub.weight || 0}%
+                                        </span>
+                                        {sub.start_date && (
+                                          <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap" }}>
+                                            {sub.start_date}{sub.end_date ? ` ~ ${sub.end_date}` : " ~"}
+                                          </span>
+                                        )}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                                            <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
+                                          </div>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
+                                        </div>
+                                        {/* 착수 / 완료 버튼 */}
+                                        {sub.status === "active" && sub.phys < 100 && editingSubId !== sub.id && (
+                                          !sub.start_date
+                                            ? <button onClick={async () => {
+                                              await sb.patch("sub_activities", sub.id, { start_date: dayStr(TODAY) });
+                                              setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: dayStr(TODAY) } : s));
+                                              setToast(`🔨 ${sub.name} 착수`);
+                                            }}
+                                              style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                              🔨 착수
+                                            </button>
+                                            : <button onClick={async () => {
+                                              if (!window.confirm(`${sub.name} 완료 처리하시겠습니까?`)) return;
+                                              const today = dayStr(TODAY);
+                                              await sb.patch("sub_activities", sub.id, { phys: 100, end_date: today });
+                                              const updatedSubs = subActivities.map(s => s.id === sub.id ? { ...s, phys: 100, end_date: today } : s);
+                                              setSubActivities(updatedSubs);
+
+                                              // 상위 공종 진도율 재계산
+                                              const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
+                                              const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
+                                              const newPhys = totalWeight > 0
+                                                ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
+                                                : Math.round(actSubs.filter(s => s.phys === 100).length / Math.max(actSubs.length, 1) * 100);
+                                              const newDoneQty = Math.round(a.plan_qty * newPhys / 100);
+                                              const isActComplete = newPhys === 100;
+                                              const actualFinish = today;
+
+                                              await sb.patch("activities", a.id, {
+                                                done_qty: newDoneQty,
+                                                af: isActComplete ? actualFinish : null,
+                                              });
+
+                                              // 상위 공종 완료 + 지연 체크 → CPM 전파
+                                              if (isActComplete && actualFinish > a.pf) {
+                                                const delayDays = diffDays(actualFinish, a.pf);
+                                                await sb.patch("activities", a.id, { delay_days: (a.delay_days || 0) + delayDays });
+                                                const recalced = recalcCPM(
+                                                  activities.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: actualFinish, delay_days: (a.delay_days || 0) + delayDays }) : x),
+                                                  a.id,
+                                                  delayDays
+                                                );
+                                                // 영향받은 후행 공종 DB patch
+                                                for (const u of recalced) {
+                                                  const orig = activities.find(x => x.id === u.id);
+                                                  if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) {
+                                                    await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days });
+                                                  }
+                                                }
+                                                setActivities(recalced);
+                                                const affectedCount = recalced.filter(u => {
+                                                  const orig = activities.find(x => x.id === u.id);
+                                                  return orig && orig.id !== a.id && orig.pf !== u.pf;
+                                                }).length;
+                                                setToast(`✅ ${sub.name} 완료 — ${a.name} ${delayDays}일 지연${affectedCount > 0 ? ` · ${affectedCount}개 후행 공종 일정 조정` : ""}`);
+                                              } else {
+                                                setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: isActComplete ? actualFinish : null }) : x));
+                                                setToast(isActComplete ? `🎉 ${a.name} 전체 완료!` : `✅ ${sub.name} 완료`);
+                                              }
+                                            }}
+                                              style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#065F46", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                              ✅ 완료
+                                            </button>
+                                        )}
+                                        {/* 수정 버튼 */}
+                                        {editingSubId === sub.id
+                                          ? <button onClick={() => handleEditSub(sub)}
+                                            style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                            확인
+                                          </button>
+                                          : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); setEditingSubWeight(sub.weight || 0); }}
+                                            style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
+                                            수정
+                                          </button>
+                                        }
+                                        {/* 승인 버튼 (승인대기 + 건축기사/소장만) */}
+                                        {sub.status === "pending_approval" && ["공무과장", "현장소장", "기사", "대리"].includes(user.role) && (
+                                          <button onClick={() => handleApproveSub(sub)}
+                                            style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                            승인
+                                          </button>
+                                        )}
+                                        <button onClick={() => handleDeleteSub(sub)}
+                                          style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                          삭제
+                                        </button>
+                                      </div>
+                                    ))
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </div>
+      ))}
     </div>
   );
 }
@@ -3931,7 +3931,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           newDoneQty = act.plan_qty;
         }
         let newDoneQty = report.new_done_qty;
-        
+
         if (report.matched_sub_id) {
           await sb.patch("sub_activities", report.matched_sub_id, { phys: 100 });
           const updatedSubs = subActivities.map(s =>
@@ -3963,7 +3963,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           });
         }
         const finalDoneQty = (report.matched_sub_id || report.complete_all_subs) ? newDoneQty : report.new_done_qty;
-        
+
         let updated = activities.map(a => a.id === act.id ? calcAct({ ...a, done_qty: finalDoneQty, as_: act.as_ || dayStr(TODAY) }) : a); if (report.delay_days > 0) {
           updated = recalcCPM(updated, report.activity_id, report.delay_days);
           for (const u of updated) { const orig = activities.find(a => a.id === u.id); if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days }); }
@@ -4885,7 +4885,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                               ? <span style={{ fontSize: 16, fontWeight: 800, color: "#F59E0B" }}>공기지연 🚨</span>
                               : <span style={{ fontSize: 16, fontWeight: 800, color: "#9CA3AF" }}>이미 완료됨</span>
                           }
-                         </div>
+                        </div>
                         : <>
                           <span>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
                           <span style={{ color: "#9CA3AF" }}>→</span>
@@ -5106,7 +5106,6 @@ const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers:
 { id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
 { id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
 { id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
-{ id: "lifting", label: "🏗 양중 관리", tiers: ["macro", "meso"] },
 { id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
 { id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
 { id: "settings", label: "⚙️ 프로젝트 설정", tiers: ["macro"] },
@@ -5860,560 +5859,9 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
 
 
 
-function LiftingManager({ user, weather, sendPush }) {
-  const [equipment, setEquipment] = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [showForm, setShowForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(dayStr(TODAY));
-  const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("schedule"); // 'schedule' | 'approval'
-  const [showFullView, setShowFullView] = useState(false);
-  const [form, setForm] = useState({
-    equipment_id: "", company: "", purpose: "", floor: "",
-    material_type: "", material_weight: "", date: dayStr(TODAY),
-    start_time: "09:00", end_time: "10:00", delay_reason: ""
-  });
 
-  const DELAY_REASONS = ["기상 불량", "자재 미도착", "장비 고장", "선행 작업 지연", "기타"];
-  const FLOORS = ["B1", "1F", "2F", "3F", "4F", "5F", "옥상"];
-  const MATERIAL_TYPES = ["철근", "거푸집", "콘크리트 펌프", "창호", "타일", "방수재", "도장재", "기타"];
-
-  const windWarning = weather && weather.wind >= 10;
-
-  useEffect(() => {
-    const load = async () => {
-      const [eq, res] = await Promise.all([
-        sb.get("lifting_equipment"),
-        sb.get("lifting_reservations", `date=eq.${selectedDate}`)
-      ]);
-      setEquipment(eq || []);
-      setReservations(res || []);
-    };
-    load();
-  }, [selectedDate]);
-
-  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  // 시간 충돌 감지
-  const checkConflict = () => {
-    return reservations.some(r =>
-      r.equipment_id === Number(form.equipment_id) &&
-      r.status !== "rejected" &&
-      r.id !== form.id &&
-      !(form.end_time <= r.start_time || form.start_time >= r.end_time)
-    );
-  };
-
-  const handleSubmit = async () => {
-    if (!form.equipment_id || !form.company || !form.purpose || !form.floor || !form.material_type) {
-      alert("필수 항목을 입력해주세요."); return;
-    }
-    if (checkConflict()) {
-      alert("해당 시간대에 이미 예약이 있습니다. 다른 시간을 선택해주세요."); return;
-    }
-    setSaving(true);
-    try {
-      const [saved] = await sb.post("lifting_reservations", {
-        ...form,
-        equipment_id: Number(form.equipment_id),
-        material_weight: Number(form.material_weight) || 0,
-        requested_by: user.name,
-        status: "pending"
-      });
-      setReservations(p => [...p, saved]);
-      setShowForm(false);
-      setForm({ equipment_id: "", company: "", purpose: "", floor: "", material_type: "", material_weight: "", date: selectedDate, start_time: "09:00", end_time: "10:00", delay_reason: "" });
-    } catch (err) { alert("저장 실패: " + err.message); }
-    setSaving(false);
-  };
-
-  const handleApprove = async (r) => {
-    await sb.patch("lifting_reservations", r.id, { status: "approved" });
-    await sendPush("🏗 양중 예약 승인", `${r.start_time}~${r.end_time} 양중 예약이 승인되었습니다.`, "/");
-    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "approved" } : x));
-  };
-
-  const handleReject = async (r) => {
-    await sb.patch("lifting_reservations", r.id, { status: "rejected" });
-    setReservations(p => p.map(x => x.id === r.id ? { ...x, status: "rejected" } : x));
-  };
-
-  const handleComplete = async (r) => {
-    const actualEndTime = new Date().toTimeString().slice(0, 5);
-    const completedAt = new Date().toISOString();
-    const [ph, pm] = r.end_time.split(":").map(Number);
-    const [ah, am] = actualEndTime.split(":").map(Number);
-    const diffMin = (ah * 60 + am) - (ph * 60 + pm);
-    await sb.patch("lifting_reservations", r.id, {
-      status: "completed",
-      completed_at: completedAt,
-      actual_end_time: actualEndTime,
-    });
-    setReservations(p => p.map(x => x.id === r.id ? {
-      ...x,
-      status: "completed",
-      completed_at: completedAt,
-      actual_end_time: actualEndTime,
-      diff_min: diffMin,
-    } : x));
-    if (diffMin > 0) {
-      alert(`⚠️ 계획보다 ${diffMin}분 지연 완료됐습니다.`);
-    }
-  };
-
-  const statusColor = (s) => s === "approved" ? "#10B981" : s === "rejected" ? "#EF4444" : s === "completed" ? "#6B7280" : "#F59E0B";
-  const statusLabel = (s) => s === "approved" ? "승인" : s === "rejected" ? "반려" : s === "completed" ? "완료" : "대기";
-  const typeIcon = (t) => t === "tower_crane" ? "🏗" : t === "hoist" ? "⚙️" : "🛗";
-
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" };
-  const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
-
-  const pendingCount = reservations.filter(r => r.status === "pending").length;
-
-  // 타임라인 렌더링
-  const now = new Date();
-  const startHour = selectedDate === dayStr(TODAY) ? Math.max(7, now.getHours() - 1) : 7;
-  const HOURS = Array.from({ length: 13 }, (_, i) => startHour + i); // 13시간 표시
-
-  const timeToX = (time) => {
-    const [h, m] = time.split(":").map(Number);
-    return ((h - startHour) * 60 + m) / (12 * 60) * 100; // 12시간 기준
-  };
-
-  // 시간 표시 포맷 (24 넘으면 다음날 표시)
-  const fmtHour = (h) => {
-    if (h >= 24) return `+1일 ${String(h - 24).padStart(2, "0")}:00`;
-    return `${String(h).padStart(2, "0")}:00`;
-  };
-
-
-  return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>🏗 양중 관리</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-            style={{ border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "6px 12px", fontSize: 13, outline: "none" }} />
-          <button onClick={() => setShowForm(true)}
-            style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>
-            + 양중 신청
-          </button>
-        </div>
-      </div>
-
-      {/* 기상 경고 */}
-      {windWarning && (
-        <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 18 }}>⚠️</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#991B1B" }}>강풍 경고 — 타워크레인 작업 위험</div>
-            <div style={{ fontSize: 12, color: "#7F1D1D" }}>현재 풍속 {weather.wind}m/s (기준 10m/s 초과)</div>
-          </div>
-        </div>
-      )}
-
-      {/* 탭 */}
-      <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 4, marginBottom: 16, width: "fit-content" }}>
-        {[
-          ["schedule", "📅 일정"],
-          ["approval", `✅ 결재 ${pendingCount > 0 ? `(${pendingCount})` : ""}`],
-          ["report", "📈 부하 분석"]
-        ].map(([id, label]) => (
-          <button key={id} onClick={() => setActiveTab(id)}
-            style={{ padding: "7px 16px", border: "none", borderRadius: 8, background: activeTab === id ? "#fff" : "transparent", fontWeight: activeTab === id ? 700 : 400, fontSize: 13, color: activeTab === id ? NAVY : "#6B7280", cursor: "pointer", boxShadow: activeTab === id ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "schedule" && (
-        <>
-          {/* 타임라인 */}
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, overflowX: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>장비별 타임라인</div>
-              <button onClick={() => setShowFullView(true)}
-                style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "5px 12px", fontSize: 12, color: "#374151", cursor: "pointer" }}>
-                🔍 전체 보기
-              </button>
-            </div>
-            <div style={{ minWidth: 600 }}>
-              {/* 시간 헤더 */}
-              <div style={{ display: "flex", marginLeft: 120, marginBottom: 8 }}>
-                {HOURS.map(h => (
-                  <div key={h} style={{ flex: 1, fontSize: 10, color: h >= 24 ? "#EF4444" : "#9CA3AF", textAlign: "center", whiteSpace: "nowrap" }}>
-                    {fmtHour(h)}
-                  </div>
-                ))}
-              </div>
-              {/* 장비별 행 */}
-              {equipment.map(eq => {
-                const eqRes = reservations.filter(r => r.equipment_id === eq.id && r.status !== "rejected");
-                return (
-                  <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ width: 120, flexShrink: 0, fontSize: 12, fontWeight: 600, color: NAVY }}>
-                      {typeIcon(eq.type)} {eq.name}
-                    </div>
-                    <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 6, height: 36, position: "relative" }}>
-                      {selectedDate === dayStr(TODAY) && (() => {
-                        const nowTime = new Date();
-                        const x = ((nowTime.getHours() - startHour) * 60 + nowTime.getMinutes()) / (12 * 60) * 100;
-                        return x >= 0 && x <= 100 ? (
-                          <div style={{ position: "absolute", left: `${x}%`, top: 0, width: 2, height: "100%", background: YELLOW, zIndex: 3 }} />
-                        ) : null;
-                      })()}
-                      {eqRes.map(r => {
-                        const x = timeToX(r.start_time);
-                        const planW = timeToX(r.end_time) - x;
-                        const actualW = r.actual_end_time ? timeToX(r.actual_end_time) - x : null;
-                        const isDelayed = actualW !== null && actualW > planW;
-                        const isEarly = actualW !== null && actualW < planW;
-
-                        return (
-                          <React.Fragment key={r.id}>
-                            {/* 계획 바 (항상 표시) */}
-                            <div style={{
-                              position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(planW, 2)}%`,
-                              top: 4, height: 28,
-                              background: r.status === "completed" ? "transparent" : r.status === "approved" ? "#BFDBFE" : "#FEF3C7",
-                              border: `1px dashed ${r.status === "completed" ? "#D1D5DB" : r.status === "approved" ? "#3B82F6" : "#F59E0B"}`,
-                              borderRadius: 4, overflow: "hidden"
-                            }} />
-                            {/* 실제 완료 바 (completed일 때) */}
-                            {r.actual_end_time && (
-                              <div style={{
-                                position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(actualW, 2)}%`,
-                                top: 4, height: 28,
-                                background: isDelayed ? "#FECACA" : "#D1FAE5",
-                                border: `1px solid ${isDelayed ? "#EF4444" : "#10B981"}`,
-                                borderRadius: 4, display: "flex", alignItems: "center", paddingLeft: 6, overflow: "hidden"
-                              }}>
-                                <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>
-                                  {r.company} · {r.floor} {isDelayed ? "⚠️" : isEarly ? "✅" : ""}
-                                </span>
-                              </div>
-                            )}
-                            {/* 미완료 바 텍스트 */}
-                            {!r.actual_end_time && (
-                              <div style={{
-                                position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.max(planW, 2)}%`,
-                                top: 4, height: 28, display: "flex", alignItems: "center", paddingLeft: 6
-                              }}>
-                                <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: "nowrap", color: NAVY }}>
-                                  {r.company} · {r.floor}
-                                </span>
-                              </div>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 예약 목록 */}
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>예약 목록</div>
-            {reservations.length === 0
-              ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>예약이 없습니다</div>
-              : reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map(r => {
-                const eq = equipment.find(e => e.id === r.equipment_id);
-                return (
-                  <div key={r.id} style={{ border: "1.5px solid #E5E7EB", borderRadius: 12, padding: "14px 16px", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontSize: 16 }}>{eq ? typeIcon(eq.type) : "🏗"}</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: NAVY, flex: 1 }}>{eq?.name}</span>
-                      <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{statusLabel(r.status)}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
-                      <span>🏢 {r.floor} · {r.company}</span>
-                      <span>⏰ {r.start_time} ~ {r.end_time}</span>
-                      <span>📦 {r.material_type} {r.material_weight > 0 ? `${r.material_weight}kg` : ""}</span>
-                      <span>👤 {r.requested_by}</span>
-                    </div>
-                    {r.purpose && <div style={{ fontSize: 12, color: "#374151", marginBottom: 6 }}>목적: {r.purpose}</div>}
-                    {r.delay_reason && <div style={{ fontSize: 12, color: "#EF4444" }}>지연사유: {r.delay_reason}</div>}
-                    {r.completed_at && <div style={{ fontSize: 11, color: "#10B981", marginTop: 4 }}>✅ 완료: {new Date(r.completed_at).toLocaleTimeString("ko-KR")}</div>}
-                    {r.status === "approved" && (
-                      <div style={{ marginTop: 8 }}>
-                        {windWarning && equipment.find(e => e.id === r.equipment_id)?.type === "tower_crane" ? (
-                          <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
-                            🚫 풍속 {weather.wind}m/s 초과 — 타워크레인 작업 불가
-                          </div>
-                        ) : (
-                          <button onClick={() => handleComplete(r)}
-                            style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>
-                            ✅ 수령 완료
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {r.status === "completed" && r.actual_end_time && (
-                      <div style={{ marginTop: 8, display: "flex", gap: 12, alignItems: "center" }}>
-                        <div style={{ fontSize: 11, color: "#10B981" }}>
-                          ✅ 실제 완료: {r.actual_end_time}
-                        </div>
-                        {r.diff_min !== undefined && r.diff_min !== 0 && (
-                          <div style={{
-                            fontSize: 11, fontWeight: 700,
-                            color: r.diff_min > 0 ? "#EF4444" : "#10B981",
-                            background: r.diff_min > 0 ? "#FEE2E2" : "#F0FDF4",
-                            borderRadius: 6, padding: "2px 8px"
-                          }}>
-                            {r.diff_min > 0 ? `+${r.diff_min}분 지연` : `${Math.abs(r.diff_min)}분 조기 완료`}
-                          </div>
-                        )}
-                      </div>
-                    )}                  </div>
-                );
-              })}
-          </div>
-        </>
-      )}
-
-      {activeTab === "approval" && (
-        <div>
-          {reservations.filter(r => r.status === "pending").length === 0
-            ? <div style={{ color: "#9CA3AF", fontSize: 14, textAlign: "center", padding: 40 }}>대기 중인 예약이 없습니다</div>
-            : reservations.filter(r => r.status === "pending").map(r => {
-              const eq = equipment.find(e => e.id === r.equipment_id);
-              const conflict = reservations.some(x =>
-                x.equipment_id === r.equipment_id && x.status === "approved" &&
-                !(r.end_time <= x.start_time || r.start_time >= x.end_time) && x.id !== r.id
-              );
-              return (
-                <div key={r.id} style={{ background: "#fff", border: `1.5px solid ${conflict ? "#FECACA" : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14 }}>
-                  {conflict && (
-                    <div style={{ background: "#FEE2E2", borderRadius: 8, padding: "6px 12px", marginBottom: 10, fontSize: 12, color: "#991B1B", fontWeight: 700 }}>
-                      ⚠️ 같은 시간대 승인된 예약과 충돌
-                    </div>
-                  )}
-                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 6 }}>{eq?.name}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 12, color: "#6B7280", marginBottom: 10 }}>
-                    <span>🏢 {r.floor} · {r.company}</span>
-                    <span>⏰ {r.start_time} ~ {r.end_time}</span>
-                    <span>📦 {r.material_type} {r.material_weight > 0 ? `${r.material_weight}kg` : ""}</span>
-                    <span>👤 {r.requested_by}</span>
-                  </div>
-                  {r.purpose && <div style={{ fontSize: 12, color: "#374151", marginBottom: 10 }}>목적: {r.purpose}</div>}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => handleApprove(r)}
-                      style={{ flex: 1, background: YELLOW, border: "none", borderRadius: 10, padding: "10px 0", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>✅ 승인</button>
-                    <button onClick={() => handleReject(r)}
-                      style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "10px 0", fontWeight: 600, fontSize: 13, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      )}
-      {activeTab === "report" && <LiftingReport reservations={reservations} equipment={equipment} />}
-
-      {showFullView && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "85vh", overflowY: "auto", padding: 28 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {selectedDate} 양중 전체 현황</div>
-              <button onClick={() => setShowFullView(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>✕ 닫기</button>
-            </div>
-            <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-              {[
-                { label: "전체 예약", value: reservations.length },
-                { label: "승인", value: reservations.filter(r => r.status === "approved").length, color: "#10B981" },
-                { label: "대기", value: reservations.filter(r => r.status === "pending").length, color: "#F59E0B" },
-                { label: "완료", value: reservations.filter(r => r.status === "completed").length, color: "#6B7280" },
-              ].map(k => (
-                <div key={k.label} style={{ flex: 1, background: "#F9FAFB", borderRadius: 10, padding: "12px 16px" }}>
-                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>{k.label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: k.color || NAVY }}>{k.value}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginBottom: 20, overflowX: "auto" }}>
-              <div style={{ minWidth: 700 }}>
-                <div style={{ display: "flex", marginLeft: 140, marginBottom: 8 }}>
-                  {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
-                    <div key={h} style={{ flex: 1, fontSize: 10, color: "#9CA3AF", textAlign: "center" }}>
-                      {String(h).padStart(2, "0")}:00
-                    </div>
-                  ))}
-                </div>
-                {equipment.map(eq => {
-                  const eqRes = reservations.filter(r => r.equipment_id === eq.id);
-                  return (
-                    <div key={eq.id} style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                      <div style={{ width: 140, flexShrink: 0, fontSize: 13, fontWeight: 600, color: NAVY }}>
-                        {typeIcon(eq.type)} {eq.name}
-                      </div>
-                      <div style={{ flex: 1, background: "#F3F4F6", borderRadius: 8, height: 44, position: "relative" }}>
-                        {Array.from({ length: 16 }, (_, i) => (
-                          <div key={i} style={{ position: "absolute", left: `${(i / 15) * 100}%`, top: 0, width: 1, height: "100%", background: "#E5E7EB" }} />
-                        ))}
-                        {eqRes.map(r => {
-                          const [sh, sm] = r.start_time.split(":").map(Number);
-                          const [eh, em] = r.end_time.split(":").map(Number);
-                          const x = ((sh - 7) * 60 + sm) / (15 * 60) * 100;
-                          const w = ((eh - sh) * 60 + (em - sm)) / (15 * 60) * 100;
-                          const bgMap = { approved: "#BFDBFE", pending: "#FEF3C7", completed: "#D1FAE5", rejected: "#F3F4F6" };
-                          const borderMap = { approved: "#3B82F6", pending: "#F59E0B", completed: "#10B981", rejected: "#D1D5DB" };
-                          return (
-                            <div key={r.id} style={{
-                              position: "absolute", left: `${Math.max(0, x)}%`, width: `${Math.min(w, 100 - Math.max(0, x))}%`,
-                              top: 4, height: 36, background: bgMap[r.status] || "#F3F4F6",
-                              border: `1.5px solid ${borderMap[r.status] || "#D1D5DB"}`,
-                              borderRadius: 6, padding: "2px 6px", overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center"
-                            }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.company}</div>
-                              <div style={{ fontSize: 10, color: "#6B7280", whiteSpace: "nowrap" }}>{r.start_time}~{r.end_time} · {r.floor}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: NAVY, color: "#fff" }}>
-                  {["장비", "협력사", "층", "자재", "중량", "시간", "목적", "상태"].map(h => (
-                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {reservations.sort((a, b) => a.start_time.localeCompare(b.start_time)).map((r, i) => {
-                  const eq = equipment.find(e => e.id === r.equipment_id);
-                  return (
-                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
-                      <td style={{ padding: "8px 12px" }}>{eq?.name}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.company}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.floor}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.material_type}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.material_weight > 0 ? `${r.material_weight}kg` : "-"}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.start_time}~{r.end_time}</td>
-                      <td style={{ padding: "8px 12px" }}>{r.purpose}</td>
-                      <td style={{ padding: "8px 12px" }}>
-                        <span style={{ background: statusColor(r.status) + "22", color: statusColor(r.status), borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
-                          {statusLabel(r.status)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {/* 신청 모달 */}
-      {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🏗 양중 신청</div>
-              <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
-            </div>
-            {windWarning && (
-              <div style={{ background: "#FEE2E2", padding: "10px 24px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
-                ⚠️ 현재 풍속 {weather.wind}m/s — 타워크레인 작업 위험 상태
-              </div>
-            )}
-            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={ls}>장비 *</label>
-                  <select value={form.equipment_id} onChange={e => setF("equipment_id", e.target.value)} style={is}>
-                    <option value="">선택</option>
-                    {equipment.map(e => <option key={e.id} value={e.id}>{typeIcon(e.type)} {e.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={ls}>층 *</label>
-                  <input
-                    type="number"
-                    value={form.floor}
-                    onChange={e => setF("floor", e.target.value)}
-                    placeholder="층수 입력 (예: 23, 음수는 지하)"
-                    style={is}
-                  />
-                  {form.floor && <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>
-                    {Number(form.floor) < 0 ? `지하 ${Math.abs(form.floor)}층` : Number(form.floor) === 0 ? "지상 1층" : `지상 ${form.floor}층`}
-                  </div>}
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={ls}>자재 종류 *</label>
-                  <select value={form.material_type} onChange={e => setF("material_type", e.target.value)} style={is}>
-                    <option value="">선택</option>
-                    {MATERIAL_TYPES.map(m => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={ls}>중량 (kg)</label>
-                  <input type="number" value={form.material_weight} onChange={e => setF("material_weight", e.target.value)} style={is} placeholder="예: 500" />
-                </div>
-              </div>
-              <div>
-                <label style={ls}>협력사 *</label>
-                <select value={form.company} onChange={e => setF("company", e.target.value)} style={is}>
-                  <option value="">선택</option>
-                  {SUBCONS.map(s => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={ls}>작업 목적 *</label>
-                <input value={form.purpose} onChange={e => setF("purpose", e.target.value)} style={is} placeholder="예: 3층 철근 양중" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={ls}>날짜</label>
-                  <input type="date" value={form.date} onChange={e => setF("date", e.target.value)} style={is} />
-                </div>
-                <div>
-                  <label style={ls}>시작 시간</label>
-                  <input type="time" value={form.start_time} onChange={e => setF("start_time", e.target.value)}
-                    disabled={windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane"}
-                    style={{ ...is, opacity: windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane" ? 0.4 : 1 }} />
-                </div>
-                <div>
-                  <label style={ls}>종료 시간</label>
-                  <input type="time" value={form.end_time} onChange={e => setF("end_time", e.target.value)}
-                    disabled={windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane"}
-                    style={{ ...is, opacity: windWarning && equipment.find(e => e.id === Number(form.equipment_id))?.type === "tower_crane" ? 0.4 : 1 }} />
-                </div>
-              </div>
-              {checkConflict() && (
-                <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#991B1B", fontWeight: 600 }}>
-                  ⚠️ 해당 시간대에 이미 예약이 있습니다
-                </div>
-              )}
-              <div>
-                <label style={ls}>지연 사유 (해당 시)</label>
-                <select value={form.delay_reason} onChange={e => setF("delay_reason", e.target.value)} style={is}>
-                  <option value="">없음</option>
-                  {DELAY_REASONS.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ padding: "0 24px 24px", display: "flex", gap: 8 }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "12px 0", fontSize: 13, color: "#374151", cursor: "pointer" }}>취소</button>
-              <button onClick={handleSubmit} disabled={saving} style={{ flex: 2, background: YELLOW, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
-                {saving ? "신청 중..." : "✅ 양중 신청"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady }) {
+  const [refreshKey, setRefreshKey] = useState(0); 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
   const [showModal, setShowModal] = useState(false);
@@ -6503,10 +5951,21 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {isMobileScreen && (
           <div style={{ padding: "12px 16px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <button onClick={() => setSidebarOpen(true)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: NAVY }}>☰</button>
-            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{ALL_SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>          </div>
+            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY, flex: 1 }}>{ALL_SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>
+            <button onClick={() => setRefreshKey(k => k + 1)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>🔄</button>
+          </div>
+        )}
+        {!isMobileScreen && (
+          <div style={{ padding: "10px 20px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{ALL_SIDEBAR_ITEMS.find(i => i.id === activeMenu)?.label}</span>
+            <button onClick={() => setRefreshKey(k => k + 1)}
+              style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+              🔄 새로고침
+            </button>
+          </div>
         )}
         <div style={{ flex: 1, overflow: "hidden" }}>
-          {activeMenu === "dashboard" && <Dashboard activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}          {activeMenu === "settings" && (
+          {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
           )}
           {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} />}
@@ -6523,7 +5982,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               setEquipment={setSiteEquipment}
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
-            />)}        {activeMenu === "lifting" && <LiftingManager user={user} weather={weather} sendPush={sendPush} />}
+            />)}        
           {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
@@ -6542,7 +6001,8 @@ function SplashScreen({ onDone }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: NAVY, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes drawLine { to { stroke-dashoffset: 0; } }
         @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes splashOut { to { opacity: 0; pointer-events: none; } }
@@ -6552,18 +6012,18 @@ function SplashScreen({ onDone }) {
       <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
         <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
           {/* 외곽선 — 한 줄씩 순서대로 */}
-          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.0s" }}/>
-          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.2s" }}/>
-          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.4s" }}/>
-          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.6s" }}/>
-          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }}/>
-          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }}/>
+          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.0s" }} />
+          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
+          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
+          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
+          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
+          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
           {/* 내부선 — (1,3,4)번 동시 → (2,5)번 동시 */}
-          <line className="sp-line" x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
-          <line className="sp-line" x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
-          <line className="sp-line" x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }}/>
-          <line className="sp-line" x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }}/>
-          <line className="sp-line" x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }}/>
+          <line className="sp-line" x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
+          <line className="sp-line" x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
+          <line className="sp-line" x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
+          <line className="sp-line" x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }} />
+          <line className="sp-line" x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.6s" }} />
         </svg>
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", opacity: 0, animation: "textIn 0.6s ease 2.2s forwards" }}>
@@ -6812,14 +6272,14 @@ function App() {
         <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="22" height="26" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round"/>
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
-              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round"/>
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
             </svg>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
           </div>
