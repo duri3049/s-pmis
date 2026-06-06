@@ -2674,8 +2674,16 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
+        // 합계 정규화 — Largest Remainder Method로 정확히 100 맞춤
+        const total = suggestions.reduce((s, x) => s + (x.weight || 0), 0);
+        const exact = suggestions.map(s => (s.weight || 0) / total * 100);
+        const floored = exact.map(v => Math.floor(v));
+        const remainder = 100 - floored.reduce((a, b) => a + b, 0);
+        const remainders = exact.map((v, i) => ({ i, r: v - floored[i] })).sort((a, b) => b.r - a.r);
+        remainders.slice(0, remainder).forEach(({ i }) => floored[i]++);
+        const normalized = suggestions.map((s, i) => ({ ...s, weight: floored[i] }));
         // pending_approval 상태로 DB에 저장
-        for (const s of suggestions) {
+        for (const s of normalized) {
           const [saved] = await sb.post("sub_activities", {
             activity_id: act.id,
             name: s.name,
