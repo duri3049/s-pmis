@@ -308,14 +308,14 @@ function AuthScreen({ onAuth }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
@@ -6696,12 +6696,12 @@ function SplashScreen({ onDone }) {
       <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
         <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
           {/* 외곽선 — 한 줄씩 순서대로 */}
-          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.0s" }} />
-          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
-          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
-          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
-          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
-          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
+          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.0s" }} />
+          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
+          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
+          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
+          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
+          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
           {/* 내부선 — (1,3,4)번 동시 → (2,5)번 동시 */}
           <line className="sp-line" x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
           <line className="sp-line" x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
@@ -6929,6 +6929,7 @@ function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setDataReady(false); };
 
+  if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
@@ -6950,20 +6951,20 @@ function App() {
 
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
-      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
         <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="22" height="26" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
             </svg>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
           </div>
