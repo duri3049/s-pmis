@@ -321,7 +321,7 @@ function AuthScreen({ onAuth }) {
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
-          {[["login", "로그인"], ["signup", "회원가입"]].map(([m, label]) => (
+          {[["login", "로그인"]].map(([m, label]) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 8, background: mode === m ? "#fff" : "transparent", fontWeight: mode === m ? 700 : 400, fontSize: 13, color: mode === m ? NAVY : "#6B7280", cursor: "pointer", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
           ))}
         </div>
