@@ -4710,9 +4710,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
         let newDoneQty = report.new_done_qty;
 
         if (report.matched_sub_id) {
-          await sb.patch("sub_activities", report.matched_sub_id, { phys: 100 });
+          const completeDate = dayStr(TODAY);
+          await sb.patch("sub_activities", report.matched_sub_id, { phys: 100, end_date: completeDate });
           const updatedSubs = subActivities.map(s =>
-            s.id === Number(report.matched_sub_id) ? { ...s, phys: 100 } : s
+            s.id === Number(report.matched_sub_id) ? { ...s, phys: 100, end_date: completeDate } : s
           );
           setSubActivities(updatedSubs);
 
