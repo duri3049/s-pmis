@@ -6713,7 +6713,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {isMobileScreen && <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 20 }}>✕</button>}
         </div>
         <div style={{ padding: "14px 12px", flex: 1 }}>
-          {ALL_SIDEBAR_ITEMS.filter(item => item.tiers.includes(getTier(user.role))).map(item => {
+          {ALL_SIDEBAR_ITEMS.filter(item => item.tiers.includes(getTier(user.role)) && !(item.id === "approval" && user.role === "공무과장")).map(item => {
             const isActive = activeMenu === item.id;
             const badge = item.id === "approval" ? pendingCount : item.id === "issues" ? openIssueCount : 0;
             return (
