@@ -319,7 +319,7 @@ function AuthScreen({ onAuth }) {
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
-          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>현장 톡톡</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
           {[["login", "로그인"]].map(([m, label]) => (
@@ -650,7 +650,7 @@ ${(activities || []).map(a => {
       await supabase.from("chat_messages").insert({
         room_id: room.id,
         user_id: "00000000-0000-0000-0000-000000000000",
-        user_name: "Fieldlog AI",
+        user_name: "현장 톡톡 AI",
         user_role: "AI",
         avatar: "🤖",
         content: aiText,
@@ -1104,23 +1104,23 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
     let dateCols = [], actList = [];
     if (viewMode === "3w") {
       const base = weeks && weeks.length > 0 ? new Date(weeks[0].start) : new Date(TODAY);
-      for (let i = 0; i < 21; i++) { const d = new Date(base); d.setDate(d.getDate() + i); const dStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth()+1}월`, type: "day" }); }
+      for (let i = 0; i < 21; i++) { const d = new Date(base); d.setDate(d.getDate() + i); const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth() + 1}월`, type: "day" }); }
       actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[20].str && a.pf >= dateCols[0].str);
     } else if (viewMode === "3m") {
-      const base = new Date(TODAY.getFullYear(), TODAY.getMonth()-1, 1);
-      for (let i = 0; i < 92; i++) { const d = new Date(base); d.setDate(d.getDate()+i); const dStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth()+1}월`, type: "day" }); }
-      actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[dateCols.length-1].str && a.pf >= dateCols[0].str);
+      const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
+      for (let i = 0; i < 92; i++) { const d = new Date(base); d.setDate(d.getDate() + i); const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth() + 1}월`, type: "day" }); }
+      actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[dateCols.length - 1].str && a.pf >= dateCols[0].str);
     } else {
       const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
       const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
       if (!allPs || !allPf) { alert("공정 데이터가 없습니다."); return; }
       const totalDays = diffDays(allPf, allPs) + 1;
-      if (totalDays > 365*3) { let cur = new Date(allPs.slice(0,7)+"-01"); const end = new Date(allPf.slice(0,7)+"-01"); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0'); dateCols.push({ str: dStr, label: `${cur.getMonth()+1}월`, topLabel: `${cur.getFullYear()}년`, type: "month" }); cur.setMonth(cur.getMonth()+1); } }
-      else if (totalDays > 365) { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0')+"-"+String(cur.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: `${cur.getMonth()+1}/${cur.getDate()}`, topLabel: `${cur.getFullYear()}년 ${cur.getMonth()+1}월`, type: "week" }); cur.setDate(cur.getDate()+7); } }
-      else { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0')+"-"+String(cur.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(cur.getDate()), topLabel: `${cur.getFullYear()}년 ${cur.getMonth()+1}월`, type: "day" }); cur.setDate(cur.getDate()+1); } }
+      if (totalDays > 365 * 3) { let cur = new Date(allPs.slice(0, 7) + "-01"); const end = new Date(allPf.slice(0, 7) + "-01"); while (cur <= end) { const dStr = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, '0'); dateCols.push({ str: dStr, label: `${cur.getMonth() + 1}월`, topLabel: `${cur.getFullYear()}년`, type: "month" }); cur.setMonth(cur.getMonth() + 1); } }
+      else if (totalDays > 365) { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, '0') + "-" + String(cur.getDate()).padStart(2, '0'); dateCols.push({ str: dStr, label: `${cur.getMonth() + 1}/${cur.getDate()}`, topLabel: `${cur.getFullYear()}년 ${cur.getMonth() + 1}월`, type: "week" }); cur.setDate(cur.getDate() + 7); } }
+      else { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, '0') + "-" + String(cur.getDate()).padStart(2, '0'); dateCols.push({ str: dStr, label: String(cur.getDate()), topLabel: `${cur.getFullYear()}년 ${cur.getMonth() + 1}월`, type: "day" }); cur.setDate(cur.getDate() + 1); } }
       actList = activities;
     }
-    html += `<tr><td colspan="${dateCols.length+3}" class="title">${title}</td></tr>`;
+    html += `<tr><td colspan="${dateCols.length + 3}" class="title">${title}</td></tr>`;
     html += `<tr><th class="header" rowspan="2" width="100">대공종</th><th class="header" rowspan="2" width="220">공종명</th><th class="header" rowspan="2" width="60">진도율</th>`;
     let curTop = null, count = 0;
     dateCols.forEach(c => { if (curTop !== c.topLabel) { if (curTop !== null) html += `<th class="header" colspan="${count}">${curTop}</th>`; curTop = c.topLabel; count = 1; } else { count++; } });
@@ -1131,25 +1131,25 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
     const grouped = {};
     actList.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
     Object.entries(grouped).forEach(([cat, acts]) => {
-      html += `<tr><td style="background-color:#1A2332;color:#fff;font-weight:bold;text-align:center;" rowspan="${acts.length*2}">${cat}</td>`;
+      html += `<tr><td style="background-color:#1A2332;color:#fff;font-weight:bold;text-align:center;" rowspan="${acts.length * 2}">${cat}</td>`;
       acts.forEach((a, ai) => {
         if (ai > 0) html += `<tr>`;
         html += `<td style="padding:4px 8px;font-weight:bold;border-bottom:2px solid #9CA3AF;" rowspan="2">${a.sub_group && a.sub_group !== "-" ? `(${a.sub_group}) ` : ""}${a.name}${a.delay_days > 0 ? ` (+${a.delay_days}일)` : ""}</td>`;
-        html += `<td style="text-align:center;font-weight:bold;border-bottom:2px solid #9CA3AF;" rowspan="2">${a.phys||0}%</td>`;
+        html += `<td style="text-align:center;font-weight:bold;border-bottom:2px solid #9CA3AF;" rowspan="2">${a.phys || 0}%</td>`;
         dateCols.forEach(c => {
-          let isPlan = c.type === "month" ? c.str >= a.ps.slice(0,7) && c.str <= a.pf.slice(0,7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate()+6); const wEndStr = wEnd.getFullYear()+"-"+String(wEnd.getMonth()+1).padStart(2,'0')+"-"+String(wEnd.getDate()).padStart(2,'0'); return wEndStr >= a.ps && c.str <= a.pf; })() : c.str >= a.ps && c.str <= a.pf;
+          let isPlan = c.type === "month" ? c.str >= a.ps.slice(0, 7) && c.str <= a.pf.slice(0, 7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate() + 6); const wEndStr = wEnd.getFullYear() + "-" + String(wEnd.getMonth() + 1).padStart(2, '0') + "-" + String(wEnd.getDate()).padStart(2, '0'); return wEndStr >= a.ps && c.str <= a.pf; })() : c.str >= a.ps && c.str <= a.pf;
           html += `<td style="background-color:${isPlan ? "#10B981" : c.str === tStr ? "#FEF2F2" : "transparent"};height:14px;border-bottom:1px dotted #D1D5DB;"></td>`;
         });
         html += `</tr><tr>`;
         dateCols.forEach(c => {
           let isActual = false;
-          if (a.as_) { const afStr = a.af && a.af <= tStr ? a.af : tStr; isActual = c.type === "month" ? c.str >= a.as_.slice(0,7) && c.str <= afStr.slice(0,7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate()+6); const wEndStr = wEnd.getFullYear()+"-"+String(wEnd.getMonth()+1).padStart(2,'0')+"-"+String(wEnd.getDate()).padStart(2,'0'); return wEndStr >= a.as_ && c.str <= afStr; })() : c.str >= a.as_ && c.str <= afStr; }
+          if (a.as_) { const afStr = a.af && a.af <= tStr ? a.af : tStr; isActual = c.type === "month" ? c.str >= a.as_.slice(0, 7) && c.str <= afStr.slice(0, 7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate() + 6); const wEndStr = wEnd.getFullYear() + "-" + String(wEnd.getMonth() + 1).padStart(2, '0') + "-" + String(wEnd.getDate()).padStart(2, '0'); return wEndStr >= a.as_ && c.str <= afStr; })() : c.str >= a.as_ && c.str <= afStr; }
           html += `<td style="background-color:${isActual ? "#3B82F6" : c.str === tStr ? "#FEF2F2" : "transparent"};height:14px;border-top:none;border-bottom:2px solid #9CA3AF;"></td>`;
         });
         html += `</tr>`;
       });
     });
-    html += `<tr><td colspan="${dateCols.length+3}" style="text-align:right;padding:10px;font-weight:bold;border:none;"><span style="background-color:#10B981;color:#10B981;">__</span> 계획 <span style="background-color:#3B82F6;color:#3B82F6;margin-left:10px;">__</span> 실적</td></tr></table></body></html>`;
+    html += `<tr><td colspan="${dateCols.length + 3}" style="text-align:right;padding:10px;font-weight:bold;border:none;"><span style="background-color:#10B981;color:#10B981;">__</span> 계획 <span style="background-color:#3B82F6;color:#3B82F6;margin-left:10px;">__</span> 실적</td></tr></table></body></html>`;
     const blob = new Blob([html], { type: "application/vnd.ms-excel" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1568,8 +1568,8 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
             <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
             <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
-          
-          
+
+
           <button onClick={handlePrint}
             style={{ background: NAVY, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             🖨️ PDF 출력
@@ -2294,7 +2294,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "#9CA3AF" }}>
-          본 보고서는 FIELD LOG 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
+          본 보고서는 현장 톡톡 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -2410,7 +2410,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 
       {/* 버튼 */}
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 14 }}>
-       <button onClick={() => {
+        <button onClick={() => {
           const content = document.getElementById("dr-content");
           if (!content) return;
           const clone = content.cloneNode(true);
@@ -2649,7 +2649,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
         </table>
 
         <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#9CA3AF" }}>
-          본 공사일지는 FIELD LOG 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
+          본 공사일지는 현장 톡톡 에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -2934,7 +2934,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
         </div>
       </div>
-      
+
 
       {gl.map((catGroup, ci) => (
         <div key={ci} style={{ marginBottom: 24 }}>
@@ -6758,8 +6758,8 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} setMilestones={setMilestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} />}
           {activeMenu === "chat" && (
             activeRoom
-            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
-            : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
+              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
+              : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
           {activeMenu === "equipment" && (
@@ -6799,7 +6799,7 @@ function SplashScreen({ onDone }) {
       <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
         <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
           {/* 외곽선 — 한 줄씩 순서대로 */}
-          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.0s" }}/>
+          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.0s" }} />
           <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
           <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
           <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
@@ -6814,8 +6814,8 @@ function SplashScreen({ onDone }) {
         </svg>
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", opacity: 0, animation: "textIn 0.6s ease 2.2s forwards" }}>
-            <span style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: 4 }}>FIELD</span>
-            <span style={{ fontSize: 28, fontWeight: 800, color: YELLOW, letterSpacing: 4 }}>LOG</span>
+            <span style={{ fontSize: 30, fontWeight: 900, color: "#fff", letterSpacing: 2 }}>현장</span>
+            <span style={{ fontSize: 30, fontWeight: 900, color: YELLOW, letterSpacing: 2 }}>톡톡</span>
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 2, opacity: 0, animation: "textIn 0.6s ease 2.4s forwards" }}>건설현장 공정관리 플랫폼</div>
         </div>
@@ -7036,14 +7036,13 @@ function App() {
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
-    <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: NAVY }}>S</div>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>      <div style={{ width: 40, height: 40, borderRadius: 10, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: NAVY }}>S</div>
       <div style={{ fontSize: 14, color: "#6B7280" }}>데이터 불러오는 중...</div>
     </div>
   );
 
   if (dbError) return (
-    <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
       <div style={{ fontSize: 32 }}>⚠️</div>
       <div style={{ fontWeight: 700, color: NAVY }}>DB 연결 오류</div>
       <div style={{ fontSize: 12, color: "#6B7280", maxWidth: 500, textAlign: "center", background: "#F3F4F6", padding: 16, borderRadius: 10, wordBreak: "break-all" }}>{dbError}</div>
@@ -7053,8 +7052,8 @@ function App() {
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
 
   return (
-    <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
-      
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
+
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
         <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
@@ -7069,7 +7068,7 @@ function App() {
               <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
             </svg>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>현장 톡톡</span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "4px 8px", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📱 현장</button>
