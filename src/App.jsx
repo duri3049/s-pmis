@@ -5498,7 +5498,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true"
       },
-      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 400, system: systemPrompt, messages })
+      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: systemPrompt, messages })
     });
     const data = await r.json();
     console.log("AI 응답 원본:", data.content[0].text);
