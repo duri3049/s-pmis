@@ -4128,7 +4128,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
         reporter: user.name,
         reporter_company: user.role,
         raw_input: msg,
-        new_done_qty: isDone ? (selectedAct?.plan_qty || 100) : (selectedAct?.done_qty || 0),
+        new_done_qty: isDone ? (selectedSubId ? (selectedAct?.done_qty || 0) : (selectedAct?.plan_qty || 100)) : (selectedAct?.done_qty || 0),
         workers: 0,
         worker_details: null,
         special_note: note,
