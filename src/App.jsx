@@ -309,20 +309,20 @@ function AuthScreen({ onAuth }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
           <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>FIELD LOG</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
-          {[["login", "로그인"], ["signup", "회원가입"]].map(([m, label]) => (
+          {[["login", "로그인"]].map(([m, label]) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 8, background: mode === m ? "#fff" : "transparent", fontWeight: mode === m ? 700 : 400, fontSize: 13, color: mode === m ? NAVY : "#6B7280", cursor: "pointer", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
           ))}
         </div>
@@ -1097,6 +1097,68 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports 
 
 
 
+  const handleExcelDownload = () => {
+    const title = viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표";
+    const tStr = TODAY.getFullYear() + "-" + String(TODAY.getMonth() + 1).padStart(2, '0') + "-" + String(TODAY.getDate()).padStart(2, '0');
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>table{border-collapse:collapse;font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:11px;}th,td{border:1px solid #D1D5DB;vertical-align:middle;white-space:nowrap;height:24px;}.header{background-color:#1A2332;color:#ffffff;font-weight:bold;text-align:center;padding:6px;}.sub-header{background-color:#374151;color:#9CA3AF;text-align:center;padding:4px;}.title{font-size:18px;font-weight:bold;text-align:center;height:40px;border:none;}</style></head><body><table>`;
+    let dateCols = [], actList = [];
+    if (viewMode === "3w") {
+      const base = weeks && weeks.length > 0 ? new Date(weeks[0].start) : new Date(TODAY);
+      for (let i = 0; i < 21; i++) { const d = new Date(base); d.setDate(d.getDate() + i); const dStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth()+1}월`, type: "day" }); }
+      actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[20].str && a.pf >= dateCols[0].str);
+    } else if (viewMode === "3m") {
+      const base = new Date(TODAY.getFullYear(), TODAY.getMonth()-1, 1);
+      for (let i = 0; i < 92; i++) { const d = new Date(base); d.setDate(d.getDate()+i); const dStr = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0') + "-" + String(d.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth()+1}월`, type: "day" }); }
+      actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[dateCols.length-1].str && a.pf >= dateCols[0].str);
+    } else {
+      const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
+      const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
+      if (!allPs || !allPf) { alert("공정 데이터가 없습니다."); return; }
+      const totalDays = diffDays(allPf, allPs) + 1;
+      if (totalDays > 365*3) { let cur = new Date(allPs.slice(0,7)+"-01"); const end = new Date(allPf.slice(0,7)+"-01"); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0'); dateCols.push({ str: dStr, label: `${cur.getMonth()+1}월`, topLabel: `${cur.getFullYear()}년`, type: "month" }); cur.setMonth(cur.getMonth()+1); } }
+      else if (totalDays > 365) { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0')+"-"+String(cur.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: `${cur.getMonth()+1}/${cur.getDate()}`, topLabel: `${cur.getFullYear()}년 ${cur.getMonth()+1}월`, type: "week" }); cur.setDate(cur.getDate()+7); } }
+      else { let cur = new Date(allPs); const end = new Date(allPf); while (cur <= end) { const dStr = cur.getFullYear()+"-"+String(cur.getMonth()+1).padStart(2,'0')+"-"+String(cur.getDate()).padStart(2,'0'); dateCols.push({ str: dStr, label: String(cur.getDate()), topLabel: `${cur.getFullYear()}년 ${cur.getMonth()+1}월`, type: "day" }); cur.setDate(cur.getDate()+1); } }
+      actList = activities;
+    }
+    html += `<tr><td colspan="${dateCols.length+3}" class="title">${title}</td></tr>`;
+    html += `<tr><th class="header" rowspan="2" width="100">대공종</th><th class="header" rowspan="2" width="220">공종명</th><th class="header" rowspan="2" width="60">진도율</th>`;
+    let curTop = null, count = 0;
+    dateCols.forEach(c => { if (curTop !== c.topLabel) { if (curTop !== null) html += `<th class="header" colspan="${count}">${curTop}</th>`; curTop = c.topLabel; count = 1; } else { count++; } });
+    if (curTop !== null) html += `<th class="header" colspan="${count}">${curTop}</th>`;
+    html += `</tr><tr>`;
+    dateCols.forEach(c => { html += `<th class="sub-header" width="22">${c.label}</th>`; });
+    html += `</tr>`;
+    const grouped = {};
+    actList.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
+    Object.entries(grouped).forEach(([cat, acts]) => {
+      html += `<tr><td style="background-color:#1A2332;color:#fff;font-weight:bold;text-align:center;" rowspan="${acts.length*2}">${cat}</td>`;
+      acts.forEach((a, ai) => {
+        if (ai > 0) html += `<tr>`;
+        html += `<td style="padding:4px 8px;font-weight:bold;border-bottom:2px solid #9CA3AF;" rowspan="2">${a.sub_group && a.sub_group !== "-" ? `(${a.sub_group}) ` : ""}${a.name}${a.delay_days > 0 ? ` (+${a.delay_days}일)` : ""}</td>`;
+        html += `<td style="text-align:center;font-weight:bold;border-bottom:2px solid #9CA3AF;" rowspan="2">${a.phys||0}%</td>`;
+        dateCols.forEach(c => {
+          let isPlan = c.type === "month" ? c.str >= a.ps.slice(0,7) && c.str <= a.pf.slice(0,7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate()+6); const wEndStr = wEnd.getFullYear()+"-"+String(wEnd.getMonth()+1).padStart(2,'0')+"-"+String(wEnd.getDate()).padStart(2,'0'); return wEndStr >= a.ps && c.str <= a.pf; })() : c.str >= a.ps && c.str <= a.pf;
+          html += `<td style="background-color:${isPlan ? "#10B981" : c.str === tStr ? "#FEF2F2" : "transparent"};height:14px;border-bottom:1px dotted #D1D5DB;"></td>`;
+        });
+        html += `</tr><tr>`;
+        dateCols.forEach(c => {
+          let isActual = false;
+          if (a.as_) { const afStr = a.af && a.af <= tStr ? a.af : tStr; isActual = c.type === "month" ? c.str >= a.as_.slice(0,7) && c.str <= afStr.slice(0,7) : c.type === "week" ? (() => { const wEnd = new Date(c.str); wEnd.setDate(wEnd.getDate()+6); const wEndStr = wEnd.getFullYear()+"-"+String(wEnd.getMonth()+1).padStart(2,'0')+"-"+String(wEnd.getDate()).padStart(2,'0'); return wEndStr >= a.as_ && c.str <= afStr; })() : c.str >= a.as_ && c.str <= afStr; }
+          html += `<td style="background-color:${isActual ? "#3B82F6" : c.str === tStr ? "#FEF2F2" : "transparent"};height:14px;border-top:none;border-bottom:2px solid #9CA3AF;"></td>`;
+        });
+        html += `</tr>`;
+      });
+    });
+    html += `<tr><td colspan="${dateCols.length+3}" style="text-align:right;padding:10px;font-weight:bold;border:none;"><span style="background-color:#10B981;color:#10B981;">__</span> 계획 <span style="background-color:#3B82F6;color:#3B82F6;margin-left:10px;">__</span> 실적</td></tr></table></body></html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `현장공정표_${title}_${tStr}.xls`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   const getMonday = (offset) => {
     const d = new Date(TODAY);
     const day = d.getDay();
@@ -1506,19 +1568,15 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
             <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
             <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
-          <button onClick={handleAIRecommend} disabled={aiLoading}
-            style={{ background: aiLoading ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: aiLoading ? "#9CA3AF" : "#fff", cursor: aiLoading ? "default" : "pointer" }}>
-            {aiLoading ? "AI 분석 중..." : "🤖 AI 계획 추천"}
-          </button>
-          {viewMode === "3w" && (
-            <button onClick={handleConfirm} disabled={confirming}
-              style={{ background: confirming ? "#E5E7EB" : "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: confirming ? "default" : "pointer" }}>
-              {confirming ? "저장 중..." : "✅ 확정/등록"}
-            </button>
-          )}
+          
+          
           <button onClick={handlePrint}
             style={{ background: NAVY, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             🖨️ PDF 출력
+          </button>
+          <button onClick={handleExcelDownload}
+            style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
+            📊 엑셀 저장
           </button>
           <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
         </div>
@@ -2711,8 +2769,16 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
+        // 합계 정규화 — Largest Remainder Method로 정확히 100 맞춤
+        const total = suggestions.reduce((s, x) => s + (x.weight || 0), 0);
+        const exact = suggestions.map(s => (s.weight || 0) / total * 100);
+        const floored = exact.map(v => Math.floor(v));
+        const remainder = 100 - floored.reduce((a, b) => a + b, 0);
+        const remainders = exact.map((v, i) => ({ i, r: v - floored[i] })).sort((a, b) => b.r - a.r);
+        remainders.slice(0, remainder).forEach(({ i }) => floored[i]++);
+        const normalized = suggestions.map((s, i) => ({ ...s, weight: floored[i] }));
         // pending_approval 상태로 DB에 저장
-        for (const s of suggestions) {
+        for (const s of normalized) {
           const [saved] = await sb.post("sub_activities", {
             activity_id: act.id,
             name: s.name,
@@ -6733,12 +6799,12 @@ function SplashScreen({ onDone }) {
       <div className="sp-wrap" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
         <svg width="120" height="140" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
           {/* 외곽선 — 한 줄씩 순서대로 */}
-          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.0s" }} />
-          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
-          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
-          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
-          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
-          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
+          <line className="sp-line" x1="-58" y1="52" x2="-58" y2="-44" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.0s" }}/>
+          <line className="sp-line" x1="-58" y1="-44" x2="0" y2="-80" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.2s" }} />
+          <line className="sp-line" x1="0" y1="-80" x2="58" y2="-20" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.4s" }} />
+          <line className="sp-line" x1="58" y1="-20" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.6s" }} />
+          <line className="sp-line" x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
+          <line className="sp-line" x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" style={{ animationDelay: "0.8s" }} />
           {/* 내부선 — (1,3,4)번 동시 → (2,5)번 동시 */}
           <line className="sp-line" x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
           <line className="sp-line" x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" style={{ animationDelay: "1.1s" }} />
@@ -6966,6 +7032,7 @@ function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setDataReady(false); };
 
+  if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
@@ -6987,20 +7054,20 @@ function App() {
 
   return (
     <div style={{ fontFamily: "'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
-      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
         <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="22" height="26" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
               <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
+              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
+              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
             </svg>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>FIELD LOG</span>
           </div>
