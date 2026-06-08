@@ -152,7 +152,8 @@ function calcAct(a) {
 function calcTodayTarget(a) {
   const rem_days = Math.max(1, diffDays(a.pf, TODAY));
   const rem_qty = Math.max(0, a.plan_qty - a.done_qty);
-  return { daily_target: Math.round(rem_qty / rem_days), plan_daily: Math.round(a.plan_qty / Math.max(1, a.orig_dur)), rem_qty, rem_days };
+  const round2 = (v) => Math.round(v * 100) / 100;
+  return { daily_target: round2(rem_qty / rem_days), plan_daily: round2(a.plan_qty / Math.max(1, a.orig_dur)), rem_qty, rem_days };
 }
 
 function recalcCPM(activities, changedId, delayDays) {
@@ -1487,6 +1488,18 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             {weekOffset === 0 && <span style={{ fontSize: 11, color: YELLOW, marginLeft: 6 }}>이번주</span>}
           </div>
           <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
+          <input type="date"
+            value={dayStr(weeks[1].start)}
+            onChange={e => {
+              const d = new Date(e.target.value);
+              const day = d.getDay();
+              const monday = new Date(d);
+              monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+              const diff = Math.round((monday - getMonday(0)) / (7 * 86400000));
+              setWeekOffset(diff);
+            }}
+            style={{ border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "0 10px", height: 34, fontSize: 13, outline: "none" }}
+          />
           <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
           {/* 뷰 토글 */}
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
@@ -2339,7 +2352,31 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 
       {/* 버튼 */}
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 14 }}>
-        <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+       <button onClick={() => {
+          const content = document.getElementById("dr-content");
+          if (!content) return;
+          const clone = content.cloneNode(true);
+          clone.querySelectorAll("*").forEach(el => {
+            el.style.maxHeight = "";
+            el.style.overflow = "";
+            el.style.overflowY = "";
+            el.style.height = "";
+          });
+          const w = window.open("", "_blank");
+          w.document.write(`<!DOCTYPE html><html><head>
+            <meta charset="utf-8"><title>공사일지</title>
+            <style>
+              * { box-sizing: border-box; }
+              body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; font-size: 11px; line-height: 1.6; color: #1a1a1a; }
+              table { border-collapse: collapse; width: 100%; }
+              th, td { border: 1px solid #D1D5DB; padding: 5px 8px; vertical-align: top; }
+              @page { size: A4; margin: 12mm; }
+            </style>
+          </head><body>${clone.outerHTML}</body></html>`);
+          w.document.close();
+          w.focus();
+          setTimeout(() => w.print(), 1000);
+        }} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
       </div>
 
