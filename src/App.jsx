@@ -1046,7 +1046,7 @@ function Dashboard({ activities, progressReports, issues, weather, project }) {
   );
 }
 
-function ThreeWeekView({ activities, milestones, setMilestones, progressReports, subActivities }) {
+function ThreeWeekView({ activities, milestones, setMilestones, progressReports, subActivities, setSubActivities }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weeklyPlans, setWeeklyPlans] = useState([]);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
@@ -2338,8 +2338,41 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                             <React.Fragment key={`sub-${sub.id}`}>
                               {/* 계획 줄 (초록 막대) */}
                               <div style={{ display: "flex", borderBottom: "1px dotted #F3F4F6", background: "#FAFAFA", minWidth: TOTAL_W }}>
-                                <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "2px 12px 2px 24px", display: "flex", alignItems: "center" }}>
-                                  <div style={{ fontSize: 11, color: "#4B5563" }}>└ {sub.name} <span style={{ fontSize: 9, color: "#10B981", marginLeft: 4 }}>[계획]</span></div>
+                                <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "2px 8px 2px 20px" }}>
+                                  <div style={{ fontSize: 11, color: "#4B5563", fontWeight: 600, marginBottom: 2 }}>└ {sub.name}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                    <input type="date"
+                                      value={sub.start_date?.slice(0, 10) || ""}
+                                      onChange={async e => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+                                        const parentAct = activities.find(x => x.id === sub.activity_id);
+                                        if (parentAct && (val < parentAct.ps || val > parentAct.pf)) {
+                                          const ok = window.confirm(`⚠️ 입력한 시작일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
+                                          if (!ok) return;
+                                        }
+                                        setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: val } : s));
+                                        await sb.patch("sub_activities", sub.id, { start_date: val });
+                                      }}
+                                      style={{ width: 88, border: "1px solid #E5E7EB", borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: "#374151" }}
+                                    />
+                                    <span style={{ fontSize: 9, color: "#9CA3AF" }}>~</span>
+                                    <input type="date"
+                                      value={sub.end_date?.slice(0, 10) || ""}
+                                      onChange={async e => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+                                        const parentAct = activities.find(x => x.id === sub.activity_id);
+                                        if (parentAct && (val < parentAct.ps || val > parentAct.pf)) {
+                                          const ok = window.confirm(`⚠️ 입력한 종료일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
+                                          if (!ok) return;
+                                        }
+                                        setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, end_date: val } : s));
+                                        await sb.patch("sub_activities", sub.id, { end_date: val });
+                                      }}
+                                      style={{ width: 88, border: "1px solid #E5E7EB", borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: "#374151" }}
+                                    />
+                                  </div>
                                 </div>
                                 <div style={{ width: DAY_W * 21, flexShrink: 0, position: "relative", height: 22 }}>
                                   <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
@@ -2348,7 +2381,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                     ))}
                                   </div>
                                   {subPlanSi >= 0 && subPlanEi >= 0 && (
-                                    <div style={{ position: "absolute", top: 7, left: subPlanSi * DAY_W + 2, width: (subPlanEi - subPlanSi + 1) * DAY_W - 4, height: 8, background: "#10B981", borderRadius: 4, zIndex: 2 }} />
+                                    <div style={{ position: "absolute", top: 5, left: subPlanSi * DAY_W + 2, width: (subPlanEi - subPlanSi + 1) * DAY_W - 4, height: 12, background: "#10B981", borderRadius: 4, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 5, overflow: "hidden" }}>
+                                      <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>[계획] {sub.name}</span>
+                                    </div>
                                   )}
                                   {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
                                 </div>
@@ -2356,11 +2391,17 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
                               {/* 실적 줄 (파란 막대) */}
                               <div style={{ display: "flex", borderBottom: "1px dashed #E5E7EB", background: "#fff", minWidth: TOTAL_W }}>
-                                <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "2px 12px 2px 24px", display: "flex", alignItems: "center" }}>
-                                  <div style={{ fontSize: 11, color: "#4B5563", paddingLeft: 12 }}>
-                                    └ 진도: {sub.phys || 0}%
-                                    <span style={{ fontSize: 9, color: "#3B82F6", marginLeft: 4 }}>[실적]</span>
+                                <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "2px 8px 2px 20px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                                    <div style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600 }}>진도율</div>
+                                    <div style={{ fontSize: 11, fontWeight: 700, color: sub.phys === 100 ? "#10B981" : "#3B82F6" }}>{sub.phys || 0}%</div>
                                   </div>
+                                  <input
+                                    defaultValue={getPlan(a.id, weeks[1].startStr)?.note || ""}
+                                    placeholder="이번주 계획 내용"
+                                    onBlur={e => handlePlanSave(a.id, weeks[1].startStr, "note", e.target.value)}
+                                    style={{ width: "100%", border: "1px solid #E5E7EB", borderRadius: 4, padding: "2px 5px", fontSize: 9, outline: "none", boxSizing: "border-box", color: "#374151", background: "#F8FAFC" }}
+                                  />
                                 </div>
                                 <div style={{ width: DAY_W * 21, flexShrink: 0, position: "relative", height: 22 }}>
                                   <div style={{ display: "flex", height: "100%", position: "absolute", inset: 0 }}>
@@ -2369,7 +2410,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                     ))}
                                   </div>
                                   {subActSi >= 0 && subActEi >= 0 && (
-                                    <div style={{ position: "absolute", top: 7, left: subActSi * DAY_W + 2, width: (subActEi - subActSi + 1) * DAY_W - 4, height: 8, background: actBgColor, borderRadius: 4, zIndex: 2 }} />
+                                    <div style={{ position: "absolute", top: 5, left: subActSi * DAY_W + 2, width: (subActEi - subActSi + 1) * DAY_W - 4, height: 12, background: actBgColor, borderRadius: 4, zIndex: 2, display: "flex", alignItems: "center", paddingLeft: 5, overflow: "hidden" }}>
+                                      <span style={{ fontSize: 8, color: "#fff", fontWeight: 600, whiteSpace: "nowrap" }}>[실적] {sub.phys}%{sub.phys === 100 ? " 완료" : " 진행중"}</span>
+                                    </div>
                                   )}
                                   {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * DAY_W + DAY_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
                                 </div>
@@ -5833,7 +5876,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
               if (sub && !sub.start_date) {
                 await sb.patch("sub_activities", res.matched_sub_id, { start_date: dayStr(TODAY) });
                 setSubActivities(p => p.map(s => s.id === res.matched_sub_id ? { ...s, start_date: dayStr(TODAY) } : s));
-                setChatMessages(p => [...p.slice(0, -0), { id: uid + 3, role: "system", content: `🔨 ${sub.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
+                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `🔨 ${sub.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
               } else if (sub?.start_date) {
                 setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `ℹ️ ${sub.name}은 이미 ${sub.start_date}에 착수됐습니다.` }]);
               }
@@ -7227,7 +7270,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
             />)}
-          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} />}
+          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities}/>}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
