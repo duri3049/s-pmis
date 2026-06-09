@@ -110,6 +110,11 @@ const claudeComplete = async (prompt) => {
     body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
   });
   const data = await r.json();
+  if (!r.ok) {
+    if (r.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    throw new Error(`AI 오류: ${r.status}`);
+  }
+  if (!data.content?.[0]?.text) throw new Error("AI 응답이 비어있습니다.");
   console.log("AI 응답 원본:", data.content[0].text);
   return data.content[0].text;
 };
@@ -1170,8 +1175,8 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
         if (viewMode === "3w" && subActivities) {
           const subs = subActivities.filter(sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date);
           const activeOverlappingSubs = subs.filter(sub => {
-            const subEndStr = sub.end_date || a.pf || sub.start_date;
-            return sub.start_date <= dateCols[20].str && subEndStr >= dateCols[0].str;
+            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
+            return sub.start_date <= dateCols[20].str && subPlanEnd >= dateCols[0].str;
           });
           catRowCount += activeOverlappingSubs.length * 2; // 세부 공종 1개당 2줄씩 추가
         }
@@ -1217,21 +1222,23 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
         if (viewMode === "3w" && subActivities) {
           const subs = subActivities.filter(sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date);
           const activeOverlappingSubs = subs.filter(sub => {
-            const subEndStr = sub.end_date || a.pf || sub.start_date;
-            return sub.start_date <= dateCols[20].str && subEndStr >= dateCols[0].str;
+            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
+            return sub.start_date <= dateCols[20].str && subPlanEnd >= dateCols[0].str;
           });
 
           activeOverlappingSubs.forEach(sub => {
-            const subEndStr = sub.end_date || a.pf || sub.start_date;
+            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
 
-            // 세부공정 계획 줄
             html += `<tr>`;
             html += `<td style="padding:4px 8px 4px 20px; color:#555; text-align:left; border-bottom:1px dotted #D1D5DB;">└ ${sub.name} <span style="color:#10B981; font-size:10px;">[계획]</span></td>`;
             html += `<td style="text-align:center; color:#555; border-bottom:1px dotted #D1D5DB;">-</td>`;
+
             dateCols.forEach(c => {
-              const isPlan = (c.str >= sub.start_date && c.str <= subEndStr);
+              const isPlan = (c.str >= sub.start_date && c.str <= subPlanEnd);
+
               html += `<td style="background-color:${isPlan ? '#10B981' : 'transparent'}; height:14px; border-bottom:1px dotted #D1D5DB;"></td>`;
             });
+
             html += `</tr>`;
 
             // 세부공정 실적 줄
@@ -2179,7 +2186,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                     );
                   })}
                 </div>
-              </div>  
+              </div>
             </div>
 
             {/* 마일스톤 행 */}
@@ -2474,7 +2481,32 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #wr-content, #wr-content * { visibility: visible; } #wr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
-        <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+        <button onClick={() => {
+          const content = document.getElementById("wr-content");
+          if (!content) return;
+          const clone = content.cloneNode(true);
+          clone.querySelectorAll("*").forEach(el => {
+            el.style.maxHeight = "";
+            el.style.overflow = "";
+            el.style.overflowY = "";
+            el.style.height = "";
+          });
+          const w = window.open("", "_blank");
+          w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8"><title>주간공정보고서</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; font-size: 11px; line-height: 1.6; color: #1a1a1a; padding: 20px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #D1D5DB; padding: 6px 10px; vertical-align: top; }
+      @page { size: A4; margin: 15mm; }
+    </style>
+  </head><body>${clone.outerHTML}</body></html>`);
+          w.document.close();
+          w.focus();
+          setTimeout(() => w.print(), 1000);
+        }} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
       </div>
       <div id="wr-content" style={{ maxWidth: 800, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
@@ -2646,7 +2678,31 @@ function MonthlyReport({ activities, issues, progressReports, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #mr-content, #mr-content * { visibility: visible; } #mr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
-        <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
+        <button onClick={() => {
+          const content = document.getElementById("mr-content");
+          if (!content) return;
+          const clone = content.cloneNode(true);
+          clone.querySelectorAll("*").forEach(el => {
+            el.style.maxHeight = "";
+            el.style.overflow = "";
+            el.style.overflowY = "";
+            el.style.height = "";
+          });
+          const w = window.open("", "_blank");
+          w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8"><title>월간공정보고서</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: 'Malgun Gothic','맑은 고딕',sans-serif; font-size: 11px; line-height: 1.6; color: #1a1a1a; padding: 20px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #D1D5DB; padding: 6px 10px; vertical-align: top; }
+      @page { size: A4; margin: 15mm; }
+    </style>
+  </head><body>${clone.outerHTML}</body></html>`);
+          w.document.close();
+          w.focus();
+          setTimeout(() => w.print(), 1000);
+        }} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
       </div>
       <div id="mr-content" style={{ maxWidth: 800, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
@@ -5136,17 +5192,17 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
 
     <div class="sec">2. 지연 사유별 집계</div>
     <table><thead><tr><th>지연 사유</th><th>건수</th><th>누적 지연일</th><th>비율</th></tr></thead><tbody>
-      ${Object.entries(causeMap).sort((a,b) => b[1].days - a[1].days).map(([cause, d]) =>
-        `<tr><td>${cause}</td><td style="text-align:center">${d.count}건</td><td style="text-align:center;color:#DC2626;font-weight:700">+${d.days}일</td><td style="text-align:center">${totalDelayDays > 0 ? Math.round(d.days/totalDelayDays*100) : 0}%</td></tr>`
-      ).join("")}
+      ${Object.entries(causeMap).sort((a, b) => b[1].days - a[1].days).map(([cause, d]) =>
+      `<tr><td>${cause}</td><td style="text-align:center">${d.count}건</td><td style="text-align:center;color:#DC2626;font-weight:700">+${d.days}일</td><td style="text-align:center">${totalDelayDays > 0 ? Math.round(d.days / totalDelayDays * 100) : 0}%</td></tr>`
+    ).join("")}
     </tbody></table>
 
     <div class="sec">3. 공기지연 이슈 상세 이력</div>
     <table><thead><tr><th style="width:4%">No.</th><th style="width:25%">이슈 제목</th><th style="width:18%">연결 공종</th><th style="width:10%">지연일</th><th style="width:15%">원인</th><th style="width:18%">조치 계획</th><th style="width:10%">상태</th></tr></thead><tbody>
       ${delayIssues.map((i, idx) => {
-        const act = activities.find(a => a.id === i.activity_id);
-        return `<tr style="${i.status !== 'closed' ? 'background:#FFF5F5' : ''}">
-          <td style="text-align:center">${idx+1}</td>
+      const act = activities.find(a => a.id === i.activity_id);
+      return `<tr style="${i.status !== 'closed' ? 'background:#FFF5F5' : ''}">
+          <td style="text-align:center">${idx + 1}</td>
           <td style="font-weight:600">${i.title}</td>
           <td>${act ? act.name : "-"}</td>
           <td style="text-align:center;color:#DC2626;font-weight:700">${i.delay_days > 0 ? `+${i.delay_days}일` : "-"}</td>
@@ -5154,7 +5210,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
           <td>${i.action_plan || "검토 중"}</td>
           <td style="text-align:center">${i.status === "closed" ? "✅ 해결" : "⚠️ 진행중"}</td>
         </tr>`;
-      }).join("")}
+    }).join("")}
     </tbody></table>
 
     <table style="margin-top:32px"><tbody><tr>
@@ -5222,7 +5278,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
           {/* 사유별 집계 */}
           <div style={{ fontSize: 11, fontWeight: 700, color: "#991B1B", marginBottom: 6 }}>사유별 집계</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {Object.entries(causeMap).sort((a,b) => b[1].days - a[1].days).map(([cause, d], i) => (
+            {Object.entries(causeMap).sort((a, b) => b[1].days - a[1].days).map(([cause, d], i) => (
               <div key={i} style={{ background: "#fff", border: "1px solid #FECACA", borderRadius: 8, padding: "4px 10px", fontSize: 11 }}>
                 <span style={{ color: "#374151" }}>{cause}</span>
                 <span style={{ color: "#DC2626", fontWeight: 700, marginLeft: 6 }}>+{d.days}일</span>
@@ -5903,6 +5959,11 @@ JSON 없이 자연스럽게 한국어로만 답해.
       body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: systemPrompt, messages })
     });
     const data = await r.json();
+    if (!r.ok) {
+      if (r.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+      throw new Error(`AI 오류: ${r.status}`);
+    }
+    if (!data.content?.[0]?.text) throw new Error("AI 응답이 비어있습니다.");
     console.log("AI 응답 원본:", data.content[0].text);
     return data.content[0].text;
   };
@@ -7391,7 +7452,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
             />)}
-          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities}/>}
+          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
