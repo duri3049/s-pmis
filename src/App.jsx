@@ -7514,7 +7514,10 @@ function App() {
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
-  const [user, setUser] = useState(null);
+  const DEMO_MODE = true;
+  const DEMO_USER = { id: "demo-user-001", email: "demo@fieldlog.kr", name: "데모 관리자", role: "공무과장" };
+  const [user, setUser] = useState(DEMO_MODE ? DEMO_USER : null);
+  
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
   const [progressReports, setProgressReports] = useState([]);
@@ -7564,6 +7567,7 @@ function App() {
   }, [user, rooms]);
 
   useEffect(() => {
+    if (DEMO_MODE) { setDbLoading(false); return; }
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
@@ -7715,7 +7719,8 @@ function App() {
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setDataReady(false); };
 
   if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
-  if (!user) return <AuthScreen onAuth={setUser} />;
+  // DEMO MODE: 로그인 화면 skip
+  if (!DEMO_MODE && !user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
     <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>      <div style={{ width: 40, height: 40, borderRadius: 10, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: NAVY }}>S</div>
