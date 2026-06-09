@@ -319,7 +319,7 @@ function AuthScreen({ onAuth }) {
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
-          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>현장 톡톡</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>현장 톡.톡.</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
           {[["login", "로그인"]].map(([m, label]) => (
@@ -650,7 +650,7 @@ ${(activities || []).map(a => {
       await supabase.from("chat_messages").insert({
         room_id: room.id,
         user_id: "00000000-0000-0000-0000-000000000000",
-        user_name: "현장 톡톡 AI",
+        user_name: "현장 톡.톡. AI",
         user_role: "AI",
         avatar: "🤖",
         content: aiText,
@@ -2575,7 +2575,7 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "#9CA3AF" }}>
-          본 보고서는 현장 톡톡 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
+          본 보고서는 현장 톡.톡. 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -2790,7 +2790,7 @@ function MonthlyReport({ activities, issues, progressReports, onClose }) {
           </tbody>
         </table>
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "#9CA3AF" }}>
-          본 보고서는 현장 톡톡 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
+          본 보고서는 현장 톡.톡. 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -3145,7 +3145,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
         </table>
 
         <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#9CA3AF" }}>
-          본 공사일지는 현장 톡톡 에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
+          본 공사일지는 현장 톡.톡. 에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
         </div>
       </div>
     </div>
@@ -7315,7 +7315,7 @@ function SplashScreen({ onDone }) {
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", opacity: 0, animation: "textIn 0.6s ease 2.2s forwards" }}>
             <span style={{ fontSize: 30, fontWeight: 900, color: "#fff", letterSpacing: 2 }}>현장</span>
-            <span style={{ fontSize: 30, fontWeight: 900, color: YELLOW, letterSpacing: 2 }}>톡톡</span>
+            <span style={{ fontSize: 30, fontWeight: 900, color: YELLOW, letterSpacing: 2 }}>톡.톡.</span>
           </div>
           <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 2, opacity: 0, animation: "textIn 0.6s ease 2.4s forwards" }}>건설현장 공정관리 플랫폼</div>
         </div>
@@ -7568,7 +7568,7 @@ function App() {
               <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
             </svg>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>현장 톡톡</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>현장 톡.톡.</span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "4px 8px", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📱 현장</button>
