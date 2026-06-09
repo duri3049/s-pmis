@@ -2307,7 +2307,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                         {/* 2. 세부 공종 행 */}
                         {activeOverlappingSubs.map((sub) => {
                           const planStart = sub.start_date?.slice(0, 10) || "";
-                          const planEndRaw = sub.end_date?.slice(0, 10) || "";
+                          const planEndRaw = sub.planned_end_date?.slice(0, 10) || sub.end_date?.slice(0, 10) || "";
                           const planEnd = planEndRaw || (safeApf >= planStart ? safeApf : planStart);
 
                           const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10) || planStart;
@@ -2358,7 +2358,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                     />
                                     <span style={{ fontSize: 9, color: "#9CA3AF" }}>~</span>
                                     <input type="date"
-                                      value={sub.end_date?.slice(0, 10) || ""}
+                                      value={sub.planned_end_date?.slice(0, 10) || sub.end_date?.slice(0, 10) || ""}
                                       onChange={async e => {
                                         const val = e.target.value;
                                         if (!val) return;
@@ -2367,8 +2367,8 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                           const ok = window.confirm(`⚠️ 입력한 종료일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
                                           if (!ok) return;
                                         }
-                                        setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, end_date: val } : s));
-                                        await sb.patch("sub_activities", sub.id, { end_date: val });
+                                        setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, planned_end_date: val } : s));
+                                        await sb.patch("sub_activities", sub.id, { planned_end_date: val });
                                       }}
                                       style={{ width: 88, border: "1px solid #E5E7EB", borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: "#374151" }}
                                     />
