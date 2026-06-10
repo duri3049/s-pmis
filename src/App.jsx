@@ -2328,22 +2328,26 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                     const activeOverlappingSubs = (subActivities || []).filter((sub) => {
                       if (sub.activity_id !== a.id || sub.status !== "active") return false;
 
-                      // 계획 기간 추출
+                      // 계획 기간 추출 (planned_end_date 우선 사용)
                       const planStart = sub.start_date?.slice(0, 10);
                       if (!planStart) return false;
-                      const planEnd = sub.end_date?.slice(0, 10) || (safeApf >= planStart ? safeApf : planStart);
+                      const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                      // 실적 기간 추출
-                      const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10) || planStart;
+                      // 실적 기간 추출 (실적 시작이 있을 때만)
+                      const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10);
                       const actEndRaw = sub.end_date?.slice(0, 10) || "";
+                      // 실적 시작했고 아직 완료 안 된 경우(진행중) → 오늘까지 늘려서 표시
                       const actEnd = (actEndRaw && actEndRaw <= todayStr) ? actEndRaw : todayStr;
 
                       // 계획과 실적 각각 겹침 여부 확인
                       const overlapsPlan = planStart <= rangeEnd && planEnd >= rangeStart;
-                      const overlapsActual = actStart <= rangeEnd && actEnd >= rangeStart;
+                      const overlapsActual = actStart
+                        ? actStart <= rangeEnd && actEnd >= rangeStart
+                        : false;
+                      // 진행중(실적 시작 O, 완료 X)인 세부공정은 오늘 기준으로 항상 표시
+                      const isOngoing = actStart && !actEndRaw && sub.phys < 100;
 
-                      // 계획이든 실적이든 어느 하나라도 이 3주 화면에 존재하면 표시!
-                      return overlapsPlan || overlapsActual;
+                      return overlapsPlan || overlapsActual || isOngoing;
                     });
 
                     return (
@@ -2383,17 +2387,19 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                         {/* 2. 세부 공종 행 */}
                         {activeOverlappingSubs.map((sub) => {
                           const planStart = sub.start_date?.slice(0, 10) || "";
-                          const planEndRaw = sub.planned_end_date?.slice(0, 10) || sub.end_date?.slice(0, 10) || "";
-                          const planEnd = planEndRaw || (safeApf >= planStart ? safeApf : planStart);
+                          const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                          const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10) || planStart;
+                          const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10);
                           const actEndRaw = sub.end_date?.slice(0, 10) || "";
                           const actEnd = (actEndRaw && actEndRaw <= todayStr) ? actEndRaw : todayStr;
 
                           let subPlanSi = -1, subPlanEi = -1, subActSi = -1, subActEi = -1;
 
                           // 💡 [개선2] 파란색 막대의 종료 지점 통합 설정 (100%면 실제 완료일, 아니면 오늘)
-                          const finalActEnd = (sub.phys === 100) ? actEnd : todayStr;
+                          // 실적 시작 없으면 파란 바 안 그림, 진행중이면 오늘까지
+                          const finalActEnd = actStart
+                            ? (sub.phys === 100 ? actEnd : todayStr)
+                            : null;
 
                           days.forEach((d, i) => {
                             // 초록색 계획 바 인덱스 (순수하게 plan 기준)
@@ -2402,7 +2408,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                               subPlanEi = i;
                             }
                             // 파란색 실적 바 인덱스 (순수하게 act 기준)
-                            if (actStart && d.str >= actStart && d.str <= finalActEnd) {
+                            if (actStart && finalActEnd && d.str >= actStart && d.str <= finalActEnd) {
                               if (subActSi === -1) subActSi = i;
                               subActEi = i;
                             }
