@@ -1186,7 +1186,20 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
         const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
         dateCols.push({ str: dStr, label: String(d.getDate()), topLabel: `${d.getFullYear()}년 ${d.getMonth() + 1}월`, type: "day" });
       }
-      actList = activities.filter(a => a.phys < 100 && a.ps <= dateCols[20].str && a.pf >= dateCols[0].str);
+      const rangeStart = dateCols[0].str;
+      const rangeEnd = dateCols[20].str;
+      actList = activities.filter(a => {
+        if (a.phys >= 100) return false;
+        const overlapsPlan = a.ps <= rangeEnd && a.pf >= rangeStart;
+        const hasOverlappingSub = (subActivities || []).some(sub => {
+          if (sub.activity_id !== a.id || sub.status !== "active") return false;
+          const subStart = sub.start_date?.slice(0, 10);
+          if (!subStart) return false;
+          const subEffectiveEnd = sub.end_date?.slice(0, 10) || sub.planned_end_date?.slice(0, 10) || tStr;
+          return subStart <= rangeEnd && subEffectiveEnd >= rangeStart;
+        });
+        return overlapsPlan || hasOverlappingSub;
+      });
     } else if (viewMode === "3m") {
       const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
       for (let i = 0; i < 92; i++) {
@@ -1242,12 +1255,23 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
       acts.forEach(a => {
         catRowCount += 2; // 기본 공종 (계획 + 실적 2줄)
         if (viewMode === "3w" && subActivities) {
-          const subs = subActivities.filter(sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date);
-          const activeOverlappingSubs = subs.filter(sub => {
-            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
-            return sub.start_date <= dateCols[20].str && subPlanEnd >= dateCols[0].str;
+          const rangeStart = dateCols[0].str;
+          const rangeEnd = dateCols[20].str;
+          const activeOverlappingSubs = (subActivities || []).filter((sub) => {
+            if (sub.activity_id !== a.id || sub.status !== "active") return false;
+            const planStart = sub.start_date?.slice(0, 10);
+            if (!planStart) return false;
+            const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
+            const hasActual = planStart <= tStr;
+            const actStart = hasActual ? planStart : null;
+            const actEndRaw = sub.end_date?.slice(0, 10) || "";
+            const actEnd = (actEndRaw && actEndRaw <= tStr) ? actEndRaw : tStr;
+            const overlapsPlan = planStart <= rangeEnd && planEnd >= rangeStart;
+            const overlapsActual = actStart ? actStart <= rangeEnd && actEnd >= rangeStart : false;
+            const isOngoing = hasActual && !actEndRaw && sub.phys < 100;
+            return overlapsPlan || overlapsActual || isOngoing;
           });
-          catRowCount += activeOverlappingSubs.length * 2; // 세부 공종 1개당 2줄씩 추가
+          catRowCount += activeOverlappingSubs.length * 2;
         }
       });
 
@@ -1290,49 +1314,49 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
         // --- 세부 공종 (계획/실적 줄 추가) ---
         if (viewMode === "3w" && subActivities) {
           const subs = subActivities.filter(sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date);
-          const activeOverlappingSubs = subs.filter(sub => {
-            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
-            return sub.start_date <= dateCols[20].str && subPlanEnd >= dateCols[0].str;
+          const rangeStart = dateCols[0].str;
+          const rangeEnd = dateCols[20].str;
+          const activeOverlappingSubs = (subActivities || []).filter((sub) => {
+            if (sub.activity_id !== a.id || sub.status !== "active") return false;
+            const planStart = sub.start_date?.slice(0, 10);
+            if (!planStart) return false;
+            const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
+            const hasActual = planStart <= tStr;
+            const actStart = hasActual ? planStart : null;
+            const actEndRaw = sub.end_date?.slice(0, 10) || "";
+            const actEnd = (actEndRaw && actEndRaw <= tStr) ? actEndRaw : tStr;
+            const overlapsPlan = planStart <= rangeEnd && planEnd >= rangeStart;
+            const overlapsActual = actStart ? actStart <= rangeEnd && actEnd >= rangeStart : false;
+            const isOngoing = hasActual && !actEndRaw && sub.phys < 100;
+            return overlapsPlan || overlapsActual || isOngoing;
           });
 
           activeOverlappingSubs.forEach(sub => {
-            const subPlanEnd = sub.planned_end_date || a.pf || sub.start_date;
+            const planStart = sub.start_date?.slice(0, 10) || "";
+            const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
             html += `<tr>`;
             html += `<td style="padding:4px 8px 4px 20px; color:#555; text-align:left; border-bottom:1px dotted #D1D5DB;">└ ${sub.name} <span style="color:#10B981; font-size:10px;">[계획]</span></td>`;
             html += `<td style="text-align:center; color:#555; border-bottom:1px dotted #D1D5DB;">-</td>`;
-
             dateCols.forEach(c => {
-              const isPlan = (c.str >= sub.start_date && c.str <= subPlanEnd);
-
+              const isPlan = (planStart && c.str >= planStart && c.str <= planEnd);
               html += `<td style="background-color:${isPlan ? '#10B981' : 'transparent'}; height:14px; border-bottom:1px dotted #D1D5DB;"></td>`;
             });
-
             html += `</tr>`;
 
-            // 세부공정 실적 줄
             html += `<tr>`;
             html += `<td style="padding:4px 8px 4px 30px; color:#555; text-align:left; border-bottom:1px dashed #9CA3AF; font-size:11px;">└ 진도율 <span style="color:#3B82F6; font-size:10px;">[실적]</span></td>`;
             html += `<td style="text-align:center; color:#555; border-bottom:1px dashed #9CA3AF;">${sub.phys || 0}%</td>`;
+            const hasActual = planStart && planStart <= tStr;
+            const actStart = hasActual ? planStart : null;
+            const actEndRaw = sub.end_date?.slice(0, 10) || "";
+            const actEnd = (actEndRaw && actEndRaw <= tStr) ? actEndRaw : tStr;
+            const finalActEnd = hasActual ? (sub.phys === 100 ? actEnd : tStr) : null;
+            const actBgColor = sub.phys === 100 ? "#3B82F6" : "#93C5FD";
             dateCols.forEach(c => {
               let actualBg = "transparent";
-              const actualStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10) || sub.start_date?.slice(0, 10);
-
-              // 실적 종료일 계산 (100% 완료면 완료일, 아니면 오늘까지만)
-              const subAf = sub.end_date?.slice(0, 10);
-              const finalActEnd = (sub.phys === 100 && subAf && subAf <= tStr) ? subAf : tStr;
-
-              // 오늘 날짜(c.str)를 넘지 않도록 강력한 제한
-              if (c.str <= tStr) {
-                if (sub.phys === 100) {
-                  if (c.str >= actualStart && c.str <= finalActEnd) {
-                    actualBg = "#3B82F6";
-                  }
-                } else {
-                  if (c.str >= actualStart && c.str <= tStr) {
-                    actualBg = "#93C5FD";
-                  }
-                }
+              if (actStart && finalActEnd && c.str >= actStart && c.str <= finalActEnd) {
+                actualBg = actBgColor;
               }
               html += `<td style="background-color:${actualBg}; height:14px; border-bottom:1px dashed #9CA3AF;"></td>`;
             });
@@ -1342,7 +1366,7 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
       });
     });
 
-    html += `<tr><td colspan="${dateCols.length + 3}" style="text-align:right;padding:10px;font-weight:bold;border:none;"><span style="background-color:#10B981;color:#10B981;">__</span> 계획 <span style="background-color:#3B82F6;color:#3B82F6;margin-left:10px;">__</span> 실적</td></tr></table></body></html>`;
+    html += `<tr><td colspan="${dateCols.length + 3}" style="text-align:right;padding:10px;font-weight:bold;border:none;"><span style="color:#10B981;font-size:14px;">■</span> 계획 <span style="color:#3B82F6;margin-left:10px;font-size:14px;">■</span> 실적(완료) <span style="color:#93C5FD;margin-left:10px;font-size:14px;">■</span> 세부공정 진행중</td></tr></table></body></html>`;
 
     const blob = new Blob([html], { type: "application/vnd.ms-excel" });
     const url = window.URL.createObjectURL(blob);
@@ -1381,10 +1405,17 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
   const active = activities.filter(a => {
     if (a.phys >= 100) return false;
     const overlapsPlan = a.ps <= rangeEnd && a.pf >= rangeStart;
-    const hasStartedSub = (subActivities || []).some(
-      sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date?.slice(0, 10) <= todayStrLocal
-    );
-    return overlapsPlan || hasStartedSub;
+    const hasOverlappingSub = (subActivities || []).some(sub => {
+  if (sub.activity_id !== a.id || sub.status !== "active") return false;
+  const subStart = sub.start_date?.slice(0, 10);
+  if (!subStart) return false;
+  // 실제 완료일 → 계획 완료일 → 진행중이면 오늘 순으로 유효 종료일 결정
+  const subEffectiveEnd = sub.end_date?.slice(0, 10)
+    || sub.planned_end_date?.slice(0, 10)
+    || todayStrLocal;
+  return subStart <= rangeEnd && subEffectiveEnd >= rangeStart;
+});
+return overlapsPlan || hasOverlappingSub;
   });
 
   useEffect(() => {
