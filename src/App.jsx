@@ -1063,42 +1063,111 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
   const [viewMode, setViewMode] = useState("3w");
 
   const handlePrint = async () => {
-    const el = document.getElementById("gantt-print-area");
-    if (!el) return;
-    if (!window.html2canvas) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-    const canvas = await window.html2canvas(el, {
-      scale: 1.5, useCORS: true,
-      scrollX: 0, scrollY: 0,
-      width: el.scrollWidth, height: el.scrollHeight,
-      windowWidth: el.scrollWidth
+  const el = document.getElementById("gantt-print-area");
+  if (!el) return;
+  if (!window.html2canvas) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
     });
-    const imgData = canvas.toDataURL("image/png");
-    const title = viewMode === "3w" ? "3 주 공 정 표" : "3 개 월 공 정 표";
-    const w = window.open("", "_blank");
-    w.document.write(`<html><head><title>${title}</title>
-      <style>
-        body { margin: 0; padding: 8px; font-family: 'Malgun Gothic', sans-serif; }
-        h2 { text-align: center; margin: 4px 0; font-size: 16px; }
-        p { text-align: center; margin: 2px 0 8px; font-size: 11px; color: #666; }
-        img { width: 100%; display: block; }
-        @page { size: A3 landscape; margin: 5mm; }
-        @media print { body { padding: 0; } }
-      </style></head><body>
-      <h2>${title}</h2>
-      <p>기준일: ${dayStr(TODAY)}</p>
-      <img src="${imgData}"/>
-      <script>setTimeout(() => { window.print(); }, 600);<\/script>
-    </body></html>`);
-    w.document.close();
-  };
+  }
+
+  // 캡처 전 실제 전체 크기 저장
+  const fullW = el.scrollWidth;
+  const fullH = el.scrollHeight;
+
+  const canvas = await window.html2canvas(el, {
+    scale: 1.5,
+    useCORS: true,
+    scrollX: 0,
+    scrollY: 0,
+    width: fullW,
+    height: fullH,
+    windowWidth: fullW,
+    windowHeight: fullH,
+    logging: false,
+    onclone: (clonedDoc) => {
+      const cloned = clonedDoc.getElementById("gantt-print-area");
+      if (!cloned) return;
+
+      // 1. 요소 자신: overflow 해제 + 크기 명시 고정
+      cloned.style.overflow = "visible";
+      cloned.style.width = fullW + "px";
+      cloned.style.height = fullH + "px";
+
+      // 2. 내부 sticky / overflow 전부 해제
+      cloned.querySelectorAll("*").forEach(child => {
+        const s = child.style;
+        if (s.position === "sticky") s.position = "relative";
+        if (s.overflow === "auto" || s.overflowX === "auto" || s.overflowY === "auto") {
+          s.overflow = "visible";
+          s.overflowX = "visible";
+          s.overflowY = "visible";
+        }
+      });
+
+      // 3. input[type="date"] → span 교체 (html2canvas가 input 못 그림)
+      cloned.querySelectorAll("input[type='date']").forEach(input => {
+        const span = clonedDoc.createElement("span");
+        span.textContent = input.value || "";
+        span.style.cssText = "font-size:9px;color:#374151;";
+        input.parentNode.replaceChild(span, input);
+      });
+
+      // 4. 부모 체인 overflow / height 제약 전부 해제 (핵심!)
+      let parent = cloned.parentElement;
+      while (parent && parent !== clonedDoc.body) {
+        parent.style.overflow = "visible";
+        parent.style.overflowX = "visible";
+        parent.style.overflowY = "visible";
+        if (parent.style.height && parent.style.height !== "auto") {
+          parent.style.height = "auto";
+        }
+        parent = parent.parentElement;
+      }
+    },
+  });
+
+  // 타이틀을 캔버스에 직접 드로잉 → 별도 빈 페이지 방지
+  const title = viewMode === "3w" ? "3 주 공 정 표"
+              : viewMode === "3m" ? "3 개 월 공 정 표"
+              : "전 체 공 정 표";
+  const dateText = `기준일: ${dayStr(TODAY)}`;
+  const HDR = Math.round(56 * 1.5);
+  const newCanvas = document.createElement("canvas");
+  newCanvas.width = canvas.width;
+  newCanvas.height = canvas.height + HDR;
+  const ctx = newCanvas.getContext("2d");
+  ctx.fillStyle = "#1A2332";
+  ctx.fillRect(0, 0, newCanvas.width, HDR);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `bold ${Math.round(18 * 1.5)}px 'Malgun Gothic', sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(title, newCanvas.width / 2, HDR * 0.42);
+  ctx.fillStyle = "#FFB800";
+  ctx.font = `${Math.round(10 * 1.5)}px 'Malgun Gothic', sans-serif`;
+  ctx.fillText(dateText, newCanvas.width / 2, HDR * 0.78);
+  ctx.drawImage(canvas, 0, HDR);
+
+  const imgData = newCanvas.toDataURL("image/png");
+  const w = window.open("", "_blank");
+  w.document.write(`<html><head><title>${title}</title>
+    <style>
+      * { margin: 0; padding: 0; }
+      body { background: #fff; }
+      img { width: 100%; display: block; }
+      @page { size: A3 landscape; margin: 5mm; }
+      @media print { body { margin: 0; } }
+    </style></head><body>
+    <img src="${imgData}"/>
+    <script>setTimeout(() => { window.print(); }, 600);<\/script>
+  </body></html>`);
+  w.document.close();
+};
 
 
 
@@ -7514,9 +7583,7 @@ function App() {
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
-  const DEMO_MODE = true;
-  const DEMO_USER = { id: "demo-user-001", email: "demo@fieldlog.kr", name: "데모 관리자", role: "공무과장" };
-  const [user, setUser] = useState(DEMO_MODE ? DEMO_USER : null);
+  const [user, setUser] = useState(null);
   
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
@@ -7567,7 +7634,7 @@ function App() {
   }, [user, rooms]);
 
   useEffect(() => {
-    if (DEMO_MODE) { setDbLoading(false); return; }
+    
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
@@ -7720,7 +7787,7 @@ function App() {
 
   if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
   // DEMO MODE: 로그인 화면 skip
-  if (!DEMO_MODE && !user) return <AuthScreen onAuth={setUser} />;
+  if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
     <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>      <div style={{ width: 40, height: 40, borderRadius: 10, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: NAVY }}>S</div>
