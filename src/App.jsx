@@ -1051,7 +1051,7 @@ function Dashboard({ activities, progressReports, issues, weather, project }) {
   );
 }
 
-function ThreeWeekView({ activities, milestones, setMilestones, progressReports, subActivities, setSubActivities }) {
+function ThreeWeekView({ activities, milestones, setMilestones, progressReports, subActivities, setSubActivities, isMobile }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weeklyPlans, setWeeklyPlans] = useState([]);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
@@ -1063,99 +1063,99 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
   const [viewMode, setViewMode] = useState("3w");
 
   const handlePrint = async () => {
-  const el = document.getElementById("gantt-print-area");
-  if (!el) return;
-  if (!window.html2canvas) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
+    const el = document.getElementById("gantt-print-area");
+    if (!el) return;
+    if (!window.html2canvas) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    // 캡처 전 실제 전체 크기 저장
+    const fullW = el.scrollWidth;
+    const fullH = el.scrollHeight;
+
+    const canvas = await window.html2canvas(el, {
+      scale: 1.5,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      width: fullW,
+      height: fullH,
+      windowWidth: fullW,
+      windowHeight: fullH,
+      logging: false,
+      onclone: (clonedDoc) => {
+        const cloned = clonedDoc.getElementById("gantt-print-area");
+        if (!cloned) return;
+
+        // 1. 요소 자신: overflow 해제 + 크기 명시 고정
+        cloned.style.overflow = "visible";
+        cloned.style.width = fullW + "px";
+        cloned.style.height = fullH + "px";
+
+        // 2. 내부 sticky / overflow 전부 해제
+        cloned.querySelectorAll("*").forEach(child => {
+          const s = child.style;
+          if (s.position === "sticky") s.position = "relative";
+          if (s.overflow === "auto" || s.overflowX === "auto" || s.overflowY === "auto") {
+            s.overflow = "visible";
+            s.overflowX = "visible";
+            s.overflowY = "visible";
+          }
+        });
+
+        // 3. input[type="date"] → span 교체 (html2canvas가 input 못 그림)
+        cloned.querySelectorAll("input[type='date']").forEach(input => {
+          const span = clonedDoc.createElement("span");
+          span.textContent = input.value || "";
+          span.style.cssText = "font-size:9px;color:#374151;";
+          input.parentNode.replaceChild(span, input);
+        });
+
+        // 4. 부모 체인 overflow / height 제약 전부 해제 (핵심!)
+        let parent = cloned.parentElement;
+        while (parent && parent !== clonedDoc.body) {
+          parent.style.overflow = "visible";
+          parent.style.overflowX = "visible";
+          parent.style.overflowY = "visible";
+          if (parent.style.height && parent.style.height !== "auto") {
+            parent.style.height = "auto";
+          }
+          parent = parent.parentElement;
+        }
+      },
     });
-  }
 
-  // 캡처 전 실제 전체 크기 저장
-  const fullW = el.scrollWidth;
-  const fullH = el.scrollHeight;
+    // 타이틀을 캔버스에 직접 드로잉 → 별도 빈 페이지 방지
+    const title = viewMode === "3w" ? "3 주 공 정 표"
+      : viewMode === "3m" ? "3 개 월 공 정 표"
+        : "전 체 공 정 표";
+    const dateText = `기준일: ${dayStr(TODAY)}`;
+    const HDR = Math.round(56 * 1.5);
+    const newCanvas = document.createElement("canvas");
+    newCanvas.width = canvas.width;
+    newCanvas.height = canvas.height + HDR;
+    const ctx = newCanvas.getContext("2d");
+    ctx.fillStyle = "#1A2332";
+    ctx.fillRect(0, 0, newCanvas.width, HDR);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${Math.round(18 * 1.5)}px 'Malgun Gothic', sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(title, newCanvas.width / 2, HDR * 0.42);
+    ctx.fillStyle = "#FFB800";
+    ctx.font = `${Math.round(10 * 1.5)}px 'Malgun Gothic', sans-serif`;
+    ctx.fillText(dateText, newCanvas.width / 2, HDR * 0.78);
+    ctx.drawImage(canvas, 0, HDR);
 
-  const canvas = await window.html2canvas(el, {
-    scale: 1.5,
-    useCORS: true,
-    scrollX: 0,
-    scrollY: 0,
-    width: fullW,
-    height: fullH,
-    windowWidth: fullW,
-    windowHeight: fullH,
-    logging: false,
-    onclone: (clonedDoc) => {
-      const cloned = clonedDoc.getElementById("gantt-print-area");
-      if (!cloned) return;
-
-      // 1. 요소 자신: overflow 해제 + 크기 명시 고정
-      cloned.style.overflow = "visible";
-      cloned.style.width = fullW + "px";
-      cloned.style.height = fullH + "px";
-
-      // 2. 내부 sticky / overflow 전부 해제
-      cloned.querySelectorAll("*").forEach(child => {
-        const s = child.style;
-        if (s.position === "sticky") s.position = "relative";
-        if (s.overflow === "auto" || s.overflowX === "auto" || s.overflowY === "auto") {
-          s.overflow = "visible";
-          s.overflowX = "visible";
-          s.overflowY = "visible";
-        }
-      });
-
-      // 3. input[type="date"] → span 교체 (html2canvas가 input 못 그림)
-      cloned.querySelectorAll("input[type='date']").forEach(input => {
-        const span = clonedDoc.createElement("span");
-        span.textContent = input.value || "";
-        span.style.cssText = "font-size:9px;color:#374151;";
-        input.parentNode.replaceChild(span, input);
-      });
-
-      // 4. 부모 체인 overflow / height 제약 전부 해제 (핵심!)
-      let parent = cloned.parentElement;
-      while (parent && parent !== clonedDoc.body) {
-        parent.style.overflow = "visible";
-        parent.style.overflowX = "visible";
-        parent.style.overflowY = "visible";
-        if (parent.style.height && parent.style.height !== "auto") {
-          parent.style.height = "auto";
-        }
-        parent = parent.parentElement;
-      }
-    },
-  });
-
-  // 타이틀을 캔버스에 직접 드로잉 → 별도 빈 페이지 방지
-  const title = viewMode === "3w" ? "3 주 공 정 표"
-              : viewMode === "3m" ? "3 개 월 공 정 표"
-              : "전 체 공 정 표";
-  const dateText = `기준일: ${dayStr(TODAY)}`;
-  const HDR = Math.round(56 * 1.5);
-  const newCanvas = document.createElement("canvas");
-  newCanvas.width = canvas.width;
-  newCanvas.height = canvas.height + HDR;
-  const ctx = newCanvas.getContext("2d");
-  ctx.fillStyle = "#1A2332";
-  ctx.fillRect(0, 0, newCanvas.width, HDR);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `bold ${Math.round(18 * 1.5)}px 'Malgun Gothic', sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(title, newCanvas.width / 2, HDR * 0.42);
-  ctx.fillStyle = "#FFB800";
-  ctx.font = `${Math.round(10 * 1.5)}px 'Malgun Gothic', sans-serif`;
-  ctx.fillText(dateText, newCanvas.width / 2, HDR * 0.78);
-  ctx.drawImage(canvas, 0, HDR);
-
-  const imgData = newCanvas.toDataURL("image/png");
-  const w = window.open("", "_blank");
-  w.document.write(`<html><head><title>${title}</title>
+    const imgData = newCanvas.toDataURL("image/png");
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>${title}</title>
     <style>
       * { margin: 0; padding: 0; }
       body { background: #fff; }
@@ -1166,8 +1166,8 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
     <img src="${imgData}"/>
     <script>setTimeout(() => { window.print(); }, 600);<\/script>
   </body></html>`);
-  w.document.close();
-};
+    w.document.close();
+  };
 
 
 
@@ -1406,16 +1406,16 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
     if (a.phys >= 100) return false;
     const overlapsPlan = a.ps <= rangeEnd && a.pf >= rangeStart;
     const hasOverlappingSub = (subActivities || []).some(sub => {
-  if (sub.activity_id !== a.id || sub.status !== "active") return false;
-  const subStart = sub.start_date?.slice(0, 10);
-  if (!subStart) return false;
-  // 실제 완료일 → 계획 완료일 → 진행중이면 오늘 순으로 유효 종료일 결정
-  const subEffectiveEnd = sub.end_date?.slice(0, 10)
-    || sub.planned_end_date?.slice(0, 10)
-    || todayStrLocal;
-  return subStart <= rangeEnd && subEffectiveEnd >= rangeStart;
-});
-return overlapsPlan || hasOverlappingSub;
+      if (sub.activity_id !== a.id || sub.status !== "active") return false;
+      const subStart = sub.start_date?.slice(0, 10);
+      if (!subStart) return false;
+      // 실제 완료일 → 계획 완료일 → 진행중이면 오늘 순으로 유효 종료일 결정
+      const subEffectiveEnd = sub.end_date?.slice(0, 10)
+        || sub.planned_end_date?.slice(0, 10)
+        || todayStrLocal;
+      return subStart <= rangeEnd && subEffectiveEnd >= rangeStart;
+    });
+    return overlapsPlan || hasOverlappingSub;
   });
 
   useEffect(() => {
@@ -1775,16 +1775,16 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           </div>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 8, flexWrap: "wrap" }}>
           <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
-          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY, minWidth: 180, textAlign: "center" }}>
+          <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: NAVY, minWidth: isMobile ? 120 : 180, textAlign: "center" }}>
             {fmt(weeks[0].start)} ~ {fmt(weeks[2].end)}
-            {weekOffset === 0 && <span style={{ fontSize: 11, color: YELLOW, marginLeft: 6 }}>이번주</span>}
+            {weekOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번주</span>}
           </div>
           <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
-          <input type="date"
+          {!isMobile && <input type="date"
             value={dayStr(weeks[1].start)}
             onChange={e => {
               const d = new Date(e.target.value);
@@ -1795,24 +1795,24 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               setWeekOffset(diff);
             }}
             style={{ border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "0 10px", height: 34, fontSize: 13, outline: "none" }}
-          />
+          />}
           <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
           {/* 뷰 토글 */}
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
-            <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
-            <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
-            <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
+            <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
+            <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
+            <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
 
 
-          <button onClick={handlePrint}
-            style={{ background: NAVY, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
-            🖨️ PDF 출력
+         <button onClick={handlePrint}
+            style={{ background: NAVY, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>
+            {isMobile ? "🖨️" : "🖨️ PDF 출력"}
           </button>
-          <button onClick={handleExcelDownload}
+          {!isMobile && <button onClick={handleExcelDownload}
             style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             📊 엑셀 저장
-          </button>
-          <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 마일스톤</button>
+          </button>}
+          <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: NAVY, cursor: "pointer" }}>{isMobile ? "★" : "+ 마일스톤"}</button>
         </div>
       </div>
 
@@ -3324,8 +3324,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast }) {
-  const [open, setOpen] = useState(null);
+function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast, isMobile }) {  const [open, setOpen] = useState(null);
   const [openAct, setOpenAct] = useState(null);
   const [predModalAct, setPredModalAct] = useState(null);
   const [openCat, setOpenCat] = useState({});
@@ -3590,16 +3589,16 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
     rollup: rollup(cat, Object.values(groupMap).flat()),
   }));
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>공정 현황</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onImport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📤 공정표 업로드</button>
-          <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📋 공사일지</button>
-          <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📄 주간보고서</button>
-          <button onClick={onMonthlyReport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📅 월간보고서</button>
-          <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>
-          <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>+ 공정 등록</button>
+    <div style={{ padding: isMobile ? 12 : 20, overflowY: "auto", height: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>공정 현황</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button onClick={onImport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📤 업로드" : "📤 공정표 업로드"}</button>
+          <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📋 일지" : "📋 공사일지"}</button>
+          <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📄 주간" : "📄 주간보고서"}</button>
+          <button onClick={onMonthlyReport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📅 월간" : "📅 월간보고서"}</button>
+          {!isMobile && <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>}
+          <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: NAVY, cursor: "pointer" }}>+ {isMobile ? "등록" : "공정 등록"}</button>
         </div>
       </div>
 
@@ -7552,8 +7551,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} />
           )}
-          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} setMilestones={setMilestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onMonthlyReport={() => setShowMonthly(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} />}
-          {activeMenu === "chat" && (
+          {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} setMilestones={setMilestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onMonthlyReport={() => setShowMonthly(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} isMobile={isMobileScreen} />}          {activeMenu === "chat" && (
             activeRoom
               ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
               : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
@@ -7567,7 +7565,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
             />)}
-          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} />}
+         {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} isMobile={isMobileScreen} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
@@ -7630,7 +7628,7 @@ function App() {
   const [weather, setWeather] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState(null);
-  
+
   const [view, setView] = useState("mobile");
   const [activities, setActivities] = useState([]);
   const [progressReports, setProgressReports] = useState([]);
@@ -7680,7 +7678,7 @@ function App() {
   }, [user, rooms]);
 
   useEffect(() => {
-    
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
