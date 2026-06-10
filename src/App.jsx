@@ -2333,10 +2333,10 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                       if (!planStart) return false;
                       const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                      // 실적 기간 추출 (실적 시작이 있을 때만)
-                      const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10);
+                      // start_date <= 오늘 && phys > 0 이면 실적 시작 판단
+                      const hasActual = planStart && planStart <= todayStr && Number(sub.phys) > 0;
+                      const actStart = hasActual ? planStart : null;
                       const actEndRaw = sub.end_date?.slice(0, 10) || "";
-                      // 실적 시작했고 아직 완료 안 된 경우(진행중) → 오늘까지 늘려서 표시
                       const actEnd = (actEndRaw && actEndRaw <= todayStr) ? actEndRaw : todayStr;
 
                       // 계획과 실적 각각 겹침 여부 확인
@@ -2345,7 +2345,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                         ? actStart <= rangeEnd && actEnd >= rangeStart
                         : false;
                       // 진행중(실적 시작 O, 완료 X)인 세부공정은 오늘 기준으로 항상 표시
-                      const isOngoing = actStart && !actEndRaw && sub.phys < 100;
+                      const isOngoing = hasActual && !actEndRaw && sub.phys < 100;
 
                       return overlapsPlan || overlapsActual || isOngoing;
                     });
@@ -2389,15 +2389,16 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           const planStart = sub.start_date?.slice(0, 10) || "";
                           const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                          const actStart = sub.as_?.slice(0, 10) || sub.actual_start_date?.slice(0, 10);
+                          // start_date가 오늘 이전이고 phys > 0이면 실적 시작된 것으로 판단
+                          const hasActual = planStart && planStart <= todayStr;
+                          const actStart = hasActual ? planStart : null;
                           const actEndRaw = sub.end_date?.slice(0, 10) || "";
                           const actEnd = (actEndRaw && actEndRaw <= todayStr) ? actEndRaw : todayStr;
 
                           let subPlanSi = -1, subPlanEi = -1, subActSi = -1, subActEi = -1;
 
-                          // 💡 [개선2] 파란색 막대의 종료 지점 통합 설정 (100%면 실제 완료일, 아니면 오늘)
-                          // 실적 시작 없으면 파란 바 안 그림, 진행중이면 오늘까지
-                          const finalActEnd = actStart
+                          // 실적 있으면: 완료면 actEnd, 진행중이면 오늘까지
+                          const finalActEnd = hasActual
                             ? (sub.phys === 100 ? actEnd : todayStr)
                             : null;
 
