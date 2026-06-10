@@ -1377,7 +1377,15 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
 
   const rangeStart = weeks[0].startStr;
   const rangeEnd = weeks[2].endStr;
-  const active = activities.filter(a => a.phys < 100 && a.ps <= rangeEnd && a.pf >= rangeStart);
+  const todayStrLocal = dayStr(TODAY);
+  const active = activities.filter(a => {
+    if (a.phys >= 100) return false;
+    const overlapsPlan = a.ps <= rangeEnd && a.pf >= rangeStart;
+    const hasStartedSub = (subActivities || []).some(
+      sub => sub.activity_id === a.id && sub.status === "active" && sub.start_date?.slice(0, 10) <= todayStrLocal
+    );
+    return overlapsPlan || hasStartedSub;
+  });
 
   useEffect(() => {
     sb.get("weekly_plans").then(data => setWeeklyPlans(data || [])).catch(() => { });
@@ -2333,8 +2341,8 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                       if (!planStart) return false;
                       const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                      // start_date <= 오늘 && phys > 0 이면 실적 시작 판단
-                      const hasActual = planStart && planStart <= todayStr && Number(sub.phys) > 0;
+                      // start_date <= 오늘이면 실적 시작된 것으로 판단
+                      const hasActual = planStart <= todayStr;
                       const actStart = hasActual ? planStart : null;
                       const actEndRaw = sub.end_date?.slice(0, 10) || "";
                       const actEnd = (actEndRaw && actEndRaw <= todayStr) ? actEndRaw : todayStr;
@@ -2344,7 +2352,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                       const overlapsActual = actStart
                         ? actStart <= rangeEnd && actEnd >= rangeStart
                         : false;
-                      // 진행중(실적 시작 O, 완료 X)인 세부공정은 오늘 기준으로 항상 표시
+                      // 진행중(시작일 지났고 완료 X)인 세부공정은 오늘 기준으로 항상 표시
                       const isOngoing = hasActual && !actEndRaw && sub.phys < 100;
 
                       return overlapsPlan || overlapsActual || isOngoing;
@@ -2389,7 +2397,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           const planStart = sub.start_date?.slice(0, 10) || "";
                           const planEnd = sub.planned_end_date?.slice(0, 10) || planStart;
 
-                          // start_date가 오늘 이전이고 phys > 0이면 실적 시작된 것으로 판단
+                          // start_date <= 오늘이면 실적 시작된 것으로 판단
                           const hasActual = planStart && planStart <= todayStr;
                           const actStart = hasActual ? planStart : null;
                           const actEndRaw = sub.end_date?.slice(0, 10) || "";
