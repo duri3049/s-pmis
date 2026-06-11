@@ -6060,6 +6060,16 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
 
   const CHIPS = [];
   const [showWorker, setShowWorker] = useState(false);
+
+  const notifyApprovers = (reporterName, summary) => {
+    if (!sendPush) return;
+    const approverIds = (profiles || [])
+      .filter(p => ["현장소장", "공무과장"].includes(p.role))
+      .map(p => p.id);
+    if (approverIds.length > 0) {
+      sendPush("📋 새 보고 도착", `${reporterName}님: ${summary}`, "/", approverIds);
+    }
+  };
   const [quickType, setQuickType] = useState(null); // "done" | "delay" | "issue"
 
 
@@ -6427,6 +6437,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
       setProgressReports(p => [...p, saved]);
       setPendingReport(p => ({ ...p, sent: true }));
       setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 관리자에게 전달되었습니다" }]);
+      notifyApprovers(user.name, pendingReport.summary || pendingReport.activity?.name || "작업보고");
+      // 결재권자(현장소장, 공무과장)에게 푸시 알림
     } catch (err) { alert("전송 실패: " + err.message); }
   };
 
@@ -6673,6 +6685,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                     setQuickType(null);
                     setChatMessages(p => [...p, { id: Date.now(), role: "system", content: `📋 보고 제출 완료: ${msg}` }]);
                     setTab("report");
+                    notifyApprovers(user.name, msg);
                   }}
                 />
               )}
@@ -6697,6 +6710,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   onSubmit={() => {
                     setShowInvoice(false);
                     setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "💰 기성청구가 제출되었습니다. 담당자 확인 후 처리됩니다." }]);
+                    notifyApprovers(user.name, "기성청구 제출");
                   }}
                 />
               )}
