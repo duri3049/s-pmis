@@ -5511,8 +5511,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
     const ch = supabase
       .channel("approval-pending-watch")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "progress_reports" }, (payload) => {
+        console.log("📡 Realtime 감지:", payload.new);
         const r = payload.new;
         if (r.status !== "pending") return;
+        console.log("✅ pending 보고 감지, 푸시 발송 시도");
         setProgressReports(p => p.find(x => x.id === r.id) ? p : [...p, r]);
         if (sendPush) {
           const actName = r.ai_summary || r.raw_input || "작업";
