@@ -6432,7 +6432,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100vh", background: "#FAFAFA" }}>
+    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: "#FAFAFA" }}>
       {/* 헤더 */}
       <div style={{ background: NAVY, color: "#fff", padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, minHeight: 48 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
@@ -6442,7 +6442,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>📱 현장</button>
           <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>💻 관리자</button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#ccc", fontSize: 10, padding: "4px 7px", cursor: "pointer", whiteSpace: "nowrap" }}>나가기</button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#ccc", fontSize: 10, padding: "4px 7px", cursor: "pointer", whiteSpace: "nowrap" }}>로그아웃</button>
         </div>
       </div>
 
@@ -7885,7 +7885,7 @@ function App() {
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
 
   return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA" }}>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100dvh", background: "#FAFAFA" }}>
 
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
