@@ -6434,15 +6434,15 @@ JSON 없이 자연스럽게 한국어로만 답해.
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100vh", background: "#FAFAFA" }}>
       {/* 헤더 */}
-      <div style={{ background: NAVY, color: "#fff", padding: "6px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, minHeight: 44 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 26, height: 26, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11, color: NAVY, flexShrink: 0 }}>{user.name[0]}</div>
-          <div style={{ fontSize: 12, fontWeight: 600 }}>{user.name}</div>
+      <div style={{ background: NAVY, color: "#fff", padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, minHeight: 48 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: NAVY, flexShrink: 0 }}>{user.name[0]}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>현장</button>
-          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 4, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>관리자</button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 4, color: "#ccc", fontSize: 10, padding: "3px 6px", cursor: "pointer" }}>로그아웃</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>📱 현장</button>
+          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>💻 관리자</button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#ccc", fontSize: 10, padding: "4px 7px", cursor: "pointer", whiteSpace: "nowrap" }}>나가기</button>
         </div>
       </div>
 
