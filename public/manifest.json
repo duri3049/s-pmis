@@ -1,0 +1,13 @@
+{
+  "name": "현장 톡톡",
+  "short_name": "현장톡톡",
+  "description": "건설현장 AI 기반 공정관리",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#004884",
+  "theme_color": "#004884"
+}

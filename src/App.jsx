@@ -2653,7 +2653,10 @@ function WeeklyReport({ activities, issues, progressReports, onClose }) {
             el.style.maxHeight = "";
             el.style.overflow = "";
             el.style.overflowY = "";
-            el.style.height = "";
+            const tag = el.tagName;
+            if (tag !== "TD" && tag !== "TR" && tag !== "TH") {
+              el.style.height = "";
+            }
           });
           const w = window.open("", "_blank");
           w.document.write(`<!DOCTYPE html><html><head>
@@ -2850,7 +2853,10 @@ function MonthlyReport({ activities, issues, progressReports, onClose }) {
             el.style.maxHeight = "";
             el.style.overflow = "";
             el.style.overflowY = "";
-            el.style.height = "";
+            const tag = el.tagName;
+            if (tag !== "TD" && tag !== "TR" && tag !== "TH") {
+              el.style.height = "";
+            }
           });
           const w = window.open("", "_blank");
           w.document.write(`<!DOCTYPE html><html><head>
@@ -3134,7 +3140,10 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
             el.style.maxHeight = "";
             el.style.overflow = "";
             el.style.overflowY = "";
-            el.style.height = "";
+            const tag = el.tagName;
+            if (tag !== "TD" && tag !== "TR" && tag !== "TH") {
+              el.style.height = "";
+            }
           });
           const w = window.open("", "_blank");
           w.document.write(`<!DOCTYPE html><html><head>
