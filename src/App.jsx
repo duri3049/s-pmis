@@ -1053,6 +1053,7 @@ function Dashboard({ activities, progressReports, issues, weather, project }) {
 
 function ThreeWeekView({ activities, milestones, setMilestones, progressReports, subActivities, setSubActivities, isMobile }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);
   const [weeklyPlans, setWeeklyPlans] = useState([]);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [msForm, setMsForm] = useState({ title: "", milestone_date: "", type: "complete", status: "planned" });
@@ -1201,7 +1202,7 @@ function ThreeWeekView({ activities, milestones, setMilestones, progressReports,
         return overlapsPlan || hasOverlappingSub;
       });
     } else if (viewMode === "3m") {
-      const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
+      const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1 + monthOffset, 1);
       for (let i = 0; i < 92; i++) {
         const d = new Date(base); d.setDate(d.getDate() + i);
         const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
@@ -1778,13 +1779,41 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
         <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 8, flexWrap: "wrap" }}>
-          <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
+          {viewMode !== "all" && (
+            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
+          )}
           <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: NAVY, minWidth: isMobile ? 120 : 180, textAlign: "center" }}>
-            {fmt(weeks[0].start)} ~ {fmt(weeks[2].end)}
-            {weekOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번주</span>}
+            {viewMode === "3w" && (
+              <>
+                {fmt(weeks[0].start)} ~ {fmt(weeks[2].end)}
+                {weekOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번주</span>}
+              </>
+            )}
+            {viewMode === "3m" && (
+              <>
+                {(() => {
+                  const mBase = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1 + monthOffset, 1);
+                  const mEnd = new Date(mBase);
+                  mEnd.setDate(mEnd.getDate() + 91);
+                  return `${fmt(mBase)} ~ ${fmt(mEnd)}`;
+                })()}
+                {monthOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번달</span>}
+              </>
+            )}
+            {viewMode === "all" && (
+              <>
+                {(() => {
+                  const ps = activities.map(a => a.ps).filter(Boolean).sort()[0] || "";
+                  const pf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0] || "";
+                  return ps && pf ? `${ps.slice(5).replace("-", "/")} ~ ${pf.slice(5).replace("-", "/")}` : "전체기간";
+                })()}
+              </>
+            )}
           </div>
-          <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
-          {!isMobile && <input type="date"
+          {viewMode !== "all" && (
+            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w + 1) : setMonthOffset(m => m + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
+          )}
+          {!isMobile && viewMode === "3w" && <input type="date"
             value={dayStr(weeks[1].start)}
             onChange={e => {
               const d = new Date(e.target.value);
@@ -1796,7 +1825,13 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             }}
             style={{ border: "1.5px solid #E5E7EB", borderRadius: 8, padding: "0 10px", height: 34, fontSize: 13, outline: "none" }}
           />}
-          <button onClick={() => setWeekOffset(0)} style={{ background: weekOffset === 0 ? NAVY : "#fff", border: `1.5px solid ${weekOffset === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: weekOffset === 0 ? "#fff" : "#374151" }}>오늘</button>
+          {viewMode !== "all" && (
+            <button
+              onClick={() => { if (viewMode === "3w") setWeekOffset(0); if (viewMode === "3m") setMonthOffset(0); }}
+              style={{ background: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? NAVY : "#fff", border: `1.5px solid ${(viewMode === "3w" ? weekOffset : monthOffset) === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? "#fff" : "#374151" }}>
+              오늘
+            </button>
+          )}
           {/* 뷰 토글 */}
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
             <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
@@ -2074,8 +2109,8 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
       {/* 3개월 간트 차트 */}
       {viewMode === "3m" && (() => {
         const days = [];
-        // 이번 달 1일 기준 -1개월 ~ +2개월 (90일)
-        const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1);
+        // 이번 달 1일 기준 -1개월 ~ +2개월 (90일) monthOffset 반영
+        const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1 + monthOffset, 1);
         for (let i = 0; i < 92; i++) {
           const d = new Date(base);
           d.setDate(d.getDate() + i);
