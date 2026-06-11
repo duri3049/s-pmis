@@ -552,7 +552,7 @@ function RoomList({ rooms, setRooms, user, onEnterRoom, profiles }) {
   );
 }
 
-function ChatRoom({ room, user, onBack, onNotify, profiles, activities, subActivities }) {
+function ChatRoom({ room, user, onBack, onNotify, profiles, activities, subActivities, sendPush }) {
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -696,6 +696,20 @@ ${(activities || []).map(a => {
         content: msgText,
         channel: room.name || "direct"
       });
+      // 채팅 알림 — 본인 제외 채팅방 멤버에게 발송
+      if (sendPush) {
+        const otherMembers = (profiles || [])
+          .filter(p => p.id !== user.id)
+          .map(p => p.id);
+        if (otherMembers.length > 0) {
+          sendPush(
+            `💬 ${user.name}`,
+            msgText.length > 50 ? msgText.slice(0, 50) + "..." : msgText,
+            "/",
+            otherMembers
+          );
+        }
+      }
       // @AI 멘션 감지
       if (msgText.includes("@AI")) {
         await handleAIMention(msgText, msgs);
@@ -1839,7 +1853,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
 
 
-         <button onClick={handlePrint}
+          <button onClick={handlePrint}
             style={{ background: NAVY, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>
             {isMobile ? "🖨️" : "🖨️ PDF 출력"}
           </button>
@@ -3359,7 +3373,8 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 }
 
 
-function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast, isMobile }) {  const [open, setOpen] = useState(null);
+function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast, isMobile }) {
+  const [open, setOpen] = useState(null);
   const [openAct, setOpenAct] = useState(null);
   const [predModalAct, setPredModalAct] = useState(null);
   const [openCat, setOpenCat] = useState({});
@@ -6005,7 +6020,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
 }
 
 
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
@@ -6708,7 +6723,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
           </div>
         ) : (
           activeRoom
-            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
+            ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} sendPush={sendPush} />
             : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
         )}
       </div>
@@ -7588,7 +7603,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           )}
           {activeMenu === "gantt" && dataReady && <GanttPanel activities={activities} setActivities={setActivities} progressReports={progressReports} milestones={milestones} setMilestones={setMilestones} onRegister={() => setShowModal(true)} onReport={() => setShowReport(true)} onMonthlyReport={() => setShowMonthly(true)} onDailyReport={() => setShowDailyReport(true)} onImport={() => setShowImport(true)} onDelete={(id) => setActivities(p => p.filter(a => a.id !== id))} subActivities={subActivities} setSubActivities={setSubActivities} user={user} project={project} setToast={setToast} isMobile={isMobileScreen} />}          {activeMenu === "chat" && (
             activeRoom
-              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} />
+              ? <ChatRoom room={activeRoom} user={user} onBack={() => setActiveRoom(null)} onNotify={onNotify} profiles={profiles} activities={activities} subActivities={subActivities} sendPush={sendPush} />
               : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
           )}
           {activeMenu === "calendar" && <CalendarManager calendarDates={calendarDates} setCalendarDates={setCalendarDates} activities={activities} />}
@@ -7600,7 +7615,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
               logs={equipmentLogs}
               setLogs={setEquipmentLogs}
             />)}
-         {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} isMobile={isMobileScreen} />}
+          {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} isMobile={isMobileScreen} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
           {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
@@ -7737,9 +7752,15 @@ function App() {
         if (permission !== "granted") return;
         const existing = await reg.pushManager.getSubscription();
         if (existing) { setPushEnabled(true); return; }
+        const urlBase64ToUint8Array = (base64String) => {
+          const padding = "=".repeat((4 - base64String.length % 4) % 4);
+          const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+          const rawData = window.atob(base64);
+          return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+        };
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: VAPID_PUBLIC_KEY,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
         await supabase.from("push_subscriptions").upsert({
           user_id: user.id,
@@ -7753,16 +7774,27 @@ function App() {
     setupPush();
   }, [user]);
 
-  const sendPushNotification = async (title, body, url = "/") => {
+  const sendPushNotification = async (title, body, url = "/", targetUserIds = null) => {
     try {
-      await fetch(`${SB_URL}/functions/v1/send-push`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SB_KEY}`,
-        },
-        body: JSON.stringify({ title, body, url }),
-      });
+      // 대상 유저들의 subscription 가져오기
+      let query = supabase.from("push_subscriptions").select("subscription, user_id");
+      if (targetUserIds && targetUserIds.length > 0) {
+        query = query.in("user_id", targetUserIds);
+      }
+      const { data: subs } = await query;
+      if (!subs || subs.length === 0) return;
+
+      // 각 subscription에 푸시 발송
+      await Promise.all(subs.map(s =>
+        fetch(`${SB_URL}/functions/v1/send-push`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SB_KEY}`,
+          },
+          body: JSON.stringify({ subscription: s.subscription, title, body, url }),
+        })
+      ));
     } catch (err) {
       console.error("푸시 전송 실패:", err);
     }
@@ -7913,8 +7945,7 @@ function App() {
         </div>
       )}
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} />
-        : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} />
       }
     </div>
   );
