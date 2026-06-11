@@ -5505,6 +5505,29 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
 function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush, subActivities, setSubActivities }) {
   const [flashId, setFlashId] = useState(null);
   const [approvalTab, setApprovalTab] = useState("work");
+
+  // 새 pending 보고 Realtime 감지 → 결재권자 푸시 알림
+  useEffect(() => {
+    const ch = supabase
+      .channel("approval-pending-watch")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "progress_reports" }, (payload) => {
+        const r = payload.new;
+        if (r.status !== "pending") return;
+        setProgressReports(p => p.find(x => x.id === r.id) ? p : [...p, r]);
+        if (sendPush) {
+          const actName = r.ai_summary || r.raw_input || "작업";
+          const reporter = r.reporter || "현장";
+          sendPush(
+            "📋 새 보고 도착",
+            `${reporter}님이 보고를 제출했습니다: ${actName.slice(0, 30)}`,
+            "/"
+            // targetUserIds 없음 → 결재권자 전체(push_subscriptions 전체)에 발송
+          );
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(ch);
+  }, [sendPush]);
   const pending = progressReports.filter(r => r.status === "pending");
   const pendingWork = pending.filter(r => r.report_type !== "invoice");
   const pendingInvoice = pending.filter(r => r.report_type === "invoice");
