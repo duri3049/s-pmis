@@ -29,7 +29,7 @@ if (!document.head.querySelector("[data-mobile-anim]")) {
 }
 
 export default
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush }) {
+function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush, onThemeChange, onProfileSaved }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -501,6 +501,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
           user={user}
           profiles={profiles}
           onClose={() => setShowSettings(false)}
+          onThemeChange={onThemeChange}
+          onProfileSaved={onProfileSaved}
         />
       )}
 

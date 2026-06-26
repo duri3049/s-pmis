@@ -3,24 +3,26 @@ export const YELLOW = "#FFB800";    // 포인트 옐로우 (legacy)
 export const ACCENT = "#0069b4";    // HG Blue 서브 (legacy)
 export const BTN_TEXT = "#fff";
 
-// ── Toss Design Tokens (localStorage로 다크모드/테마색 동적 적용) ──
-const _dark  = localStorage.getItem("pmis_dark") === "1";
-const _color = localStorage.getItem("pmis_color") || "#0064FF";
-
-export const T = {
-  blue:    _color,
-  bg:      _dark ? "#111318" : "#F2F4F6",
-  card:    _dark ? "#1E2128" : "#FFFFFF",
-  text:    _dark ? "#F1F3F5" : "#191F28",
-  sub:     _dark ? "#6B7280" : "#8B95A1",
-  border:  _dark ? "#2D3139" : "#E5E8EB",
-  success: "#0CC981",
-  warn:    "#FF7B00",
-  danger:  "#F04452",
-  radius:  16,
-  shadow:  _dark ? "0 2px 12px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)",
-  dark:    _dark,
+// ── Toss Design Tokens (Proxy — 매 렌더마다 localStorage 최신값 반영) ──
+const _T = () => {
+  const dark  = localStorage.getItem("pmis_dark") === "1";
+  const color = localStorage.getItem("pmis_color") || "#0064FF";
+  return {
+    blue:    color,
+    bg:      dark ? "#111318" : "#F2F4F6",
+    card:    dark ? "#1E2128" : "#FFFFFF",
+    text:    dark ? "#F1F3F5" : "#191F28",
+    sub:     dark ? "#6B7280" : "#8B95A1",
+    border:  dark ? "#2D3139" : "#E5E8EB",
+    success: "#0CC981",
+    warn:    "#FF7B00",
+    danger:  "#F04452",
+    radius:  16,
+    shadow:  dark ? "0 2px 12px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)",
+    dark,
+  };
 };
+export const T = new Proxy({}, { get: (_, key) => _T()[key] });
 export const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 
 export const ROLES = ["공무과장", "현장소장", "안전관리자", "협력사 반장", "기사", "대리", "기타"];

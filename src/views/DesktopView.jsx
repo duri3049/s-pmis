@@ -26,7 +26,7 @@ import EquipmentManager from '../features/equipment/EquipmentManager';
 import ProfileSettings from '../modals/ProfileSettings';
 
 export default
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady, onThemeChange, onProfileSaved }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
@@ -152,7 +152,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
       {/* ── 콘텐츠 영역 ── */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
         {showSettings && (
-          <ProfileSettings user={user} profiles={profiles} onClose={() => setShowSettings(false)} />
+          <ProfileSettings user={user} profiles={profiles} onClose={() => setShowSettings(false)} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} />
         )}
         {/* 모바일: 햄버거 헤더 */}
         {isMobileScreen && (

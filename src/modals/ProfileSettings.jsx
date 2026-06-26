@@ -36,7 +36,7 @@ function Toggle({ on, onChange }) {
   );
 }
 
-export default function ProfileSettings({ user, profiles, onClose }) {
+export default function ProfileSettings({ user, profiles, onClose, onThemeChange, onProfileSaved }) {
   const userProfile = (profiles || []).find(p => p.id === user.id) || {};
   const [name, setName] = useState(user.name || "");
   const [role, setRole] = useState(user.role || "");
@@ -49,13 +49,14 @@ export default function ProfileSettings({ user, profiles, onClose }) {
 
   const applyTheme = (key, value) => {
     localStorage.setItem(key, value);
-    window.location.reload();
+    onThemeChange?.();
   };
 
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
       await sb.patch("profiles", user.id, { name, role, subcon });
+      onProfileSaved?.({ name, role });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -69,7 +70,7 @@ export default function ProfileSettings({ user, profiles, onClose }) {
   const requestNotif = async () => {
     if (!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않아요.");
     const perm = await Notification.requestPermission();
-    if (perm === "granted") window.location.reload();
+    if (perm === "granted") onThemeChange?.();
   };
 
   return (

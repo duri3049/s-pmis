@@ -18,6 +18,8 @@ export default function App() {
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem("splashSeen"));
+  const [themeKey, setThemeKey] = useState(0);
+  const onThemeChange = () => setThemeKey(k => k + 1);
   const [user, setUser] = useState(null);
 
   const [view, setView] = useState("mobile");
@@ -28,6 +30,10 @@ export default function App() {
   const [project, setProject] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  const onProfileSaved = ({ name, role }) => {
+    setUser(u => u ? { ...u, name, role } : u);
+    setProfiles(ps => ps.map(p => p.id === user?.id ? { ...p, name, role } : p));
+  };
   const [chatMessages, setChatMessages] = useState([{ id: 0, role: "system", content: "안녕하세요 👋 작업 물량, 인력, 특이사항을 자유롭게 말씀해주세요." }]);
   const [dbLoading, setDbLoading] = useState(true);
   const [dbError, setDbError] = useState(null);
@@ -280,7 +286,7 @@ export default function App() {
         </div>
       )}
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} />
       }
     </div>
   );
