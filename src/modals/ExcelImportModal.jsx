@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { NAVY, YELLOW, SUBCONS, RESPS, UNITS } from '../lib/constants';
+import { T, SUBCONS, RESPS, UNITS } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { diffDays } from '../lib/utils';
 import { calcAct } from '../lib/cpm';
@@ -160,7 +160,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
         {/* 헤더 */}
-        <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>📤 공정표 업로드</div>
             <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
@@ -197,10 +197,10 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
               {/* 업로드 영역 */}
               <div onClick={() => fileRef.current?.click()}
                 style={{ border: "2px dashed #D1D5DB", borderRadius: 14, padding: "48px 24px", textAlign: "center", cursor: "pointer", background: "#F9FAFB" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = YELLOW}
+                onMouseEnter={e => e.currentTarget.style.borderColor = T.blue}
                 onMouseLeave={e => e.currentTarget.style.borderColor = "#D1D5DB"}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: NAVY, marginBottom: 6 }}>공정표 Excel 업로드</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 6 }}>공정표 Excel 업로드</div>
                 <div style={{ fontSize: 13, color: "#9CA3AF" }}>클릭하거나 파일을 드래그하세요 (.xlsx, .xls)</div>
               </div>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
@@ -213,7 +213,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <div style={{ fontSize: 13, color: "#6B7280", display: "flex", gap: 12, alignItems: "center" }}>
                   총 {parsed.length}개 공종 ·
-                  <span style={{ color: NAVY, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
+                  <span style={{ color: T.text, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
                   {parsed.filter(p => p.duplicate).length > 0 && (
                     <span style={{ color: "#92400E", fontWeight: 700, background: "#FEF3C7", borderRadius: 6, padding: "2px 8px", fontSize: 12 }}>
                       ⚠️ 중복 {parsed.filter(p => p.duplicate).length}개 (기본 체크 해제됨)
@@ -231,7 +231,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
               <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: NAVY, color: "#fff" }}>
+                    <tr style={{ background: T.text, color: "#fff" }}>
                       <th style={{ padding: "8px 12px", textAlign: "center", width: 40 }}>✓</th>
                       <th style={{ padding: "8px 12px", textAlign: "left" }}>대공종</th>
                       <th style={{ padding: "8px 12px", textAlign: "left" }}>대분류</th>
@@ -251,7 +251,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                           <input type="checkbox" checked={item.checked} onChange={() => toggleCheck(item.id)} />
                         </td>
                         <td style={{ padding: "8px 12px" }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: NAVY, background: "#EFF6FF", borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text, background: "#EFF6FF", borderRadius: 6, padding: "3px 8px" }}>
                             {item.category || "건축"}
                           </span>
                         </td>
@@ -323,7 +323,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                 <button onClick={() => { setStep(1); setParsed([]); setError(""); }}
                   style={{ background: "#F3F4F6", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, cursor: "pointer" }}>← 다시 업로드</button>
                 <button onClick={handleSaveAll} disabled={parsed.filter(p => p.checked).length === 0}
-                  style={{ background: YELLOW, border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
+                  style={{ background: T.blue, border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
                   ✅ {parsed.filter(p => p.checked).length}개 공종 등록
                 </button>
               </div>
@@ -334,7 +334,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
           {step === 3 && (
             <div style={{ textAlign: "center", padding: "48px 24px" }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>💾</div>
-              <div style={{ fontWeight: 700, fontSize: 16, color: NAVY, marginBottom: 8 }}>DB에 저장 중입니다</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>DB에 저장 중입니다</div>
               <div style={{ fontSize: 13, color: "#9CA3AF" }}>잠시만 기다려주세요...</div>
             </div>
           )}

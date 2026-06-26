@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import { TODAY, T } from '../lib/constants';
 import { sb, ANTHROPIC_KEY } from '../lib/supabase';
 import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM, riskBg, riskColor, sevColor, msIcon, msColor } from '../lib/utils';
 import { calcAct, calcTodayTarget, rollup } from '../lib/cpm';
@@ -17,6 +17,7 @@ function GanttPanel({ activities, setActivities, progressReports, milestones, se
   const [weightEdits, setWeightEdits] = useState({}); // {actId: weight}
   const [showSubForm, setShowSubForm] = useState(null); // activity_id
   const [aiLoading, setAiLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all"); // all | active | delayed | done | unstarted
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [subInput, setSubInput] = useState("");
@@ -262,6 +263,16 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
     const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
     XLSX.writeFile(wb, `P6_Import_${dateStr}.xlsx`);
   };
+  const todayStr = dayStr(TODAY);
+  const matchesFilter = (a) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "delayed") return a.delay_days > 0 || (a.status !== "완료" && a.pf < todayStr && a.phys < 100);
+    if (statusFilter === "done") return a.status === "완료" || a.phys === 100;
+    if (statusFilter === "active") return a.status !== "완료" && a.phys < 100 && a.as_;
+    if (statusFilter === "unstarted") return !a.as_ && a.phys === 0;
+    return true;
+  };
+
   const categories = {};
   activities.forEach(a => {
     const cat = a.category || "건축";
@@ -274,22 +285,65 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
     groups: Object.entries(groupMap).map(([g, acts]) => rollup(g, acts)),
     rollup: rollup(cat, Object.values(groupMap).flat()),
   }));
+
+  const filteredGl = statusFilter === "all" ? gl : gl.map(cg => ({
+    ...cg,
+    groups: cg.groups.map(g => ({
+      ...g,
+      acts: g.acts.filter(matchesFilter),
+    })).filter(g => g.acts.length > 0),
+  })).filter(cg => cg.groups.length > 0);
+
+  const filterCounts = {
+    all: activities.length,
+    active: activities.filter(a => a.status !== "완료" && a.phys < 100 && a.as_).length,
+    delayed: activities.filter(a => a.delay_days > 0 || (a.status !== "완료" && a.pf < todayStr && a.phys < 100)).length,
+    done: activities.filter(a => a.status === "완료" || a.phys === 100).length,
+    unstarted: activities.filter(a => !a.as_ && a.phys === 0).length,
+  };
+  const FILTER_TABS = [
+    { key: "all",       label: "전체" },
+    { key: "active",    label: "진행중" },
+    { key: "delayed",   label: "지연",   color: T.danger },
+    { key: "done",      label: "완료",   color: T.success },
+    { key: "unstarted", label: "미착수" },
+  ];
+
   return (
     <div style={{ padding: isMobile ? 12 : 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>공정 현황</div>
+      {/* 상단 헤더 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: T.text }}>공정 현황</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button onClick={onImport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📤 업로드" : "📤 공정표 업로드"}</button>
-          <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📋 일지" : "📋 공사일지"}</button>
-          <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📄 주간" : "📄 주간보고서"}</button>
-          <button onClick={onMonthlyReport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📅 월간" : "📅 월간보고서"}</button>
-          {!isMobile && <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>}
-          <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: NAVY, cursor: "pointer" }}>+ {isMobile ? "등록" : "공정 등록"}</button>
+          <button onClick={onDailyReport} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: isMobile ? "6px 8px" : "7px 14px", fontWeight: 600, fontSize: isMobile ? 11 : 13, color: T.text, cursor: "pointer" }}>{isMobile ? "일지" : "공사일지"}</button>
+          <button onClick={onReport} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: isMobile ? "6px 8px" : "7px 14px", fontWeight: 600, fontSize: isMobile ? 11 : 13, color: T.text, cursor: "pointer" }}>{isMobile ? "주간" : "주간보고서"}</button>
+          <button onClick={onMonthlyReport} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: isMobile ? "6px 8px" : "7px 14px", fontWeight: 600, fontSize: isMobile ? 11 : 13, color: T.text, cursor: "pointer" }}>{isMobile ? "월간" : "월간보고서"}</button>
+          {!isMobile && <button onClick={exportToP6Excel} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 14px", fontWeight: 600, fontSize: 13, color: T.text, cursor: "pointer" }}>P6 Export</button>}
+          <button onClick={onRegister} style={{ background: T.blue, border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "7px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>+ {isMobile ? "등록" : "공정 등록"}</button>
         </div>
       </div>
 
+      {/* 상태 필터 탭 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        {FILTER_TABS.map(tab => {
+          const isActive = statusFilter === tab.key;
+          const count = filterCounts[tab.key];
+          const accentColor = tab.color || T.blue;
+          return (
+            <button key={tab.key} onClick={() => setStatusFilter(tab.key)}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 20, border: isActive ? `1.5px solid ${accentColor}` : `1px solid ${T.border}`, background: isActive ? `${accentColor}12` : T.card, cursor: "pointer", transition: "all 0.15s" }}>
+              <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? accentColor : T.sub }}>{tab.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: isActive ? accentColor : T.sub, background: isActive ? `${accentColor}20` : T.bg, borderRadius: 10, padding: "1px 7px", minWidth: 20, textAlign: "center" }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      {gl.map((catGroup, ci) => (
+
+      {filteredGl.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 0", color: T.sub, fontSize: 14 }}>해당 상태의 공종이 없어요</div>
+      )}
+      {filteredGl.map((catGroup, ci) => (
         <div key={ci} style={{ marginBottom: 24 }}>
           {/* 대공종 헤더 */}
           {(() => {
@@ -300,99 +354,124 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
             return (
               <>
                 <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
-                  style={{ background: NAVY, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-                  <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", flex: 1 }}>🏗️ {catGroup.category}</span>
-                  <span style={{ fontSize: 11, background: "rgba(255,184,0,0.2)", color: YELLOW, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
-                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>EV {fmtM(catGroup.rollup.ev)}</span>
+                  style={{ background: T.card, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none", borderLeft: `4px solid ${T.blue}` }}>
+                  <span style={{ fontSize: 12, color: T.sub, display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: T.text, flex: 1 }}>{catGroup.category}</span>
+                  <span style={{ fontSize: 11, background: `${T.blue}14`, color: T.blue, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
+                  <span style={{ fontSize: 12, color: T.sub }}>EV {fmtM(catGroup.rollup.ev)}</span>
                   <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: YELLOW }}>{pct(catGroup.rollup.phys)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: T.blue }}>{pct(catGroup.rollup.phys)}</span>
                 </div>
                 {isCatOpen && catGroup.groups.map(g => {
                   const isOpen = open === g.group;
                   const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
                   return (
                     <div key={g.group} style={{ marginBottom: 10 }}>
-                      <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: "#fff", border: `1.5px solid ${isOpen ? YELLOW : "#E5E7EB"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                          <span style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{g.group}</span>
-                          <span style={{ fontSize: 11, background: g.group === "기타(미입력)" ? "#F3F4F6" : "#EFF6FF", color: g.group === "기타(미입력)" ? "#6B7280" : "#1D4ED8", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
-                            W/F {project?.total_budget > 0 ? ((g.total_budget / project.total_budget) * 100).toFixed(1) : ((g.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0)) * 100).toFixed(1)}%
-                          </span>
+                      <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: T.card, border: `1px solid ${isOpen ? T.blue : T.border}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer" }}>
+                        {/* 그룹 헤더 행 */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <span style={{ fontSize: 11, color: T.sub, display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▶</span>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: T.text, flex: 1 }}>{g.group}</span>
+                          {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
                           {g.has_critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
                           <Badge label={g.status} bg={statusColor(g.status) + "22"} color={statusColor(g.status)} />
-                          {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
-                          <button onClick={e => { e.stopPropagation(); handleWeightAI(g); }} disabled={weightLoading === g.group}
-                            style={{ background: weightLoading === g.group ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: weightLoading === g.group ? "#9CA3AF" : "#fff", cursor: weightLoading === g.group ? "default" : "pointer", whiteSpace: "nowrap" }}>
-                            {weightLoading === g.group ? "분석 중..." : "🤖 AI 배분"}
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); handleWeightEqual(g); }}
-                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
-                            ⚖️ 균등
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); const edits = {}; g.acts.forEach(a => { edits[a.id] = parseFloat((project?.total_budget > 0 ? a.pv_budget / project.total_budget : a.pv_budget / activities.reduce((s, x) => s + x.pv_budget, 0)) * 100).toFixed(2); }); setWeightEdits(edits); setWeightEditGroup(g); }}
-                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
-                            ✏️ 수정
-                          </button>
+                          <span style={{ fontWeight: 800, fontSize: 15, color: statusColor(g.status), minWidth: 38, textAlign: "right" }}>{pct(g.phys)}</span>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                          <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 6, height: 16, overflow: "hidden", position: "relative" }}>
-                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: "rgba(0,0,0,0.1)", borderRadius: 6 }} />
+                        {/* 진행 바 */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                          <div style={{ flex: 1, background: T.bg, borderRadius: 6, height: 8, overflow: "hidden", position: "relative" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: T.border, borderRadius: 6 }} />
                             <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6, transition: "width 0.8s ease" }} />
                           </div>
-                          <span style={{ fontWeight: 800, fontSize: 15, color: statusColor(g.status), minWidth: 38 }}>{pct(g.phys)}</span>
+                          <span style={{ fontSize: 11, color: T.sub, whiteSpace: "nowrap" }}>계획 {g.plan_pct?.toFixed(0) ?? 0}%</span>
                         </div>
+                        {/* KPI 요약 */}
                         <div style={{ display: "flex", gap: 8 }}>
-                          <KPI label="EV" value={fmtM(g.ev)} sub={`PV ${fmtM(g.pv)}`} />
                           <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
                           <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
-                          <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? "#EF4444" : NAVY} />
+                          <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? T.danger : T.text} />
                         </div>
+                        {/* 가중치 편집 — 열렸을 때만 */}
+                        {isOpen && (
+                          <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+                            <span style={{ fontSize: 12, color: T.sub, alignSelf: "center", marginRight: 4 }}>가중치</span>
+                            <button onClick={() => handleWeightAI(g)} disabled={weightLoading === g.group}
+                              style={{ background: weightLoading === g.group ? T.bg : `${T.blue}14`, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 700, color: weightLoading === g.group ? T.sub : T.blue, cursor: "pointer" }}>
+                              {weightLoading === g.group ? "분석 중..." : "AI 자동배분"}
+                            </button>
+                            <button onClick={() => handleWeightEqual(g)}
+                              style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, color: T.text, cursor: "pointer" }}>
+                              균등배분
+                            </button>
+                            <button onClick={() => { const edits = {}; g.acts.forEach(a => { edits[a.id] = parseFloat((project?.total_budget > 0 ? a.pv_budget / project.total_budget : a.pv_budget / activities.reduce((s, x) => s + x.pv_budget, 0)) * 100).toFixed(2); }); setWeightEdits(edits); setWeightEditGroup(g); }}
+                              style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 600, color: T.text, cursor: "pointer" }}>
+                              직접 수정
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {isOpen && (
                         <div style={{ marginLeft: 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
                           {g.acts.map(a => (
-                            <div key={a.id} style={{ background: a.group_name === "기타(미입력)" ? "#F9FAFB" : "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : a.group_name === "기타(미입력)" ? "#E5E7EB" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.group_name === "기타(미입력)" ? "#9CA3AF" : a.critical ? "#EF4444" : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.7 : 1 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                                <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
-                                  {a.sub_group && a.sub_group !== "-" && a.sub_group !== "" && (
-                                    <span style={{ fontSize: 12, color: "#6B7280", marginRight: 4 }}>({a.sub_group})</span>
-                                  )}
-                                  {a.name}
-                                  {a.floor_start !== null && a.floor_end !== null && (
-                                    <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
-                                      ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
+                            <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px", borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.6 : 1 }}>
+                              {/* 1행: 이름 + 상태배지 + 진도율 */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 14, color: T.text, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    {a.sub_group && a.sub_group !== "-" && a.sub_group !== "" && (
+                                      <span style={{ fontSize: 11, color: T.sub, background: T.bg, borderRadius: 4, padding: "1px 6px" }}>{a.sub_group}</span>
+                                    )}
+                                    {a.name}
+                                    {a.floor_start !== null && a.floor_end !== null && (
+                                      <span style={{ fontSize: 11, color: T.sub }}>
+                                        {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                                    {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color={T.danger} />}
+                                    {a.critical && <Badge label="Critical" bg="#FEE2E2" color={T.danger} />}
+                                    <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
+                                    <span style={{ fontSize: 11, color: T.sub }}>
+                                      {a.ps} ~ {a.pf}
                                     </span>
-                                  )}
-                                </span>                     {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
-                                {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
-                                {(() => {
-                                  const totalBudgetAll = activities.reduce((s, x) => s + x.pv_budget, 0);
-                                  const wf = totalBudgetAll > 0 ? (a.pv_budget / totalBudgetAll * 100).toFixed(2) : "0.00";
-                                  return <Badge label={`W/F ${wf}%`} bg="#EFF6FF" color="#1D4ED8" />;
-                                })()}
-                                <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
-
-                                {predModalAct?.id === a.id && (
-                                  <PredecessorModal
-                                    act={predModalAct}
-                                    activities={activities}
-                                    onClose={() => setPredModalAct(null)}
-                                    onSave={(preds) => {
-                                      setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
-                                      setPredModalAct(null);
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: a.total_float <= 0 ? T.danger : a.total_float <= 3 ? T.warn : T.success }}>
+                                      Float {a.total_float}일
+                                    </span>
+                                    <span style={{ fontSize: 11, color: T.sub }}>{a.resp} · {a.subcon}</span>
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                                  <span style={{ fontSize: 16, fontWeight: 800, color: a.critical ? T.danger : statusColor(a.status) }}>{pct(a.phys)}</span>
+                                  {!a.as_ && a.ps <= todayStr && (
+                                    <button onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
+                                      try {
+                                        await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
+                                        setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
+                                      } catch (err) { alert("착수 처리 실패: " + err.message); }
                                     }}
-                                  />
-                                )}
-                                {/* 세부공정 드릴다운 버튼 */}
+                                      style={{ background: `${T.blue}14`, border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: T.blue, cursor: "pointer", fontWeight: 700 }}>
+                                      착수
+                                    </button>
+                                  )}
+                                  {a.as_ && <span style={{ fontSize: 11, color: T.success, fontWeight: 600 }}>착수 {a.as_}</span>}
+                                </div>
+                              </div>
+                              {/* 2행: 진행 바 */}
+                              <div style={{ background: T.bg, borderRadius: 4, height: 6, overflow: "hidden", marginBottom: 8 }}>
+                                <div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? T.danger : statusColor(a.status), borderRadius: 4 }} />
+                              </div>
+                              {/* 3행: 액션 버튼들 */}
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                                 <button onClick={(e) => { e.stopPropagation(); setOpenAct(openAct === a.id ? null : a.id); }}
-                                  style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
-                                  {openAct === a.id ? "▲ 세부공정" : `▼ 세부공정 ${subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}`}
+                                  style={{ background: openAct === a.id ? `${T.blue}14` : T.card, border: `1px solid ${openAct === a.id ? T.blue : T.border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, color: openAct === a.id ? T.blue : T.text, cursor: "pointer", fontWeight: 600 }}>
+                                  세부공정 {subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}  {openAct === a.id ? "▲" : "▼"}
                                 </button>
                                 <button onClick={(e) => { e.stopPropagation(); setPredModalAct(a); }}
-                                  style={{ background: a.predecessors?.length > 0 ? "#FFFBEB" : "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: a.predecessors?.length > 0 ? "#92400E" : "#6B7280", cursor: "pointer", fontWeight: 600 }}>
-                                  🔗 {a.predecessors?.length > 0 ? `선행 ${a.predecessors.length}개` : "선행공정"}
+                                  style={{ background: a.predecessors?.length > 0 ? "#FFFBEB" : T.card, border: `1px solid ${a.predecessors?.length > 0 ? "#F59E0B" : T.border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, color: a.predecessors?.length > 0 ? "#92400E" : T.sub, cursor: "pointer", fontWeight: 600 }}>
+                                  선행공정 {a.predecessors?.length > 0 ? `(${a.predecessors.length})` : ""}
                                 </button>
                                 {a.done_qty === 0 && onDelete && (
                                   <button onClick={async (e) => {
@@ -403,58 +482,41 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                       onDelete(a.id);
                                     } catch (err) { alert("삭제 실패: " + err.message); }
                                   }}
-                                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: T.danger, cursor: "pointer", fontWeight: 600, marginLeft: "auto" }}>
                                     삭제
                                   </button>
-                                )}                    </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                                <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
-                                <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
-                              </div>
-                              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280", alignItems: "center" }}>
-                                <span>📅 {a.ps} ~ {a.pf}</span>
-                                {!a.as_ && a.ps <= dayStr(TODAY) && (
-                                  <button onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
-                                    try {
-                                      await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
-                                      setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
-                                    } catch (err) { alert("착수 처리 실패: " + err.message); }
-                                  }}
-                                    style={{ background: "#DBEAFE", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
-                                    🚀 착수
-                                  </button>
-                                )}
-                                {a.as_ && (
-                                  <span style={{ color: "#10B981", fontWeight: 600 }}>🚀 착수 {a.as_}</span>
-                                )}
-                                <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
-                                <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
-                                {a.floor_start !== null && a.floor_end !== null && (
-                                  <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
-                                    {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`} ~ {a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
-                                  </span>
                                 )}
                               </div>
 
+                              {predModalAct?.id === a.id && (
+                                <PredecessorModal
+                                  act={predModalAct}
+                                  activities={activities}
+                                  onClose={() => setPredModalAct(null)}
+                                  onSave={(preds) => {
+                                    setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
+                                    setPredModalAct(null);
+                                  }}
+                                />
+                              )}
+
                               {/* 세부공정 패널 */}
                               {openAct === a.id && (
-                                <div style={{ marginTop: 10, background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px" }}>
-                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                                    <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>세부공정</span>
+                                <div style={{ marginTop: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+                                    <span style={{ fontWeight: 700, fontSize: 13, color: T.text }}>세부공정</span>
                                     <div style={{ display: "flex", gap: 6 }}>
                                       <button onClick={() => handleAISuggest(a)} disabled={aiLoading}
-                                        style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
-                                        {aiLoading ? "추천 중..." : "✨ AI 추천"}
+                                        style={{ background: aiLoading ? T.bg : `${T.blue}14`, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: aiLoading ? T.sub : T.blue, cursor: "pointer" }}>
+                                        {aiLoading ? "추천 중..." : "AI 추천"}
                                       </button>
                                       <button onClick={() => handleAIReweight(a)} disabled={aiLoading}
-                                        style={{ background: aiLoading ? "#F3F4F6" : "#8B5CF6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-                                        {aiLoading ? "계산 중..." : "⚖️ 가중치 재계산"}
+                                        style={{ background: aiLoading ? T.bg : T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: aiLoading ? T.sub : T.text, cursor: "pointer" }}>
+                                        {aiLoading ? "계산 중..." : "가중치 재계산"}
                                       </button>
                                       <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
-                                        style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
-                                        + 직접 추가
+                                        style={{ background: T.blue, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                                        + 추가
                                       </button>
                                     </div>
                                   </div>
@@ -465,9 +527,9 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                       <input value={subInput} onChange={e => setSubInput(e.target.value)}
                                         onKeyDown={e => e.key === "Enter" && handleAddSub(a)}
                                         placeholder="세부공정명 입력"
-                                        style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none" }} />
+                                        style={{ flex: 1, border: `1.5px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none", background: T.card, color: T.text }} />
                                       <button onClick={() => handleAddSub(a)}
-                                        style={{ background: YELLOW, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                                        style={{ background: T.blue, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
                                         추가
                                       </button>
                                     </div>
@@ -505,7 +567,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                             />
                                             <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
                                           </div>
-                                          : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                                          : <span style={{ fontSize: 13, color: T.text, fontWeight: 600, flex: 1 }}>{sub.name}</span>
                                         }
                                         <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
                                           {sub.weight || 0}%
@@ -516,10 +578,10 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                           </span>
                                         )}
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                          <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
-                                            <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
+                                          <div style={{ width: 80, background: T.border, borderRadius: 4, height: 6, overflow: "hidden" }}>
+                                            <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? T.success : T.blue, borderRadius: 4 }} />
                                           </div>
-                                          <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: T.text, minWidth: 28 }}>{sub.phys}%</span>
                                         </div>
                                         {/* 착수 / 완료 버튼 */}
                                         {sub.status === "active" && sub.phys < 100 && editingSubId !== sub.id && (

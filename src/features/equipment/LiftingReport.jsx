@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { TODAY, T } from '../../lib/constants';
 import { sb } from '../../lib/supabase';
 import { dayStr, fmtM } from '../../lib/utils';
 
@@ -73,11 +73,11 @@ function LiftingReport({ reservations, equipment }) {
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       {/* 헤더 + 기간 필터 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>📈 양중 부하 분석</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>양중 부하 분석</div>
         <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
           {[["week", "주간"], ["month", "월간"], ["all", "전체"]].map(([v, label]) => (
             <button key={v} onClick={() => setPeriod(v)}
-              style={{ padding: "6px 14px", border: "none", borderRadius: 8, background: period === v ? "#fff" : "transparent", fontWeight: period === v ? 700 : 400, fontSize: 13, color: period === v ? NAVY : "#6B7280", cursor: "pointer", boxShadow: period === v ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+              style={{ padding: "6px 14px", border: "none", borderRadius: 8, background: period === v ? T.card : "transparent", fontWeight: period === v ? 700 : 400, fontSize: 13, color: period === v ? T.text : T.sub, cursor: "pointer", boxShadow: period === v ? T.shadow : "none" }}>
               {label}
             </button>
           ))}
@@ -87,7 +87,7 @@ function LiftingReport({ reservations, equipment }) {
       {/* KPI 카드 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         {[
-          { label: "총 양중 신청", value: totalCount + "건", color: NAVY },
+          { label: "총 양중 신청", value: totalCount + "건", color: T.text },
           { label: "완료", value: completedCount + "건", color: "#10B981" },
           { label: "지연 발생", value: delayedCount + "건", color: delayedCount > 0 ? "#EF4444" : "#10B981" },
           { label: "평균 지연시간", value: avgDelay > 0 ? `+${avgDelay}분` : "없음", color: avgDelay > 0 ? "#EF4444" : "#10B981" },
@@ -103,19 +103,19 @@ function LiftingReport({ reservations, equipment }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         {/* 협력사별 양중 횟수 차트 */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 16 }}>협력사별 양중 횟수</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 16 }}>협력사별 양중 횟수</div>
           {companies.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>데이터 없음</div>}
           {companies.map(c => (
             <div key={c.name} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{c.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{c.name}</span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <span style={{ fontSize: 11, color: "#6B7280" }}>{c.count}건</span>
                   {c.delayed > 0 && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>지연 {c.delayed}건</span>}
                 </div>
               </div>
               <div style={{ background: "#F3F4F6", borderRadius: 4, height: 12, overflow: "hidden", position: "relative" }}>
-                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(c.count / maxCount) * 100}%`, background: NAVY, borderRadius: 4, transition: "width 0.8s" }} />
+                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(c.count / maxCount) * 100}%`, background: T.blue, borderRadius: 4, transition: "width 0.8s" }} />
                 <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(c.delayed / maxCount) * 100}%`, background: "#EF4444", borderRadius: 4, opacity: 0.6 }} />
               </div>
               {c.avgDelay > 0 && <div style={{ fontSize: 10, color: "#EF4444", marginTop: 2 }}>평균 지연 +{c.avgDelay}분</div>}
@@ -125,12 +125,12 @@ function LiftingReport({ reservations, equipment }) {
 
         {/* 시간대별 양중 분포 */}
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 4 }}>시간대별 양중 분포</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 4 }}>시간대별 양중 분포</div>
           <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 12 }}>피크 시간대: {String(peakHour).padStart(2, "0")}:00 ({hourMap[peakHour]}건)</div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 100 }}>
             {hourMap.map((cnt, h) => (
               <div key={h} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <div style={{ width: "100%", background: h === peakHour ? YELLOW : cnt > 0 ? NAVY : "#E5E7EB", borderRadius: "2px 2px 0 0", height: `${(cnt / maxHour) * 80}px`, minHeight: cnt > 0 ? 4 : 0, transition: "height 0.8s" }} />
+                <div style={{ width: "100%", background: h === peakHour ? T.warn : cnt > 0 ? T.blue : T.border, borderRadius: "2px 2px 0 0", height: `${(cnt / maxHour) * 80}px`, minHeight: cnt > 0 ? 4 : 0, transition: "height 0.8s" }} />
               </div>
             ))}
           </div>
@@ -144,19 +144,19 @@ function LiftingReport({ reservations, equipment }) {
 
       {/* 장비별 평균 소요시간 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>장비별 양중 현황</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>장비별 양중 현황</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {eqList.map(eq => (
             <div key={eq.name} style={{ background: "#F9FAFB", borderRadius: 10, padding: "12px 16px", border: "1px solid #E5E7EB" }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: NAVY, marginBottom: 8 }}>{eq.name}</div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: T.text, marginBottom: 8 }}>{eq.name}</div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-                <span>총 신청</span><span style={{ fontWeight: 700, color: NAVY }}>{eq.count}건</span>
+                <span>총 신청</span><span style={{ fontWeight: 700, color: T.text }}>{eq.count}건</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
                 <span>완료</span><span style={{ fontWeight: 700, color: "#10B981" }}>{eq.completed}건</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6B7280" }}>
-                <span>평균 소요</span><span style={{ fontWeight: 700, color: NAVY }}>{eq.avgMin}분</span>
+                <span>평균 소요</span><span style={{ fontWeight: 700, color: T.text }}>{eq.avgMin}분</span>
               </div>
             </div>
           ))}
@@ -165,10 +165,10 @@ function LiftingReport({ reservations, equipment }) {
 
       {/* 상세 테이블 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>양중 이력 상세</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>양중 이력 상세</div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
-            <tr style={{ background: NAVY, color: "#fff" }}>
+            <tr style={{ background: T.text, color: "#fff" }}>
               {["날짜", "장비", "협력사", "자재", "계획시간", "실제완료", "편차", "상태"].map(h => (
                 <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600 }}>{h}</th>
               ))}

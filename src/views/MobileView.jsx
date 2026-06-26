@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NAVY, YELLOW, TODAY, T } from '../lib/constants';
+import { TODAY, T } from '../lib/constants';
 import { sb, supabase, ANTHROPIC_KEY, uploadPhoto } from '../lib/supabase';
 import { pct, cpiColor, statusColor, dayStr, fmtM, fmtTime, diffDays } from '../lib/utils';
 import { calcAct, calcTodayTarget } from '../lib/cpm';

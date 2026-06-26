@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NAVY, YELLOW } from '../lib/constants';
+import { T } from '../lib/constants';
 import { sb, supabase, uploadPhoto } from '../lib/supabase';
 
 export default
@@ -70,16 +70,16 @@ function DocumentVault() {
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>📁 문서 보관함</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>📁 문서 보관함</div>
 
       {/* 폴더 탭 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         {FOLDERS.map(f => (
           <button key={f.id} onClick={() => setSelectedFolder(f.id)}
             style={{
-              background: selectedFolder === f.id ? NAVY : "#fff",
+              background: selectedFolder === f.id ? T.blue : "#fff",
               color: selectedFolder === f.id ? "#fff" : "#374151",
-              border: `1.5px solid ${selectedFolder === f.id ? NAVY : "#E5E7EB"}`,
+              border: `1.5px solid ${selectedFolder === f.id ? T.blue : "#E5E7EB"}`,
               borderRadius: 10, padding: "8px 16px", fontSize: 13, fontWeight: selectedFolder === f.id ? 700 : 400,
               cursor: "pointer"
             }}>
@@ -112,7 +112,7 @@ function DocumentVault() {
                     <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>
                       {getFolderIcon(file.folder)} {getFolderLabel(file.folder)}
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {file.name.replace(/^\d{8}_/, "").replace(/\.[^.]+$/, "")}
                     </div>
                     <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4 }}>
@@ -131,13 +131,13 @@ function DocumentVault() {
           onClick={() => setSelectedFile(null)}>
           <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", maxWidth: 600, width: "100%", maxHeight: "90vh" }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ background: NAVY, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ background: T.blue, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
                 {getFolderIcon(selectedFile.folder)} {getFolderLabel(selectedFile.folder)}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => window.open(selectedFile.url, "_blank")}
-                  style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                  style={{ background: T.blue, border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
                   🔗 원본 보기
                 </button>
                 <button onClick={() => { handleDelete(selectedFile); setSelectedFile(null); }}
@@ -155,7 +155,7 @@ function DocumentVault() {
               }
               <div style={{ marginTop: 16, padding: "12px 16px", background: "#F9FAFB", borderRadius: 10 }}>
                 <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>파일명</div>
-                <div style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{selectedFile.name}</div>
+                <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{selectedFile.name}</div>
               </div>
             </div>
           </div>

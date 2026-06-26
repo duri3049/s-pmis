@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { NAVY, YELLOW } from '../lib/constants';
+import { T } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';
 
 export default
-function ProjectSettings({ project, setProject, activities, setActivities }) {
+function ProjectSettings({ project, setProject, activities, setActivities, onImport }) {
   const [form, setForm] = useState({
     name: project?.name || "",
     total_budget: project?.total_budget || 0,
@@ -118,14 +118,14 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
     setSaving(false);
   };
 
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "10px 14px", fontSize: 15, outline: "none", boxSizing: "border-box" };
-  const ls = { fontSize: 13, color: "#374151", fontWeight: 600, marginBottom: 6, display: "block" };
+  const is = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 15, outline: "none", boxSizing: "border-box", background: T.card, color: T.text };
+  const ls = { fontSize: 13, color: T.sub, fontWeight: 600, marginBottom: 6, display: "block" };
 
   return (
     <div style={{ padding: 24, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 24 }}>⚙️ 프로젝트 설정</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 24 }}>프로젝트 설정</div>
 
-      <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", maxWidth: 600, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+      <div style={{ background: T.card, borderRadius: T.radius, padding: "24px 28px", maxWidth: 600, boxShadow: T.shadow }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div>
             <label style={ls}>현장명</label>
@@ -155,7 +155,7 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
         {/* 현재 공종별 예산 미리보기 */}
         {form.total_budget > 0 && activities.length > 0 && (
           <div style={{ marginTop: 24, borderTop: "1px solid #E5E7EB", paddingTop: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: NAVY, marginBottom: 12 }}>공종별 예산 미리보기</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 12 }}>공종별 예산 미리보기</div>
             <div style={{ maxHeight: 240, overflowY: "auto" }}>
               {activities.map(a => {
                 const weight = (a.pv_budget / (project?.total_budget || 1000000000)) * 100;
@@ -164,11 +164,11 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
                   <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F3F4F6", fontSize: 13 }}>
                     <div>
                       <span style={{ color: "#9CA3AF", fontSize: 11, marginRight: 6 }}>{a.group_name}</span>
-                      <span style={{ color: NAVY }}>{a.name}</span>
+                      <span style={{ color: T.text }}>{a.name}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <span style={{ color: "#6B7280" }}>
-                        W/F {weight.toFixed(1)}% = <strong style={{ color: NAVY }}>{(newBudget / 100000000).toFixed(2)}억</strong>
+                      <span style={{ color: T.sub }}>
+                        W/F {weight.toFixed(1)}% = <strong style={{ color: T.text }}>{(newBudget / 100000000).toFixed(2)}억</strong>
                       </span>
                       <button onClick={async () => {
                         if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
@@ -190,14 +190,13 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24 }}>
-          {toast && <span style={{ fontSize: 13, color: "#10B981", fontWeight: 600 }}>{toast}</span>}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, gap: 8 }}>
+          {toast && <span style={{ fontSize: 13, color: T.success, fontWeight: 600 }}>{toast}</span>}
           <button
             onClick={async () => {
-              if (!window.confirm("⚠️ 모든 공정 데이터를 초기화합니다.\n등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n정말 초기화하시겠습니까?")) return;
+              if (!window.confirm("모든 공정 데이터를 초기화합니다.\n등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n정말 초기화하시겠습니까?")) return;
               try {
                 const headers = { "Content-Type": "application/json", "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Prefer": "return=minimal" };
-                // FK 순서: progress_reports → weekly_plans → issues → sub_activities → activities
                 await fetch(`${SB_URL}/rest/v1/progress_reports?id=gt.0`, { method: "DELETE", headers });
                 await fetch(`${SB_URL}/rest/v1/weekly_plans?id=gt.0`, { method: "DELETE", headers });
                 await fetch(`${SB_URL}/rest/v1/weekly_plan_snapshots?id=gt.0`, { method: "DELETE", headers });
@@ -206,22 +205,29 @@ function ProjectSettings({ project, setProject, activities, setActivities }) {
                 await fetch(`${SB_URL}/rest/v1/sub_activities?id=gt.0`, { method: "DELETE", headers });
                 await fetch(`${SB_URL}/rest/v1/activities?id=gt.0`, { method: "DELETE", headers });
                 setActivities([]);
-                setToast("🗑️ 데이터 초기화 완료");
+                setToast("데이터 초기화 완료");
               } catch (err) { alert("초기화 실패: " + err.message); }
             }}
             style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "11px 20px", fontWeight: 700, fontSize: 13, color: "#991B1B", cursor: "pointer" }}>
-            🗑️ 데이터 초기화
+            데이터 초기화
           </button>
           <button onClick={handleSave} disabled={saving}
-            style={{ marginLeft: "auto", background: YELLOW, border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
-            {saving ? "저장 중..." : "✅ 저장"}
+            style={{ marginLeft: "auto", background: T.blue, border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
+            {saving ? "저장 중..." : "저장"}
           </button>
         </div>
       </div>
 
-      {/* 총 공사비 설정 후 공정표 업로드 안내 */}
-      <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 12, padding: "14px 18px", marginTop: 16, maxWidth: 600, fontSize: 13, color: "#065F46" }}>
-        💡 총 공사비 설정 후 공정표를 업로드하면 가중치 기반으로 공종별 예산이 자동 계산됩니다.
+      {/* 공정표 업로드 */}
+      <div style={{ background: T.card, borderRadius: T.radius, padding: "20px 24px", marginTop: 16, maxWidth: 600, boxShadow: T.shadow }}>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 6 }}>공정표 업로드</div>
+        <div style={{ fontSize: 13, color: T.sub, marginBottom: 16, lineHeight: 1.6 }}>
+          총 공사비 설정 후 엑셀 공정표를 업로드하면 가중치 기반으로 공종별 예산이 자동 계산됩니다.
+        </div>
+        <button onClick={onImport}
+          style={{ background: T.blue, border: "none", borderRadius: 10, padding: "11px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
+          공정표 업로드
+        </button>
       </div>
     </div>
   );

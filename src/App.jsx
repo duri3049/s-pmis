@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-import { NAVY, YELLOW, TODAY } from './lib/constants';
+import { TODAY, T } from './lib/constants';
 import { supabase, sb, SB_URL, SB_KEY, VAPID_PUBLIC_KEY, HOLIDAY_KEY } from './lib/supabase';
 import { calcAct } from './lib/cpm';
 
@@ -17,7 +17,7 @@ export default function App() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [calendarDates, setCalendarDates] = useState([]);
   const [weather, setWeather] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem("splashSeen"));
   const [user, setUser] = useState(null);
 
   const [view, setView] = useState("mobile");
@@ -239,21 +239,22 @@ export default function App() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setDataReady(false); };
 
-  if (showSplash) return <SplashScreen onDone={() => setShowSplash(false)} />;
+  if (showSplash) return <SplashScreen onDone={() => { sessionStorage.setItem("splashSeen", "1"); setShowSplash(false); }} />;
   // DEMO MODE: 로그인 화면 skip
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: "#FAFAFA", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>      <div style={{ width: 40, height: 40, borderRadius: 10, background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, color: NAVY }}>S</div>
-      <div style={{ fontSize: 14, color: "#6B7280" }}>데이터 불러오는 중...</div>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 14, background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: "#fff" }}>S</div>
+      <div style={{ fontSize: 14, color: T.sub, fontWeight: 500 }}>데이터를 불러오는 중이에요</div>
     </div>
   );
 
   if (dbError) return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
-      <div style={{ fontSize: 32 }}>⚠️</div>
-      <div style={{ fontWeight: 700, color: NAVY }}>DB 연결 오류</div>
-      <div style={{ fontSize: 12, color: "#6B7280", maxWidth: 500, textAlign: "center", background: "#F3F4F6", padding: 16, borderRadius: 10, wordBreak: "break-all" }}>{dbError}</div>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 14, background: "#FFF0F0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>!</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>연결에 실패했어요</div>
+      <div style={{ fontSize: 13, color: T.sub, maxWidth: 440, textAlign: "center", background: T.card, padding: "14px 18px", borderRadius: 12, wordBreak: "break-all", lineHeight: 1.6 }}>{dbError}</div>
     </div>
   );
 
@@ -264,25 +265,16 @@ export default function App() {
 
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
-        <div style={{ background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: 56 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="22" height="26" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
-              <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-              <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="11" strokeLinecap="round" />
-            </svg>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>현장 톡.톡.</span>
+        <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: 56, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 9, background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, color: "#fff" }}>S</div>
+            <span style={{ color: T.text, fontWeight: 700, fontSize: 16 }}>현장 톡.톡.</span>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "4px 8px", fontWeight: 600, fontSize: 11, cursor: "pointer" }}>📱 현장</button>
-            <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.1)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 600, fontSize: 13, cursor: "pointer", position: "relative" }}>
-              💻 관리자
-              {pendingCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#EF4444", color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700 }}>{pendingCount}</span>}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <button onClick={() => setView("mobile")} style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>현장</button>
+            <button onClick={() => setView("desktop")} style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", position: "relative" }}>
+              관리자
+              {pendingCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: T.danger, color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700 }}>{pendingCount}</span>}
             </button>
           </div>
         </div>

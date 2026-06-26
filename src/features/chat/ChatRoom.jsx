@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NAVY, YELLOW } from '../../lib/constants';
+import { T } from '../../lib/constants';
 import { supabase, sb, ANTHROPIC_KEY as SK_ANTHROPIC_KEY } from '../../lib/supabase';
 import { fmtTime, dayStr } from '../../lib/utils';
 
@@ -185,11 +185,11 @@ ${(activities || []).map(a => {
           <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 8, marginBottom: 6 }}>
             {!isMe && <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: "#374151", flexShrink: 0 }}>{m.avatar || m.user_name?.[0]}</div>}
             <div style={{ maxWidth: "65%" }}>
-              {!isMe && <div style={{ fontSize: 11, color: m.user_role === "AI" ? YELLOW : "#9CA3AF", marginBottom: 3, fontWeight: m.user_role === "AI" ? 700 : 400 }}>{m.user_name} · {m.user_role}</div>}
+              {!isMe && <div style={{ fontSize: 11, color: m.user_role === "AI" ? T.blue : T.sub, marginBottom: 3, fontWeight: m.user_role === "AI" ? 700 : 400 }}>{m.user_name} · {m.user_role}</div>}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, flexDirection: isMe ? "row-reverse" : "row" }}>
                 <div style={{
-                  background: isMe ? YELLOW : m.user_role === "AI" ? "#1A2332" : "#fff",
-                  color: isMe ? NAVY : m.user_role === "AI" ? "#fff" : "#374151",
+                  background: isMe ? T.blue : m.user_role === "AI" ? T.text : T.card,
+                  color: isMe ? "#fff" : m.user_role === "AI" ? "#fff" : T.text,
                   borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
                   padding: "10px 14px", fontSize: 14, lineHeight: 1.5,
                   border: isMe ? "none" : m.user_role === "AI" ? "none" : "1px solid #E5E7EB"
@@ -206,10 +206,10 @@ ${(activities || []).map(a => {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: "12px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-        {onBack && <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: NAVY, padding: 0 }}>←</button>}
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: room.type === "group" ? NAVY : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: room.type === "group" ? YELLOW : "#374151" }}>{roomName[0]}</div>
+        {onBack && <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: T.text, padding: 0 }}>←</button>}
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: room.type === "group" ? T.blue : T.bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: room.type === "group" ? "#fff" : T.sub }}>{roomName[0]}</div>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{roomName}</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{roomName}</div>
           <div style={{ fontSize: 11, color: "#10B981" }}>● 실시간</div>
         </div>
       </div>
@@ -219,11 +219,11 @@ ${(activities || []).map(a => {
       </div>
       <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8, background: "#fff", flexShrink: 0 }}>
         <button onClick={() => setInput(prev => prev.includes("@AI") ? prev : "@AI " + prev)}
-          style={{ background: aiLoading ? "#F3F4F6" : NAVY, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 12, color: aiLoading ? "#9CA3AF" : YELLOW, cursor: "pointer", flexShrink: 0 }}>
+          style={{ background: aiLoading ? T.bg : T.text, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 12, color: aiLoading ? T.sub : "#fff", cursor: "pointer", flexShrink: 0 }}>
           {aiLoading ? "⏳" : "AI"}
         </button>
         <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, minWidth: 0, border: "1.5px solid #D1D5DB", borderRadius: 22, padding: "10px 16px", fontSize: 16, outline: "none", background: "#F9FAFB" }} />
-        <button onClick={handleSend} style={{ background: YELLOW, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 16, color: NAVY, cursor: "pointer", flexShrink: 0 }}>↑</button>
+        <button onClick={handleSend} style={{ background: T.blue, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 16, color: "#fff", cursor: "pointer", flexShrink: 0 }}>↑</button>
       </div>
     </div>
   );

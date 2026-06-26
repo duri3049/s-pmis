@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NAVY, YELLOW, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
+import { T, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';
 import { pct, dayStr, fmtM } from '../lib/utils';
@@ -126,15 +126,15 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   const handleReject = async (report) => { try { await sb.patch("progress_reports", report.id, { status: "rejected" }); setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "rejected" } : r)); setToast("반려되었습니다"); } catch (err) { alert("반려 실패: " + err.message); } };
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 17, color: NAVY, marginBottom: 12 }}>📋 결재 라인</div>
+      <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 12 }}>📋 결재 라인</div>
       {/* 탭 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F3F4F6", borderRadius: 12, padding: 4 }}>
         {APPROVAL_TABS.map(t => (
           <button key={t.key} onClick={() => setApprovalTab(t.key)}
-            style={{ flex: 1, background: approvalTab === t.key ? "#fff" : "none", border: "none", borderRadius: 9, padding: "8px 0", fontSize: 13, fontWeight: approvalTab === t.key ? 700 : 400, color: approvalTab === t.key ? NAVY : "#6B7280", cursor: "pointer", boxShadow: approvalTab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s", position: "relative" }}>
+            style={{ flex: 1, background: approvalTab === t.key ? "#fff" : "none", border: "none", borderRadius: 9, padding: "8px 0", fontSize: 13, fontWeight: approvalTab === t.key ? 700 : 400, color: approvalTab === t.key ? T.text : "#6B7280", cursor: "pointer", boxShadow: approvalTab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s", position: "relative" }}>
             {t.label}
             {t.count > 0 && (
-              <span style={{ marginLeft: 4, background: approvalTab === t.key ? YELLOW : "#E5E7EB", color: approvalTab === t.key ? NAVY : "#6B7280", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>
+              <span style={{ marginLeft: 4, background: approvalTab === t.key ? T.blue : "#E5E7EB", color: approvalTab === t.key ? "#fff" : "#6B7280", borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>
                 {t.count}
               </span>
             )}
@@ -154,11 +154,11 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
           const today_qty = report.new_done_qty - report.prev_done_qty;
           const isInvoice = report.report_type === "invoice";
           return (
-            <div key={report.id} style={{ background: flash ? "#D1FAE5" : "#fff", border: `1.5px solid ${flash ? "#10B981" : isInvoice ? NAVY : YELLOW}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14, transition: "background 0.3s" }}>
+            <div key={report.id} style={{ background: flash ? "#D1FAE5" : "#fff", border: `1.5px solid ${flash ? "#10B981" : isInvoice ? T.text : T.blue}`, borderRadius: 14, padding: "16px 20px", marginBottom: 14, transition: "background 0.3s" }}>
               {/* 카드 헤더 */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{act?.name}</div>
-                {isInvoice && <span style={{ background: NAVY, color: YELLOW, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>💰 기성청구</span>}
+                <div style={{ fontWeight: 700, fontSize: 15, color: T.text, flex: 1 }}>{act?.name}</div>
+                {isInvoice && <span style={{ background: T.blue, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>💰 기성청구</span>}
               </div>
               <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10 }}>{report.reporter} · {report.reporter_company}</div>
 
@@ -166,7 +166,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 /* 기성청구 전용 UI */
                 <div style={{ background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
                   <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>청구 금액</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: NAVY }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6B7280", marginLeft: 4 }}>만원</span></div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6B7280", marginLeft: 4 }}>만원</span></div>
                   <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>BAC 대비 {act ? Math.round(report.invoice_amount / act.pv_budget * 100) : 0}%</div>
                 </div>
               ) : (
@@ -174,14 +174,14 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <span>{report.prev_done_qty}{report.unit}</span><span style={{ color: "#9CA3AF" }}>→</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{report.new_done_qty}{report.unit}</span>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: T.text }}>{report.new_done_qty}{report.unit}</span>
                     <span style={{ color: "#10B981", fontWeight: 700 }}>+{today_qty}</span>
                   </div>
                   <div style={{ background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
                     <div style={{ position: "absolute", left: 0, top: 0, width: `${oldPct}%`, height: "100%", background: "#D1D5DB", borderRadius: 4 }} />
-                    <div style={{ position: "absolute", left: 0, top: 0, width: `${newPct}%`, height: "100%", background: YELLOW, borderRadius: 4, transition: "width 0.8s ease" }} />
+                    <div style={{ position: "absolute", left: 0, top: 0, width: `${newPct}%`, height: "100%", background: T.blue, borderRadius: 4, transition: "width 0.8s ease" }} />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: NAVY }}>승인 후 {newPct}%</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: T.text }}>승인 후 {newPct}%</span></div>
                 </div>
               )}
 
@@ -207,10 +207,10 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
-                {CHAIN_ROLES.map((rank, i) => { const done = i < 2, active = i === 2; return (<div key={i} style={{ display: "flex", alignItems: "center" }}><div style={{ background: done ? "#10B981" : active ? YELLOW : "#F3F4F6", border: `1px solid ${done ? "#10B981" : active ? YELLOW : "#D1D5DB"}`, borderRadius: 6, padding: "3px 6px", textAlign: "center", minWidth: 44 }}><div style={{ fontSize: 10, color: done ? "#fff" : active ? NAVY : "#6B7280" }}>{rank}</div><div style={{ fontSize: 10, fontWeight: 600, color: done ? "#fff" : active ? NAVY : "#9CA3AF" }}>{done ? "✓" : active ? "⏳" : "—"}</div><div style={{ fontSize: 9, color: done ? "#d1fae5" : active ? "#78350f" : "#9CA3AF" }}>{CHAIN_NAMES[i]}</div></div>{i < 4 && <div style={{ width: 5, height: 1, background: "#D1D5DB" }} />}</div>); })}
+                {CHAIN_ROLES.map((rank, i) => { const done = i < 2, active = i === 2; return (<div key={i} style={{ display: "flex", alignItems: "center" }}><div style={{ background: done ? "#10B981" : active ? T.blue : "#F3F4F6", border: `1px solid ${done ? "#10B981" : active ? T.blue : "#D1D5DB"}`, borderRadius: 6, padding: "3px 6px", textAlign: "center", minWidth: 44 }}><div style={{ fontSize: 10, color: done ? "#fff" : active ? "#fff" : "#6B7280" }}>{rank}</div><div style={{ fontSize: 10, fontWeight: 600, color: done ? "#fff" : active ? "#fff" : "#9CA3AF" }}>{done ? "✓" : active ? "⏳" : "—"}</div><div style={{ fontSize: 9, color: done ? "#d1fae5" : active ? "#bfdbfe" : "#9CA3AF" }}>{CHAIN_NAMES[i]}</div></div>{i < 4 && <div style={{ width: 5, height: 1, background: "#D1D5DB" }} />}</div>); })}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => handleApprove(report)} style={{ flex: 1, background: YELLOW, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>✅ 승인</button>
+                <button onClick={() => handleApprove(report)} style={{ flex: 1, background: T.blue, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✅ 승인</button>
                 <button onClick={() => handleReject(report)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 600, fontSize: 14, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
               </div>
             </div>

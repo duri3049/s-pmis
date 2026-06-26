@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW } from '../lib/constants';
+import { T } from '../lib/constants';
 
 export default
 function PredecessorModal({ act, activities, onClose, onSave }) {
@@ -39,7 +39,7 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
-        <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>🔗 선행공정 설정</div>
             <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{act.name}</div>
@@ -63,10 +63,10 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
               return (
                 <div key={a.id}
                   onClick={() => toggle(a.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${selected ? YELLOW : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: selected ? "#FFFBEB" : "#fff", marginBottom: 8 }}>
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `1.5px solid ${selected ? T.blue : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: selected ? "#FFFBEB" : "#fff", marginBottom: 8 }}>
                   <input type="checkbox" checked={!!selected} onChange={() => { }} style={{ width: 16, height: 16, flexShrink: 0 }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div>
                     <div style={{ fontSize: 11, color: "#9CA3AF", display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
                       <span>📅 {a.ps} ~ {a.pf}</span>
                       {a.sub_group && <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 5px", fontWeight: 600 }}>{a.sub_group}</span>}
@@ -99,7 +99,7 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
         )}
         <div style={{ padding: "14px 20px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
-          <button onClick={handleSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+          <button onClick={handleSave} disabled={saving} style={{ background: T.blue, border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
             {saving ? "저장 중..." : "✅ 저장"}
           </button>
         </div>

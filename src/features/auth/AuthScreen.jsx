@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, ROLES, SUBCONS } from '../../lib/constants';
+import { T, ROLES, SUBCONS } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
 
 export default function AuthScreen({ onAuth }) {
@@ -36,26 +36,26 @@ export default function AuthScreen({ onAuth }) {
   const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 12 };
 
   return (
-    <div style={{ minHeight: "100vh", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+    <div style={{ minHeight: "100vh", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <div style={{ background: NAVY, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: T.blue, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
-              <line x1="0" y1="4" x2="0" y2="-80" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="58" y2="-20" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="-25" y2="52" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
-              <line x1="0" y1="4" x2="-58" y2="-44" stroke={YELLOW} strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="0" y2="-80" stroke="#fff" strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="58" y2="-20" stroke="#fff" strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="25" y2="52" stroke="#fff" strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-25" y2="52" stroke="#fff" strokeWidth="10" strokeLinecap="round" />
+              <line x1="0" y1="4" x2="-58" y2="-44" stroke="#fff" strokeWidth="10" strokeLinecap="round" />
               <polyline points="-58,52 -58,-44 0,-80 58,-20 58,52" fill="none" stroke="white" strokeWidth="11" strokeLinejoin="round" strokeLinecap="round" />
               <line x1="-58" y1="52" x2="-25" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
-          <div><div style={{ fontWeight: 800, fontSize: 18, color: NAVY }}>현장 톡.톡.</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18, color: T.text }}>현장 톡.톡.</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
           {[["login", "로그인"], ["signup", "회원가입"]].map(([m, label]) => (
-            <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 8, background: mode === m ? "#fff" : "transparent", fontWeight: mode === m ? 700 : 400, fontSize: 13, color: mode === m ? NAVY : "#6B7280", cursor: "pointer", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
+            <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 8, background: mode === m ? "#fff" : "transparent", fontWeight: mode === m ? 700 : 400, fontSize: 13, color: mode === m ? T.text : "#6B7280", cursor: "pointer", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
           ))}
         </div>
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일" type="email" style={inputStyle} />
@@ -74,7 +74,7 @@ export default function AuthScreen({ onAuth }) {
         </>}
         {error && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 12, textAlign: "center" }}>{error}</div>}
         <button onClick={mode === "login" ? handleLogin : handleSignup} disabled={loading}
-          style={{ width: "100%", background: YELLOW, border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 15, color: NAVY, cursor: "pointer" }}>
+          style={{ width: "100%", background: T.blue, border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 15, color: "#fff", cursor: "pointer" }}>
           {loading ? "처리 중..." : mode === "login" ? "로그인" : "회원가입"}
         </button>
       </div>

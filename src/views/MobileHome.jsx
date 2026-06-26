@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NAVY, YELLOW, TODAY, getTier, T } from '../lib/constants';
+import { TODAY, getTier, T } from '../lib/constants';
 import { sb, ANTHROPIC_KEY } from '../lib/supabase';
 import { pct, cpiColor, statusColor, sevColor, dayStr, fmtM } from '../lib/utils';
 import KPI from '../components/KPI';

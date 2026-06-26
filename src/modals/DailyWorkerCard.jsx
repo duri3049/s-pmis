@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, TODAY, SUBCONS, RESPS } from '../lib/constants';
+import { T, TODAY, SUBCONS, RESPS } from '../lib/constants';
 import { sb, uploadPhoto } from '../lib/supabase';
 import { dayStr } from '../lib/utils';
 
@@ -54,9 +54,9 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
   };
 
   return (
-    <div style={{ background: "#fff", border: `2px solid ${NAVY}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+    <div style={{ background: "#fff", border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>👷 일일 인원 입력</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>👷 일일 인원 입력</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, color: "#9CA3AF" }}>{today}</span>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
@@ -69,7 +69,7 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
           <div key={r.actId} style={{ marginBottom: 12, border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
             <div style={{ background: "#F8FAFC", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: NAVY }}>{r.actName}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{r.actName}</div>
                 {r.subcon && r.subcon !== "미정" && <div style={{ fontSize: 11, color: "#6B7280" }}>{r.subcon}</div>}
               </div>
               <button onClick={() => addJob(ai)} style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>+ 직종 추가</button>
@@ -95,7 +95,7 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
       }
 
       <button onClick={handleSubmit} disabled={saving}
-        style={{ width: "100%", background: NAVY, color: "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 4 }}>
+        style={{ width: "100%", background: T.blue, color: "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 4 }}>
         {saving ? "저장 중..." : "✅ 인원 보고 제출"}
       </button>
     </div>

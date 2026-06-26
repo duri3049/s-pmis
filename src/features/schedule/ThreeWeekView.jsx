@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { T, TODAY } from '../../lib/constants';
 import { ANTHROPIC_KEY, sb } from '../../lib/supabase';
 import { diffDays, dayStr } from '../../lib/utils';
 import { calcAct } from '../../lib/cpm';
@@ -352,7 +352,7 @@ function ThreeWeekView({ activities, setActivities, milestones, setMilestones, p
   const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
   const weekLabel = (w, i) => i === 0 ? "지난주" : i === 1 ? "이번주" : "다음주";
   const weekBg = (i) => i === 0 ? "#F8FAFF" : i === 1 ? "#FFFBEB" : "#F0FDF4";
-  const weekBorder = (i) => i === 0 ? "#BFDBFE" : i === 1 ? YELLOW : "#6EE7B7";
+  const weekBorder = (i) => i === 0 ? "#BFDBFE" : i === 1 ? T.blue : "#6EE7B7";
   const weekLabelColor = (i) => i === 0 ? "#1D4ED8" : i === 1 ? "#92400E" : "#065F46";
 
   const rangeStart = weeks[0].startStr;
@@ -732,16 +732,16 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: T.text }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 8, flexWrap: "wrap" }}>
           {viewMode !== "all" && (
             <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
           )}
-          <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: NAVY, minWidth: isMobile ? 120 : 180, textAlign: "center" }}>
+          <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: T.text, minWidth: isMobile ? 120 : 180, textAlign: "center" }}>
             {viewMode === "3w" && (
               <>
                 {fmt(weeks[0].start)} ~ {fmt(weeks[2].end)}
-                {weekOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번주</span>}
+                {weekOffset === 0 && <span style={{ fontSize: 10, color: T.blue, marginLeft: 4 }}>이번주</span>}
               </>
             )}
             {viewMode === "3m" && (
@@ -752,7 +752,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                   mEnd.setDate(mEnd.getDate() + 91);
                   return `${fmt(mBase)} ~ ${fmt(mEnd)}`;
                 })()}
-                {monthOffset === 0 && <span style={{ fontSize: 10, color: YELLOW, marginLeft: 4 }}>이번달</span>}
+                {monthOffset === 0 && <span style={{ fontSize: 10, color: T.blue, marginLeft: 4 }}>이번달</span>}
               </>
             )}
             {viewMode === "all" && (
@@ -783,26 +783,26 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           {viewMode !== "all" && (
             <button
               onClick={() => { if (viewMode === "3w") setWeekOffset(0); if (viewMode === "3m") setMonthOffset(0); }}
-              style={{ background: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? NAVY : "#fff", border: `1.5px solid ${(viewMode === "3w" ? weekOffset : monthOffset) === 0 ? NAVY : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? "#fff" : "#374151" }}>
+              style={{ background: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? T.blue : "#fff", border: `1.5px solid ${(viewMode === "3w" ? weekOffset : monthOffset) === 0 ? T.blue : "#E5E7EB"}`, borderRadius: 8, padding: "0 12px", height: 34, cursor: "pointer", fontSize: 12, fontWeight: 600, color: (viewMode === "3w" ? weekOffset : monthOffset) === 0 ? "#fff" : "#374151" }}>
               오늘
             </button>
           )}
           {/* 뷰 토글 */}
           <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
-            <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
-            <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
-            <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? NAVY : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
+            <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
+            <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
+            <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
 
 
           <button onClick={handlePrint}
-            style={{ background: NAVY, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>
+            style={{ background: T.blue, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>
             {isMobile ? "🖨️" : "🖨️ PDF 출력"}
           </button>
           {!isMobile && <button onClick={handleExcelDownload}
             style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             📊 엑셀 저장
           </button>}
-          <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: NAVY, cursor: "pointer" }}>{isMobile ? "★" : "+ 마일스톤"}</button>
+          <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: T.blue, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "★" : "+ 마일스톤"}</button>
         </div>
       </div>
 
@@ -828,14 +828,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setShowMilestoneForm(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>취소</button>
-            <button onClick={handleMsSave} disabled={saving} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, color: NAVY, cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
+            <button onClick={handleMsSave} disabled={saving} style={{ background: T.blue, border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
           </div>
         </div>
       )}
 
       {/* 마일스톤 행 */}
       <div style={{ background: "#1E293B", borderRadius: 12, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 12, color: YELLOW, fontWeight: 700, minWidth: 60 }}>★ 마일스톤</span>
+        <span style={{ fontSize: 12, color: T.blue, fontWeight: 700, minWidth: 60 }}>★ 마일스톤</span>
         <div style={{ display: "flex", flex: 1, gap: 8 }}>
           {weeks.map((w, i) => {
             const wMs = (milestones || []).filter(m => m.milestone_date >= w.startStr && m.milestone_date <= w.endStr);
@@ -844,9 +844,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                 {wMs.length === 0
                   ? <span style={{ fontSize: 11, color: "#4B5563" }}>-</span>
                   : wMs.map(m => (
-                    <span key={m.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: m.status === "achieved" ? "#374151" : YELLOW, borderRadius: 6, padding: "2px 6px 2px 8px" }}>
+                    <span key={m.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: m.status === "achieved" ? "#374151" : T.blue, borderRadius: 6, padding: "2px 6px 2px 8px" }}>
                       <span onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}
-                        style={{ fontSize: 11, color: m.status === "achieved" ? "#6B7280" : NAVY, cursor: "pointer", fontWeight: 700, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
+                        style={{ fontSize: 11, color: m.status === "achieved" ? "#6B7280" : "#fff", cursor: "pointer", fontWeight: 700, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
                         {msIcon(m.type)} {m.title}
                       </span>
                       <span onClick={async () => {
@@ -855,7 +855,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           await sb.delete("milestones", m.id);
                           setMilestones(p => p.filter(x => x.id !== m.id));
                         } catch (err) { alert("삭제 실패: " + err.message); }
-                      }} style={{ fontSize: 10, color: m.status === "achieved" ? "#6B7280" : NAVY, cursor: "pointer", opacity: 0.7, fontWeight: 700, lineHeight: 1 }}>✕</span>
+                      }} style={{ fontSize: 10, color: m.status === "achieved" ? "#6B7280" : "#fff", cursor: "pointer", opacity: 0.7, fontWeight: 700, lineHeight: 1 }}>✕</span>
                     </span>
                   ))}
               </div>
@@ -949,7 +949,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
             {/* 헤더 */}
             <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + totalColW }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: NAVY, display: "flex", alignItems: "center", padding: "0 12px" }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: T.blue, display: "flex", alignItems: "center", padding: "0 12px" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
               </div>
               <div style={{ flex: 1 }}>
@@ -957,7 +957,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                 {useMonthly && (
                   <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB" }}>
                     {yearGroups.map((y, yi) => (
-                      <div key={yi} style={{ width: COL_W * y.count, flexShrink: 0, background: NAVY, borderRight: "1px solid #374151", textAlign: "center", padding: "3px 0" }}>
+                      <div key={yi} style={{ width: COL_W * y.count, flexShrink: 0, background: T.blue, borderRight: "1px solid #374151", textAlign: "center", padding: "3px 0" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{y.year}</span>
                       </div>
                     ))}
@@ -981,14 +981,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
             {/* 마일스톤 행 */}
             <div style={{ display: "flex", borderBottom: "1px solid #374151", background: "#1E293B", minWidth: LEFT_W + totalColW }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: T.blue, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ flex: 1, position: "relative", height: 24 }}>
                 {(milestones || []).map(m => {
                   const ci = useMonthly ? cols.findIndex(c => c.str.slice(0, 7) === m.milestone_date?.slice(0, 7))
                     : useWeekly ? cols.findLastIndex(c => c.str <= m.milestone_date)
                       : cols.findIndex(c => c.str === m.milestone_date);
                   if (ci < 0) return null;
-                  return <span key={m.id} title={m.title} style={{ position: "absolute", left: ci * COL_W + COL_W / 2 - 6, top: 4, fontSize: 12, color: YELLOW, cursor: "pointer" }}>▼</span>;
+                  return <span key={m.id} title={m.title} style={{ position: "absolute", left: ci * COL_W + COL_W / 2 - 6, top: 4, fontSize: 12, color: T.blue, cursor: "pointer" }}>▼</span>;
                 })}
                 {todayIdx >= 0 && <div style={{ position: "absolute", left: todayIdx * COL_W + COL_W / 2, top: 0, bottom: 0, width: 2, background: "#EF4444", zIndex: 5 }} />}
               </div>
@@ -1000,9 +1000,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             {/* 대공종 + 공종 행 */}
             {Object.entries(grouped).map(([cat, acts]) => (
               <div key={cat}>
-                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY, minWidth: LEFT_W + totalColW }}>
+                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: LEFT_W + totalColW }}>
                   <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
-                  <div style={{ flex: 1, background: NAVY }} />
+                  <div style={{ flex: 1, background: T.blue }} />
                 </div>
                 {acts.map((a, ai) => {
                   const planSi = Math.max(0, findColIdx(a.ps));
@@ -1017,7 +1017,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
                           {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
                         </div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{a.name}</div>
                         <div style={{ fontSize: 9, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
                       </div>
                       <div style={{ flex: 1, position: "relative", height: 48 }}>
@@ -1100,7 +1100,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
             {/* 날짜 헤더 */}
             <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + DAY_W * days.length }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: NAVY, display: "flex", alignItems: "center", padding: "0 12px" }}>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: T.blue, display: "flex", alignItems: "center", padding: "0 12px" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
               </div>
               <div style={{ flex: 1, position: "relative" }}>
@@ -1142,13 +1142,13 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
             {/* 마일스톤 행 */}
             <div style={{ display: "flex", borderBottom: "1px solid #374151", background: "#1E293B", minWidth: LEFT_W + DAY_W * days.length }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: T.blue, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ flex: 1, position: "relative", height: 24 }}>
                 {days.map((d, di) => {
                   const ms = (milestones || []).filter(m => m.milestone_date === d.str);
                   return (
                     <div key={di} style={{ position: "absolute", left: di * DAY_W, width: DAY_W, top: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {ms.map(m => <span key={m.id} title={m.title} style={{ fontSize: 10, color: YELLOW, cursor: "pointer" }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>)}
+                      {ms.map(m => <span key={m.id} title={m.title} style={{ fontSize: 10, color: T.blue, cursor: "pointer" }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>)}
                     </div>
                   );
                 })}
@@ -1163,9 +1163,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             {/* 대공종 + 공종별 행 */}
             {Object.entries(grouped).map(([cat, acts]) => (
               <div key={cat}>
-                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY, minWidth: LEFT_W + DAY_W * days.length }}>
+                <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: LEFT_W + DAY_W * days.length }}>
                   <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
-                  <div style={{ flex: 1, background: NAVY }} />
+                  <div style={{ flex: 1, background: T.blue }} />
                 </div>
                 {acts.map((a, ai) => {
                   const todayIdx = days.findIndex(d => d.str === todayStr);
@@ -1181,7 +1181,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
                           {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
                         </div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{a.name}</div>
                         <div style={{ fontSize: 10, color: "#9CA3A F" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
                       </div>
                       <div style={{ flex: 1, position: "relative", height: 52 }}>
@@ -1261,7 +1261,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                     </div>
                   ))}
                 </div>
-                <div style={{ padding: "0 12px", fontSize: 11, fontWeight: 700, color: NAVY, display: "flex", alignItems: "center", height: 28, borderTop: "1px solid #E5E7EB" }}>공종명</div>
+                <div style={{ padding: "0 12px", fontSize: 11, fontWeight: 700, color: T.text, display: "flex", alignItems: "center", height: 28, borderTop: "1px solid #E5E7EB" }}>공종명</div>
               </div>
 
               <div style={{ display: "flex", flex: 1, overflowX: "auto" }}>
@@ -1289,14 +1289,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
             {/* 마일스톤 행 */}
             <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: "#1E293B", minWidth: TOTAL_W }}>
-              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: YELLOW, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
+              <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: T.blue, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ display: "flex", width: DAY_W * 21, position: "relative", height: 28 }}>
                 {days.map((d, di) => {
                   const ms = (milestones || []).filter(m => m.milestone_date === d.str);
                   return (
                     <div key={di} style={{ width: DAY_W, flexShrink: 0, borderRight: "1px solid #374151", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                       {ms.map(m => (
-                        <span key={m.id} title={m.title} style={{ fontSize: 14, cursor: "pointer", color: YELLOW }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>
+                        <span key={m.id} title={m.title} style={{ fontSize: 14, cursor: "pointer", color: T.blue }} onClick={async () => { const ns = m.status === "achieved" ? "planned" : "achieved"; await sb.patch("milestones", m.id, { status: ns }); setMilestones(p => p.map(x => x.id === m.id ? { ...x, status: ns } : x)); }}>▼</span>
                       ))}
                     </div>
                   );
@@ -1316,9 +1316,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               active.forEach(a => { const cat = a.category || "건축"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(a); });
               return Object.entries(grouped).map(([cat, acts]) => (
                 <div key={cat}>
-                  <div style={{ display: "flex", borderBottom: "1px solid #374151", background: NAVY, minWidth: TOTAL_W }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: TOTAL_W }}>
                     <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
-                    <div style={{ flex: 1, background: NAVY }} />
+                    <div style={{ flex: 1, background: T.blue }} />
                   </div>
                   {acts.map((a, ai) => {
                     const plan = getPlan(a.id, weeks[1].startStr);
@@ -1389,7 +1389,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                               {isUnderAchieved && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>⚠️</span>}
                               {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
                             </div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: NAVY }}>{a.name}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{a.name}</div>
                             <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
                           </div>
 
@@ -1545,7 +1545,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#3B82F6", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적 (보고 완료)</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#93C5FD", borderRadius: 2, opacity: 0.5 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>진행중</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: YELLOW, fontSize: 12 }}>▼</span><span style={{ fontSize: 11, color: "#6B7280" }}>마일스톤</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: T.blue, fontSize: 12 }}>▼</span><span style={{ fontSize: 11, color: "#6B7280" }}>마일스톤</span></div>
             </div>
           </div>
         );

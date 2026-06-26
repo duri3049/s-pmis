@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { T, TODAY } from '../../lib/constants';
 import { sb } from '../../lib/supabase';
 import { dayStr, fmtM } from '../../lib/utils';
 
@@ -81,14 +81,14 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>🚜 장비 현황</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>🚜 장비 현황</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setShowLogForm(true)}
             style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             + 장비 투입
           </button>
           <button onClick={() => setShowForm(true)}
-            style={{ background: YELLOW, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: NAVY, cursor: "pointer" }}>
+            style={{ background: T.blue, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
             + 장비 등록
           </button>
         </div>
@@ -101,9 +101,9 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
           const available = getAvailableUnits(eq);
           return (
             <div key={eq.id} onClick={() => setSelectedEq(selectedEq?.id === eq.id ? null : eq)}
-              style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", cursor: "pointer", border: `1.5px solid ${selectedEq?.id === eq.id ? YELLOW : "#E5E7EB"}` }}>
+              style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", cursor: "pointer", border: `1.5px solid ${selectedEq?.id === eq.id ? T.blue : "#E5E7EB"}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{eq.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{eq.name}</div>
                 <span style={{ fontSize: 11, background: statusColor(available, eq.total_count) + "22", color: statusColor(available, eq.total_count), borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
                   {available === 0 ? "전부 투입" : available === eq.total_count ? "대기" : "일부 투입"}
                 </span>
@@ -133,7 +133,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       {/* 선택된 장비 투입 상세 */}
       {selectedEq && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>
             {selectedEq.name} 투입 현황
           </div>
           {getActiveUnits(selectedEq.id).length === 0
@@ -146,7 +146,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
                     {log.unit_number}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{act?.name || "공종 미지정"}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{act?.name || "공종 미지정"}</div>
                     <div style={{ fontSize: 11, color: "#9CA3AF" }}>
                       투입: {new Date(log.started_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                       {log.note && ` · ${log.note}`}
@@ -164,12 +164,12 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
 
       {/* 오늘 전체 투입 현황 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>오늘 투입 현황</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>오늘 투입 현황</div>
         {logs.length === 0
           ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>투입된 장비가 없습니다</div>
           : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr style={{ background: NAVY, color: "#fff" }}>
+              <tr style={{ background: T.text, color: "#fff" }}>
                 {["장비", "번호", "투입 공종", "투입 시각", "비고", ""].map(h => (
                   <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600 }}>{h}</th>
                 ))}
@@ -204,7 +204,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440 }}>
-            <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 등록</div>
               <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>
@@ -227,7 +227,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
             </div>
             <div style={{ padding: "0 24px 24px", display: "flex", gap: 8 }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontSize: 13, cursor: "pointer" }}>취소</button>
-              <button onClick={handleSaveEquipment} disabled={saving} style={{ flex: 2, background: YELLOW, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: NAVY, cursor: "pointer" }}>
+              <button onClick={handleSaveEquipment} disabled={saving} style={{ flex: 2, background: T.blue, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
                 {saving ? "저장 중..." : "✅ 등록"}
               </button>
             </div>
@@ -239,7 +239,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       {showLogForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440 }}>
-            <div style={{ background: NAVY, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 투입</div>
               <button onClick={() => setShowLogForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>

@@ -1,4 +1,4 @@
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { TODAY } from '../../lib/constants';
 import { fmtM, pct, cpiColor, statusColor } from '../../lib/utils';
 import { sb } from '../../lib/supabase';
 

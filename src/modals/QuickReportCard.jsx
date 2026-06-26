@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import { T, TODAY } from '../lib/constants';
 import { sb, supabase, uploadPhoto } from '../lib/supabase';
 import { dayStr } from '../lib/utils';
 import { claudeComplete } from '../lib/api';
@@ -72,7 +72,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1.5px solid ${selectedActId === a.id ? btnColor : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: selectedActId === a.id ? (type === "done" ? "#F0FDF4" : "#FEF2F2") : "#F9FAFB", textAlign: "left" }}>
               <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${btnColor}`, background: selectedActId === a.id ? btnColor : "transparent", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div>
                 <div style={{ fontSize: 11, color: "#9CA3AF" }}>진도 {a.phys}% · {a.subcon !== "미정" ? a.subcon : "미분류"}</div>
               </div>
             </button>

@@ -1,4 +1,4 @@
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { TODAY } from '../../lib/constants';
 import { fmtM, pct, cpiColor, statusColor } from '../../lib/utils';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };

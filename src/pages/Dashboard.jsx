@@ -1,4 +1,4 @@
-import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import { T, TODAY } from '../lib/constants';
 import { diffDays, fmtM, pct, cpiColor, statusColor, sevColor, dayStr } from '../lib/utils';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
@@ -99,33 +99,33 @@ export default function Dashboard({ activities, progressReports, issues, weather
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       {weather && (
-        <div style={{ background: NAVY, borderRadius: 14, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", boxShadow: T.shadow }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 36 }}>{weather.icon}</span>
             <div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{weather.temp}°C</div>
-              <div style={{ fontSize: 12, color: "#9CA3AF" }}>{weather.text} · 서울</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: T.text }}>{weather.temp}°C</div>
+              <div style={{ fontSize: 12, color: T.sub }}>{weather.text} · 서울</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: "#9CA3AF" }}>습도</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{weather.humidity}%</div>
+              <div style={{ fontSize: 11, color: T.sub }}>습도</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{weather.humidity}%</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: "#9CA3AF" }}>강수</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: weather.precipitation > 0 ? "#FCA5A5" : "#fff" }}>{weather.precipitation}mm</div>
+              <div style={{ fontSize: 11, color: T.sub }}>강수</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: weather.precipitation > 0 ? T.danger : T.text }}>{weather.precipitation}mm</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: "#9CA3AF" }}>풍속</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: weather.wind >= 10 ? "#FCA5A5" : "#fff" }}>{weather.wind}m/s</div>
+              <div style={{ fontSize: 11, color: T.sub }}>풍속</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: weather.wind >= 10 ? T.warn : T.text }}>{weather.wind}m/s</div>
             </div>
           </div>
           {weatherWarnings.length > 0 && (
             <div style={{ flex: 1, minWidth: 200 }}>
               {weatherWarnings.map((w, i) => (
-                <div key={i} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "6px 12px", marginBottom: 4, fontSize: 12, color: "#FCA5A5" }}>
-                  ⚠️ {w}
+                <div key={i} style={{ background: "#FFF5F5", border: `1px solid ${T.danger}30`, borderRadius: 8, padding: "6px 12px", marginBottom: 4, fontSize: 12, color: T.danger }}>
+                  {w}
                 </div>
               ))}
             </div>
@@ -160,27 +160,27 @@ export default function Dashboard({ activities, progressReports, issues, weather
           <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
             {/* 상단: 제목 + 수치 뱃지 + 범례 */}
             <div style={{ display: "flex", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 700, fontSize: 13, color: NAVY, marginRight: 8 }}>📈 S커브</span>
+              <span style={{ fontWeight: 700, fontSize: 13, color: T.text, marginRight: 8 }}>S커브</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>계획</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: "#3B82F6" }}>{todayData?.plan ?? 0}%</span>
+                <span style={{ fontSize: 11, color: T.sub }}>계획</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: T.sub }}>{todayData?.plan ?? 0}%</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>실적</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: YELLOW }}>{todayData?.actual ?? 0}%</span>
+                <span style={{ fontSize: 11, color: T.sub }}>실적</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: T.blue }}>{todayData?.actual ?? 0}%</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>편차</span>
-                <span style={{ fontSize: 15, fontWeight: 800, color: dev >= 0 ? "#10B981" : "#EF4444" }}>{dev >= 0 ? "+" : ""}{dev}%</span>
+                <span style={{ fontSize: 11, color: T.sub }}>편차</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: dev >= 0 ? T.success : T.danger }}>{dev >= 0 ? "+" : ""}{dev}%</span>
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 18, height: 2, background: "#3B82F6", borderRadius: 2 }} />
-                  <span style={{ fontSize: 11, color: "#6B7280" }}>계획</span>
+                  <svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke={T.sub} strokeWidth="2" strokeDasharray="4,2" /></svg>
+                  <span style={{ fontSize: 11, color: T.sub }}>계획</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 18, height: 2, background: YELLOW, borderRadius: 2 }} />
-                  <span style={{ fontSize: 11, color: "#6B7280" }}>실적</span>
+                  <div style={{ width: 18, height: 2.5, background: T.blue, borderRadius: 2 }} />
+                  <span style={{ fontSize: 11, color: T.sub }}>실적</span>
                 </div>
               </div>
             </div>
@@ -193,12 +193,12 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 </g>
               ))}
               {todayIdx >= 0 && (
-                <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom} stroke={YELLOW} strokeWidth="1.5" strokeDasharray="4,3" />
+                <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom} stroke={T.blue} strokeWidth="1.5" strokeDasharray="4,3" />
               )}
-              <path d={planPath} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round" />
-              <path d={actualPath} fill="none" stroke={YELLOW} strokeWidth="2.5" strokeLinejoin="round" />
+              <path d={planPath} fill="none" stroke={T.sub} strokeWidth="1.5" strokeDasharray="5,3" strokeLinejoin="round" />
+              <path d={actualPath} fill="none" stroke={T.blue} strokeWidth="2.5" strokeLinejoin="round" />
               {sCurveData.map((d, i) => d.actual > 0 && (
-                <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="2.5" fill={YELLOW} stroke="#fff" strokeWidth="1" />
+                <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="3" fill={T.blue} stroke="#fff" strokeWidth="1.5" />
               ))}
               {sCurveData.map((d, i) => {
                 const isYearStart = i === 0 || d.label === "1월";
@@ -206,9 +206,9 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 return showLabel ? (
                   <g key={i}>
                     {isYearStart && (
-                      <text x={toX(i)} y={H - 14} textAnchor="middle" fontSize="10" fill={NAVY} fontWeight="700">{d.year}</text>
+                      <text x={toX(i)} y={H - 14} textAnchor="middle" fontSize="10" fill={T.text} fontWeight="700">{d.year}</text>
                     )}
-                    <text x={toX(i)} y={H - 3} textAnchor="middle" fontSize="9" fill={d.isToday ? YELLOW : "#9CA3AF"} fontWeight={d.isToday ? "700" : "400"}>{d.label}</text>
+                    <text x={toX(i)} y={H - 3} textAnchor="middle" fontSize="9" fill={d.isToday ? T.blue : "#9CA3AF"} fontWeight={d.isToday ? "700" : "400"}>{d.label}</text>
                   </g>
                 ) : null;
               })}
@@ -218,11 +218,11 @@ export default function Dashboard({ activities, progressReports, issues, weather
       })()}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>협력사별 실적</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>협력사별 실적</div>
           {subcons.map(s => (
             <div key={s.name} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>{s.name}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: T.text }}>{s.name}</span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <span style={{ fontSize: 11, color: cpiColor(s.cpi), fontWeight: 700 }}>CPI {s.cpi.toFixed(2)}</span>
                   <span style={{ fontSize: 11, color: cpiColor(s.spi), fontWeight: 700 }}>SPI {s.spi.toFixed(2)}</span>
@@ -232,18 +232,18 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}>
                   <div style={{ width: `${s.phys}%`, height: "100%", background: cpiColor(s.cpi), borderRadius: 4, transition: "width 0.8s" }} />
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, minWidth: 32 }}>{pct(s.phys)}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.text, minWidth: 32 }}>{pct(s.phys)}</span>
               </div>
             </div>
           ))}
         </div>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>향후 7일 예정 공종</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>향후 7일 예정 공종</div>
           {lookahead.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>예정된 공종이 없습니다</div>}
           {lookahead.map(a => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: a.critical ? "#EF4444" : statusColor(a.status), flexShrink: 0 }} />
-              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf} · {a.subcon}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf} · {a.subcon}</div></div>
               {a.delay_days > 0 && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일</span>}
               <Badge label={pct(a.phys)} bg={statusColor(a.status) + "22"} color={statusColor(a.status)} />
             </div>
@@ -253,12 +253,12 @@ export default function Dashboard({ activities, progressReports, issues, weather
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>⚠️ Critical Path</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>⚠️ Critical Path</div>
           {criticals.length === 0 && <div style={{ color: "#10B981", fontSize: 13 }}>크리티컬 공종 없음</div>}
           {criticals.map(a => (
             <div key={a.id} style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>{a.name}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: T.text }}>{a.name}</span>
                 <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>Float 0일</span>
               </div>
               <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6B7280" }}>
@@ -269,7 +269,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
           ))}
         </div>
         <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 14 }}>최근 이슈</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>최근 이슈</div>
           {(issues || []).length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
 
 
@@ -277,7 +277,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
             <div key={issue.id} style={{ padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block", flexShrink: 0 }} />
-                <span style={{ fontWeight: 600, fontSize: 13, color: NAVY, flex: 1 }}>{issue.title}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: T.text, flex: 1 }}>{issue.title}</span>
                 <Badge label={issue.status} bg={issue.status === "closed" ? "#F0FDF4" : "#FEF3C7"} color={issue.status === "closed" ? "#166534" : "#92400E"} />
               </div>
               <div style={{ fontSize: 11, color: "#9CA3AF", paddingLeft: 16 }}>{issue.issue_type} · {issue.delay_days > 0 ? `+${issue.delay_days}일 지연` : "일정 영향 없음"}</div>

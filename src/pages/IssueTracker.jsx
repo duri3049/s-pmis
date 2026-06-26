@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NAVY, YELLOW, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
+import { T, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { riskBg, riskColor, sevColor } from '../lib/utils';
 import { recalcCPM, calcAct } from '../lib/cpm';
@@ -114,10 +114,10 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: NAVY }}>⚠️ 이슈 트래커</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>⚠️ 이슈 트래커</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={handleDelayReport} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📄 공기지연 보고서</button>
-          <button onClick={() => setShowForm(true)} style={{ background: NAVY, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>+ 이슈 등록</button>
+          <button onClick={() => setShowForm(true)} style={{ background: T.blue, border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>+ 이슈 등록</button>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
       {/* 필터 */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         {["전체", ...ISSUE_TYPES].map(t => (
-          <button key={t} onClick={() => setFilterType(t)} style={{ background: filterType === t ? NAVY : "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: filterType === t ? 700 : 400, color: filterType === t ? "#fff" : "#374151", cursor: "pointer" }}>{t}</button>
+          <button key={t} onClick={() => setFilterType(t)} style={{ background: filterType === t ? T.blue : "#F3F4F6", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: filterType === t ? 700 : 400, color: filterType === t ? "#fff" : "#374151", cursor: "pointer" }}>{t}</button>
         ))}
       </div>
       {showForm && (
@@ -182,7 +182,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
           <div key={issue.id} style={{ background: "#fff", border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block" }} /><span style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{issue.title}</span></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block" }} /><span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{issue.title}</span></div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <Badge label={issue.issue_type} bg="#F3F4F6" color="#374151" />
                   <Badge label={issue.severity} bg={sevColor(issue.severity) + "22"} color={sevColor(issue.severity)} />

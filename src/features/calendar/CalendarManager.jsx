@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../../lib/constants';
+import { T, TODAY } from '../../lib/constants';
 import { sb } from '../../lib/supabase';
 import { dayStr } from '../../lib/utils';
 
@@ -78,7 +78,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: NAVY, marginBottom: 16 }}>🗓 캘린더 관리</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>🗓 캘린더 관리</div>
 
       {/* 범례 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -89,7 +89,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
           </div>
         ))}
         <div style={{ marginLeft: "auto", fontSize: 12, color: "#6B7280" }}>
-          이번 달 비작업일: <strong style={{ color: NAVY }}>{noWorkCount}일</strong>
+          이번 달 비작업일: <strong style={{ color: T.text }}>{noWorkCount}일</strong>
         </div>
       </div>
 
@@ -99,7 +99,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
               style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>←</button>
-            <div style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{year}년 {month + 1}월</div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{year}년 {month + 1}월</div>
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
               style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>→</button>
           </div>
@@ -134,7 +134,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
                     textAlign: "center", padding: "8px 4px", borderRadius: 8, fontSize: 12,
                     fontWeight: isToday || isSelected ? 800 : 400,
                     background: bg, color,
-                    border: isSelected ? `2px solid ${NAVY}` : isToday ? `2px solid ${YELLOW}` : "1px solid #F3F4F6",
+                    border: isSelected ? `2px solid ${T.text}` : isToday ? `2px solid ${T.blue}` : "1px solid #F3F4F6",
                     cursor: "pointer", position: "relative", minHeight: 48,
                     boxShadow: isSelected ? "0 2px 8px rgba(0,0,0,0.15)" : "none"
                   }}>
@@ -151,7 +151,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
         {selectedDate && (
           <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{selectedDate}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{selectedDate}</div>
               <button onClick={() => setSelectedDate(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>✕</button>
             </div>
 
@@ -175,14 +175,14 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
             {/* 해당일 공정 목록 */}
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13, color: NAVY, marginBottom: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: T.text, marginBottom: 8 }}>
                 📋 진행 중인 공정 {selectedActivities.length > 0 ? `(${selectedActivities.length}건)` : ""}
               </div>
               {selectedActivities.length === 0
                 ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>해당일 진행 공정 없음</div>
                 : selectedActivities.map(a => (
                   <div key={a.id} style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 12px", marginBottom: 6, borderLeft: `3px solid ${a.critical ? "#EF4444" : "#3B82F6"}` }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: NAVY }}>{a.name}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: T.text }}>{a.name}</div>
                     <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6B7280", marginTop: 3 }}>
                       <span>{a.subcon}</span>
                       <span>진척 {a.phys}%</span>
@@ -223,7 +223,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
       {/* 이번 달 비작업일 목록 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginTop: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 12 }}>이번 달 비작업일 목록</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 12 }}>이번 달 비작업일 목록</div>
         {calendarDates.filter(d => {
           const [y, m] = d.date.split("-").map(Number);
           return y === year && m === month + 1;
@@ -237,7 +237,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
               <span style={{ background: d.type === "holiday" ? "#FEE2E2" : "#FECACA", color: "#991B1B", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
                 {d.type === "holiday" ? "공휴일" : "작업불가"}
               </span>
-              <span style={{ fontSize: 13, color: NAVY, fontWeight: 600 }}>{d.date}</span>
+              <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{d.date}</span>
               <span style={{ fontSize: 12, color: "#6B7280", flex: 1 }}>{d.name}</span>
             </div>
           ))}

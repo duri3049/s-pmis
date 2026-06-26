@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { NAVY, YELLOW, TODAY, SUBCONS } from '../lib/constants';
+import { T, TODAY, SUBCONS } from '../lib/constants';
 import { sb, uploadPhoto } from '../lib/supabase';
 import { dayStr, fmtM } from '../lib/utils';
 
@@ -82,9 +82,9 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
   };
 
   return (
-    <div style={{ background: "#fff", border: `2px solid ${NAVY}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+    <div style={{ background: "#fff", border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>💰 기성청구</div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>💰 기성청구</div>
         <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
       </div>
 
@@ -101,10 +101,10 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
             <div key={a.id} style={{ marginBottom: 8 }}>
               <div
                 onClick={() => toggleAct(a.id)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1.5px solid ${isSelected ? YELLOW : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: isSelected ? "#FFFBEB" : "#F9FAFB" }}>
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1.5px solid ${isSelected ? T.blue : "#E5E7EB"}`, borderRadius: 10, cursor: "pointer", background: isSelected ? "#EFF6FF" : "#F9FAFB" }}>
                 <input type="checkbox" checked={isSelected} onChange={() => { }} style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{a.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div>
                   <div style={{ fontSize: 11, color: "#9CA3AF" }}>
                     BAC {fmtM(a.pv_budget)} · 진도 {a.phys}%
                     {a.subcon !== "미정" && a.subcon !== "-" && <span style={{ marginLeft: 6, color: "#6B7280" }}>{a.subcon}</span>}
@@ -113,7 +113,7 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
                 </div>
               </div>
               {isSelected && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#FFFBEB", borderRadius: "0 0 10px 10px", border: `1.5px solid ${YELLOW}`, borderTop: "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#EFF6FF", borderRadius: "0 0 10px 10px", border: `1.5px solid ${T.blue}`, borderTop: "none" }}>
                   <span style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap" }}>청구금액</span>
                   <input
                     type="number"
@@ -159,11 +159,11 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
       {selectedCount > 0 && (
         <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "#065F46", fontWeight: 600 }}>{selectedCount}개 공종 합계</span>
-          <span style={{ fontSize: 15, fontWeight: 800, color: NAVY }}>{totalAmount.toLocaleString()}만원</span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: T.text }}>{totalAmount.toLocaleString()}만원</span>
         </div>
       )}
       <button onClick={handleSubmit} disabled={saving || selectedCount === 0}
-        style={{ width: "100%", background: selectedCount === 0 ? "#F3F4F6" : YELLOW, color: selectedCount === 0 ? "#9CA3AF" : NAVY, border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: selectedCount === 0 ? "default" : "pointer" }}>
+        style={{ width: "100%", background: selectedCount === 0 ? "#F3F4F6" : T.blue, color: selectedCount === 0 ? "#9CA3AF" : "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: selectedCount === 0 ? "default" : "pointer" }}>
         {saving ? "제출 중..." : `✅ 기성청구 제출${selectedCount > 0 ? ` (${selectedCount}개)` : ""}`}
       </button>
     </div>
