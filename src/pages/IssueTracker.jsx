@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NAVY, YELLOW, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { riskBg, riskColor, sevColor } from '../lib/utils';

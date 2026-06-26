@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NAVY, YELLOW, TODAY } from '../lib/constants';
 import { sb, ANTHROPIC_KEY } from '../lib/supabase';
-import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM } from '../lib/utils';
+import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM, riskBg, riskColor, sevColor, msIcon, msColor } from '../lib/utils';
 import { calcAct, calcTodayTarget, rollup } from '../lib/cpm';
 import Badge from '../components/Badge';
 import KPI from '../components/KPI';
@@ -64,8 +64,11 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         if (!act) continue;
         // 대분류 총 예산을 AI 비율대로만 나눔 (총합 절대 변경 안됨)
         const newBudget = Math.round(g.total_budget * rec.weight / recSum);
-        await sb.patch("activities", rec.id, { pv_budget: newBudget });
-        setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget }) : a));
+        // ac도 같은 비율로 조정해 CPI 유지 → EAC 안정화
+        const ratio = act.pv_budget > 0 ? newBudget / act.pv_budget : 1;
+        const newAc = Math.round((act.ac || 0) * ratio);
+        await sb.patch("activities", rec.id, { pv_budget: newBudget, ac: newAc });
+        setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget, ac: newAc }) : a));
       }
       setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
     } catch (err) { alert("AI 배분 실패: " + err.message); }
@@ -75,15 +78,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
   const handleWeightEqual = async (g) => {
     const count = g.acts.length;
     if (count === 0) return;
-    const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
-    const totalWf = project?.total_budget > 0
-      ? g.total_budget / project.total_budget
-      : g.total_budget / totalBudgetAll;
-    const perBudget = Math.round(totalBudgetAll * totalWf / count);
+    const perBudget = Math.round(g.total_budget / count);
     try {
       for (const act of g.acts) {
-        await sb.patch("activities", act.id, { pv_budget: perBudget });
-        setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget }) : a));
+        // ac도 같은 비율로 조정해 CPI 유지 → EAC 안정화
+        const ratio = act.pv_budget > 0 ? perBudget / act.pv_budget : 1;
+        const newAc = Math.round((act.ac || 0) * ratio);
+        await sb.patch("activities", act.id, { pv_budget: perBudget, ac: newAc });
+        setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget, ac: newAc }) : a));
       }
       setToast?.(`✅ ${g.group} 균등 분배 완료`);
     } catch (err) { alert("균등 분배 실패: " + err.message); }

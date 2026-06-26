@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NAVY, YELLOW, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';

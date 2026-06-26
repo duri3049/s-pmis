@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import React, { useState, useEffect } from 'react';
+import { NAVY, YELLOW, TODAY, getTier, ALL_SIDEBAR_ITEMS } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { pct, cpiColor, statusColor, dayStr, fmtM } from '../lib/utils';
 import { calcAct } from '../lib/cpm';

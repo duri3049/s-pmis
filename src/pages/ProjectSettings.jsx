@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NAVY, YELLOW } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { NAVY, YELLOW, TODAY, SUBCONS } from '../lib/constants';
 import { sb, uploadPhoto } from '../lib/supabase';
 import { dayStr, fmtM } from '../lib/utils';

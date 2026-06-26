@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import { NAVY, YELLOW, TODAY, T } from '../lib/constants';
 import { sb, supabase, ANTHROPIC_KEY, uploadPhoto } from '../lib/supabase';
 import { pct, cpiColor, statusColor, dayStr, fmtM, fmtTime, diffDays } from '../lib/utils';
-import { calcAct } from '../lib/cpm';
+import { calcAct, calcTodayTarget } from '../lib/cpm';
 import { claudeComplete } from '../lib/api';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
@@ -22,6 +22,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
+  const [pendingStart, setPendingStart] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
   const [pendingEquipment, setPendingEquipment] = useState(null);
   const [attachedPhoto, setAttachedPhoto] = useState(null); // 하단 입력창용
@@ -144,13 +145,17 @@ JSON 없이 자연스럽게 한국어로만 답해.
     const msg = input.trim();
     if (!msg || loading) return;
     setInput("");
-    const uid = Date.now();
+    const uid = Date.now() + Math.random();
     setChatMessages(p => [...p,
     { id: uid, role: "user", content: msg },
     { id: uid + 1, role: "loading", content: "AI 분석 중..." }
     ]);
     setLoading(true);
     const newHistory = [...conversationHistory, { role: "user", content: msg }];
+    const safeMsg = (aiMsg, fallback = "처리되었습니다.") => {
+      if (aiMsg && !aiMsg.trim().startsWith("{")) return aiMsg;
+      return fallback;
+    };
     try {
       const rawResponse = await callAI(msg, conversationHistory);
       setConversationHistory([...newHistory, { role: "assistant", content: rawResponse }]);
@@ -188,7 +193,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
             if (matchedSub) {
               res.matched_sub_name = matchedSub.name;
             }
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
             // 이미 완료된 세부공정 재보고 차단
             const matchedSub2 = res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id) : null;
             if (matchedSub2?.phys === 100 && res.new_done_qty <= matched.done_qty) {
@@ -224,27 +229,20 @@ JSON 없이 자연스럽게 한국어로만 답해.
               });
             }
           } else if (res.type === "start_report") {
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
-            if (res.matched_sub_id) {
-              const sub = subActivities.find(s => s.id === res.matched_sub_id);
-              if (sub && !sub.start_date) {
-                await sb.patch("sub_activities", res.matched_sub_id, { start_date: dayStr(TODAY) });
-                setSubActivities(p => p.map(s => s.id === res.matched_sub_id ? { ...s, start_date: dayStr(TODAY) } : s));
-                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `🔨 ${sub.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
-              } else if (sub?.start_date) {
-                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `ℹ️ ${sub.name}은 이미 ${sub.start_date}에 착수됐습니다.` }]);
-              }
-            } else if (res.matched_activity_id) {
-              // 세부공정 없이 상위 공종 착수
-              const act = activities.find(a => a.id === res.matched_activity_id);
-              if (act && !act.as_) {
-                await sb.patch("activities", res.matched_activity_id, { as_: dayStr(TODAY) });
-                setActivities(p => p.map(a => a.id === res.matched_activity_id ? { ...a, as_: dayStr(TODAY) } : a));
-                setChatMessages(p => [...p, { id: uid + 3, role: "system", content: `🔨 ${act.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
-              }
-            }
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
+            const act = res.matched_activity_id ? activities.find(a => a.id === res.matched_activity_id) : null;
+            const sub = res.matched_sub_id ? subActivities.find(s => s.id === res.matched_sub_id) : null;
+            setPendingStart({
+              activity: act,
+              sub,
+              matched_activity_id: res.matched_activity_id,
+              matched_sub_id: res.matched_sub_id,
+              matching_reason: res.matching_reason,
+              matching_confidence: res.matching_confidence,
+              special_note: res.special_note,
+            });
           } else if (res.type === "worker_report") {
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
             const workerDetails = Array.isArray(res.worker_details)
               ? res.worker_details.map(w => ({ job: w.job || w.trade, count: w.count }))
               : Array.isArray(res.workers)
@@ -279,7 +277,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
               }]);
             } catch (err) { console.error("인원 보고 저장 실패:", err); }
           } else if (res.type === "equipment_deploy") {
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
             if (!res.needs_clarification) {
               const matchedEq = siteEquipment?.find(e =>
                 e.name.includes(res.equipment_name) || res.equipment_name?.includes(e.name)
@@ -297,7 +295,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
               });
             }
           } else if (res.type === "equipment_return") {
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
             if (!res.needs_clarification) {
               const matchedEq = siteEquipment?.find(e =>
                 e.name.includes(res.equipment_name) || res.equipment_name?.includes(e.name)
@@ -313,13 +311,13 @@ JSON 없이 자연스럽게 한국어로만 답해.
               });
             }
           } else {
-            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: res.ai_message || rawResponse }]);
+            setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(res.ai_message) }]);
           }
         } catch {
-          setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
+          setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(rawResponse) }]);
         }
       } else {
-        setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: rawResponse }]);
+        setChatMessages(p => [...p, { id: uid + 2, role: "ai", content: safeMsg(rawResponse) }]);
       }
     } catch (err) {
       console.error("AI 보고 오류:", err);
@@ -335,6 +333,31 @@ JSON 없이 자연스럽게 한국어로만 답해.
     setConversationHistory([]);
     setPendingReport(null);
     setPendingEquipment(null);
+  };
+
+  const handleConfirmStart = async () => {
+    if (!pendingStart) return;
+    try {
+      const { matched_sub_id, matched_activity_id, sub, activity } = pendingStart;
+      if (matched_sub_id && sub) {
+        if (!sub.start_date) {
+          await sb.patch("sub_activities", matched_sub_id, { start_date: dayStr(TODAY) });
+          setSubActivities(p => p.map(s => s.id === matched_sub_id ? { ...s, start_date: dayStr(TODAY) } : s));
+          setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `${sub.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
+        } else {
+          setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `ℹ️ ${sub.name}은 이미 ${sub.start_date}에 착수됐습니다.` }]);
+        }
+      } else if (matched_activity_id && activity) {
+        if (!activity.as_) {
+          await sb.patch("activities", matched_activity_id, { as_: dayStr(TODAY) });
+          setActivities(p => p.map(a => a.id === matched_activity_id ? { ...a, as_: dayStr(TODAY) } : a));
+          setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `${activity.name} 착수 처리됐습니다. (${dayStr(TODAY)})` }]);
+        } else {
+          setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `ℹ️ ${activity.name}은 이미 ${activity.as_}에 착수됐습니다.` }]);
+        }
+      }
+    } catch (err) { alert("착수 처리 실패: " + err.message); }
+    setPendingStart(null);
   };
 
   const handleSendReport = async () => {
@@ -409,7 +432,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
       });
       setProgressReports(p => [...p, saved]);
       setPendingReport(p => ({ ...p, sent: true }));
-      setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "✅ 관리자에게 전달되었습니다" }]);
+      setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: "관리자에게 전달되었습니다" }]);
       notifyApprovers(user.name, pendingReport.summary || pendingReport.activity?.name || "작업보고");
       // 결재권자(현장소장, 공무과장)에게 푸시 알림
     } catch (err) { alert("전송 실패: " + err.message); }
@@ -452,28 +475,34 @@ JSON 없이 자연스럽게 한국어로만 답해.
         }]);
       }
       setPendingEquipment(p => ({ ...p, sent: true }));
-      setChatMessages(p => [...p, { id: Date.now(), role: "system", content: pendingEquipment.type === "return" ? "✅ 장비 반납이 기록되었습니다" : "✅ 장비 투입이 기록되었습니다" }]);
+      setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: pendingEquipment.type === "return" ? "장비 반납이 기록되었습니다" : "장비 투입이 기록되었습니다" }]);
     } catch (err) { alert("전송 실패: " + err.message); }
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: "#FAFAFA" }}>
+    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg }}>
       {/* 헤더 */}
-      <div style={{ background: NAVY, color: "#fff", padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, minHeight: 48 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: NAVY, flexShrink: 0 }}>{user.name[0]}</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</div>
+      <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, height: 56 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0 }}>{user.name[0]}</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{user.name}</div>
+            <div style={{ fontSize: 11, color: T.sub }}>{user.role}</div>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "mobile" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>📱 현장</button>
-          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? YELLOW : "rgba(255,255,255,0.15)", color: view === "desktop" ? NAVY : "#fff", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>💻 관리자</button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#ccc", fontSize: 10, padding: "4px 7px", cursor: "pointer", whiteSpace: "nowrap" }}>로그아웃</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? T.blue : T.bg, color: view === "mobile" ? "#fff" : T.sub, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>현장</button>
+          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? T.blue : T.bg, color: view === "desktop" ? "#fff" : T.sub, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>관리자</button>
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 20, color: T.sub, fontSize: 11, padding: "5px 10px", cursor: "pointer" }}>로그아웃</button>
         </div>
       </div>
 
       {/* 탭 */}
-      <div style={{ display: "flex", background: "#fff", borderBottom: "1px solid #E5E7EB", flexShrink: 0 }}>
-        {[{ id: "home", label: "🏠 홈" }, { id: "report", label: "📋 작업 보고" }, { id: "chat", label: "💬 채팅" }].map(t => (<button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "11px 0", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 400, fontSize: 14, color: tab === t.id ? NAVY : "#6B7280", borderBottom: tab === t.id ? `2px solid ${YELLOW}` : "2px solid transparent", cursor: "pointer" }}>{t.label}</button>
+      <div style={{ display: "flex", background: T.card, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
+        {[{ id: "home", label: "홈" }, { id: "report", label: "작업보고" }, { id: "chat", label: "채팅" }].map(t => (
+          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "14px 0 12px", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 500, fontSize: 14, color: tab === t.id ? T.blue : T.sub, borderBottom: tab === t.id ? `2px solid ${T.blue}` : "2px solid transparent", cursor: "pointer", transition: "all 0.15s" }}>
+            {t.label}
+          </button>
         ))}
       </div>
 
@@ -482,124 +511,154 @@ JSON 없이 자연스럽게 한국어로만 답해.
         {tab === "home" ? (
           <MobileHome user={user} activities={activities} issues={issues} weather={weather} profiles={profiles} />
         ) : tab === "report" ? (
-          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ background: NAVY, borderRadius: 14, padding: "14px 16px" }}>
-                <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 8, fontWeight: 600 }}>📅 오늘 목표 현황</div>
-                <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
-                  {activities.filter(a => a.phys < 100 && a.as_).map(a => {
-                    const { daily_target, rem_days } = calcTodayTarget(a);
-                    return (
-                      <div key={a.id} style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "10px 14px", minWidth: 130, flexShrink: 0 }}>
-                        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>{a.name}</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: YELLOW }}>{daily_target}<span style={{ fontSize: 11, color: "#9CA3AF" }}> {a.unit}</span></div>
-                        <div style={{ fontSize: 10, color: "#6B7280", marginTop: 2 }}>잔여 {rem_days}일</div>
-                      </div>
-                    );
-                  })}
-                  {activities.filter(a => a.phys < 100 && a.as_).length === 0 && <div style={{ fontSize: 12, color: "#6B7280" }}>진행 중인 공정이 없습니다</div>}
+          <div style={{ display: "flex", flexDirection: "column", height: "100%", background: T.bg }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* 오늘 목표 현황 */}
+              {activities.filter(a => a.phys < 100 && a.as_).length > 0 && (
+                <div style={{ background: T.card, borderRadius: T.radius, padding: "16px 18px", boxShadow: T.shadow }}>
+                  <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>오늘 목표 현황</div>
+                  <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+                    {activities.filter(a => a.phys < 100 && a.as_).map(a => {
+                      const { daily_target, rem_days } = calcTodayTarget(a);
+                      return (
+                        <div key={a.id} style={{ background: T.bg, borderRadius: 12, padding: "10px 14px", minWidth: 120, flexShrink: 0 }}>
+                          <div style={{ fontSize: 11, color: T.sub, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{a.name}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: T.blue, letterSpacing: "-0.5px" }}>{daily_target}<span style={{ fontSize: 11, fontWeight: 400, color: T.sub }}> {a.unit}</span></div>
+                          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>잔여 {rem_days}일</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {chatMessages.map(m => {
-                if (m.role === "system") return <div key={m.id} style={{ textAlign: "center" }}><span style={{ background: "#E5E7EB", color: "#374151", fontSize: 12, borderRadius: 20, padding: "4px 14px" }}>{m.content}</span></div>;
-                if (m.role === "user") return <div key={m.id} style={{ display: "flex", justifyContent: "flex-end" }}><div style={{ background: "#374151", color: "#fff", borderRadius: "18px 18px 4px 18px", padding: "10px 14px", maxWidth: "80%", fontSize: 14 }}>{m.content}</div></div>;
-                if (m.role === "loading") return <div key={m.id} style={{ display: "flex", gap: 8 }}><div style={{ width: 26, height: 26, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>✨</div><div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: "18px 18px 18px 4px", padding: "10px 14px", fontSize: 13, fontStyle: "italic" }}>{m.content}</div></div>;
-                if (m.role === "ai") return <div key={m.id} style={{ display: "flex", gap: 8 }}><div style={{ width: 26, height: 26, borderRadius: "50%", background: YELLOW, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>✨</div><div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: "18px 18px 18px 4px", padding: "10px 14px", maxWidth: "80%", fontSize: 14 }}>{m.content}</div></div>;
+                if (m.role === "system") return (
+                  <div key={m.id} style={{ textAlign: "center" }}>
+                    <span style={{ background: T.border, color: T.sub, fontSize: 12, borderRadius: 20, padding: "4px 14px", display: "inline-block" }}>{m.content}</span>
+                  </div>
+                );
+                if (m.role === "user") return (
+                  <div key={m.id} style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div style={{ background: T.blue, color: "#fff", borderRadius: "18px 18px 4px 18px", padding: "11px 16px", maxWidth: "78%", fontSize: 14, lineHeight: 1.5 }}>{m.content}</div>
+                  </div>
+                );
+                if (m.role === "loading") return (
+                  <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
+                    <div style={{ background: T.card, color: T.sub, borderRadius: "18px 18px 18px 4px", padding: "11px 16px", fontSize: 13, fontStyle: "italic", boxShadow: T.shadow }}>
+                      <span style={{ display: "inline-flex", gap: 3 }}>
+                        <span style={{ animation: "pulse 1s infinite" }}>●</span>
+                        <span style={{ animation: "pulse 1s 0.2s infinite" }}>●</span>
+                        <span style={{ animation: "pulse 1s 0.4s infinite" }}>●</span>
+                      </span> {m.content}
+                    </div>
+                  </div>
+                );
+                if (m.role === "ai") return (
+                  <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
+                    <div style={{ background: T.card, color: T.text, borderRadius: "18px 18px 18px 4px", padding: "11px 16px", maxWidth: "78%", fontSize: 14, lineHeight: 1.6, boxShadow: T.shadow }}>{m.content}</div>
+                  </div>
+                );
                 return null;
               })}
 
               {pendingReport && (
-                <div style={{ background: "#fff", border: `2px solid ${YELLOW}`, borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, fontWeight: 600 }}>✨ AI 파싱 결과</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY }}>{pendingReport.activity.name}</div>
-                  <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", margin: "10px 0" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ background: T.card, border: `1.5px solid ${T.blue}30`, borderRadius: T.radius, padding: "18px 18px", boxShadow: T.shadow }}>
+                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 파싱 결과</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{pendingReport.activity.name}</div>
+                  <div style={{ background: T.bg, borderRadius: 12, padding: "12px 14px", margin: "12px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       {pendingReport.matched_sub_id
                         ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontSize: 13, color: "#6B7280" }}>{pendingReport.matched_sub_name || "세부공정"}</span>
-                          <span style={{ color: "#9CA3AF" }}>→</span>
+                          <span style={{ fontSize: 13, color: T.sub }}>{pendingReport.matched_sub_name || "세부공정"}</span>
+                          <span style={{ color: T.border }}>→</span>
                           {pendingReport.new_done_qty > pendingReport.activity.done_qty
-                            ? <span style={{ fontSize: 16, fontWeight: 800, color: "#10B981" }}>완료 ✅</span>
+                            ? <span style={{ fontSize: 13, fontWeight: 700, color: T.success, background: `${T.success}18`, borderRadius: 6, padding: "2px 10px" }}>완료</span>
                             : pendingReport.delay_days > 0
-                              ? <span style={{ fontSize: 16, fontWeight: 800, color: "#F59E0B" }}>공기지연 🚨</span>
-                              : <span style={{ fontSize: 16, fontWeight: 800, color: "#9CA3AF" }}>이미 완료됨</span>
+                              ? <span style={{ fontSize: 13, fontWeight: 700, color: T.warn, background: `${T.warn}18`, borderRadius: 6, padding: "2px 10px" }}>공기지연</span>
+                              : <span style={{ fontSize: 15, fontWeight: 800, color: T.sub }}>이미 완료됨</span>
                           }
                         </div>
                         : <>
-                          <span>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
-                          <span style={{ color: "#9CA3AF" }}>→</span>
-                          <span style={{ fontSize: 16, fontWeight: 800, color: NAVY }}>{pendingReport.new_done_qty} {pendingReport.activity.unit}</span>
-                          <span style={{ color: "#10B981", fontWeight: 700 }}>+{pendingReport.new_done_qty - pendingReport.activity.done_qty}</span>
+                          <span style={{ fontSize: 14, color: T.sub }}>{pendingReport.activity.done_qty} {pendingReport.activity.unit}</span>
+                          <span style={{ color: T.border }}>→</span>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: T.text }}>{pendingReport.new_done_qty} {pendingReport.activity.unit}</span>
+                          <span style={{ fontSize: 13, color: T.success, fontWeight: 700 }}>+{pendingReport.new_done_qty - pendingReport.activity.done_qty}</span>
                         </>
                       }
                     </div>
-                    <div style={{ background: "#E5E7EB", borderRadius: 4, height: 8, overflow: "hidden" }}>
-                      <div style={{ width: `${Math.round((pendingReport.new_done_qty / pendingReport.activity.plan_qty) * 100)}%`, height: "100%", background: YELLOW, borderRadius: 4 }} />
+                    <div style={{ background: T.border, borderRadius: 100, height: 6, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.round((pendingReport.new_done_qty / pendingReport.activity.plan_qty) * 100)}%`, height: "100%", background: T.blue, borderRadius: 100 }} />
                     </div>
                   </div>
-                  {pendingReport.delay_days > 0 && <div style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}><div style={{ fontSize: 12, fontWeight: 700, color: "#991B1B" }}>🚨 공기 지연: +{pendingReport.delay_days}일</div></div>}
-                  {pendingReport.order_warning && (
-                    <div style={{ background: "#FFF7ED", border: "1px solid #FCD34D", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 6 }}>⚠️ 작업 순서 확인 필요</div>
-                      <div style={{ fontSize: 12, color: "#78350F" }}>{pendingReport.order_warning_message}</div>
-                      <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>맞으면 이대로 보내기를 눌러주세요.</div>
+                  {pendingReport.delay_days > 0 && (
+                    <div style={{ background: "#FFF0F0", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.danger }}>공기 지연 +{pendingReport.delay_days}일</div>
                     </div>
                   )}
-                  {pendingReport.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {pendingReport.special_note}</div>}
-                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{pendingReport.summary}</div>
+                  {pendingReport.order_warning && (
+                    <div style={{ background: "#FFF8EC", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.warn, marginBottom: 4 }}>작업 순서 확인 필요</div>
+                      <div style={{ fontSize: 12, color: T.text }}>{pendingReport.order_warning_message}</div>
+                      <div style={{ fontSize: 11, color: T.sub, marginTop: 6 }}>맞으면 이대로 보내기를 눌러주세요.</div>
+                    </div>
+                  )}
+                  {pendingReport.special_note && <div style={{ fontSize: 13, color: T.danger, marginBottom: 10, fontWeight: 600 }}>{pendingReport.special_note}</div>}
+                  <div style={{ fontSize: 13, color: T.sub, marginBottom: 12 }}>{pendingReport.summary}</div>
                   {pendingReport.worker_details && pendingReport.worker_details.length > 0 && (
-                    <div style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 12px", marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: NAVY, marginBottom: 6 }}>👷 투입 인원</div>
+                    <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: T.sub, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>투입 인원</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {pendingReport.worker_details.map((w, i) => (
-                          <div key={i} style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 12 }}>
-                            <span style={{ color: "#6B7280" }}>{w.job}</span>
-                            <span style={{ fontWeight: 700, color: NAVY, marginLeft: 6 }}>{w.count}명</span>
+                          <div key={i} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "4px 12px", fontSize: 12 }}>
+                            <span style={{ color: T.sub }}>{w.job}</span>
+                            <span style={{ fontWeight: 700, color: T.text, marginLeft: 6 }}>{w.count}명</span>
                           </div>
                         ))}
-                        <div style={{ background: YELLOW, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 700, color: NAVY }}>
+                        <div style={{ background: T.blue, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: "#fff" }}>
                           총 {pendingReport.workers}명
                         </div>
                       </div>
                     </div>
                   )}
                   {pendingReport.matching_reason && (
-                    <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#065F46" }}>🤖 AI 매핑 근거</span>
-                        <span style={{ fontSize: 10, background: pendingReport.matching_confidence === "high" ? "#D1FAE5" : pendingReport.matching_confidence === "medium" ? "#FEF3C7" : "#FEE2E2", color: pendingReport.matching_confidence === "high" ? "#065F46" : pendingReport.matching_confidence === "medium" ? "#92400E" : "#991B1B", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>
+                    <div style={{ background: `${T.success}12`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
+                        <span style={{ fontSize: 10, background: pendingReport.matching_confidence === "high" ? `${T.success}20` : pendingReport.matching_confidence === "medium" ? "#FFF0D0" : "#FFF0F0", color: pendingReport.matching_confidence === "high" ? T.success : pendingReport.matching_confidence === "medium" ? T.warn : T.danger, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
                           {pendingReport.matching_confidence === "high" ? "높음" : pendingReport.matching_confidence === "medium" ? "보통" : "낮음"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: "#374151" }}>{pendingReport.matching_reason}</div>
+                      <div style={{ fontSize: 12, color: T.text }}>{pendingReport.matching_reason}</div>
                     </div>
                   )}
 
                   {/* 사진 첨부 요청 */}
                   {!pendingReport.sent && pendingReport.photo_required !== "none" && (
                     <div style={{
-                      background: pendingReport.photo_required === "required" ? "#FEF2F2" : "#F0FDF4",
-                      border: `1px solid ${pendingReport.photo_required === "required" ? "#FECACA" : "#6EE7B7"}`,
-                      borderRadius: 10, padding: "10px 14px", marginBottom: 10
+                      background: pendingReport.photo_required === "required" ? "#FFF0F0" : `${T.success}10`,
+                      border: `1px solid ${pendingReport.photo_required === "required" ? `${T.danger}30` : `${T.success}30`}`,
+                      borderRadius: 10, padding: "12px 14px", marginBottom: 12
                     }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: pendingReport.photo_required === "required" ? "#991B1B" : "#065F46", marginBottom: 8 }}>
-                        {pendingReport.photo_required === "required" ? "📷 필수" : "📷 선택"} {pendingReport.photo_message || "사진을 첨부하시겠습니까?"}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: pendingReport.photo_required === "required" ? T.danger : T.success, marginBottom: 10 }}>
+                        {pendingReport.photo_required === "required" ? "사진 필수" : "사진 선택"} — {pendingReport.photo_message || "사진을 첨부하시겠습니까?"}
                       </div>
                       {cardPhoto
-                        ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <img src={cardPhoto.url} style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 6 }} />
-                          <span style={{ fontSize: 12, color: "#065F46", flex: 1 }}>✅ 사진 첨부됨</span>
-                          <button onClick={() => setCardPhoto(null)} style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer" }}>✕</button>
+                        ? <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <img src={cardPhoto.url} style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} />
+                          <span style={{ fontSize: 13, color: T.success, flex: 1, fontWeight: 600 }}>사진 첨부됨</span>
+                          <button onClick={() => setCardPhoto(null)} style={{ background: T.bg, border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 12, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
                         </div>
-                        : <div style={{ display: "flex", gap: 8 }}>
+                        : <div>
                           <input id="card-photo-input" type="file" accept="image/*" capture="environment" onChange={e => {
                             const file = e.target.files[0];
                             if (file) setCardPhoto({ file, url: URL.createObjectURL(file) });
                           }} style={{ display: "none" }} />
                           <button onClick={() => document.getElementById("card-photo-input").click()}
-                            style={{ background: "#fff", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>
-                            📷 사진 선택
+                            style={{ background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 10, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: T.text }}>
+                            사진 선택
                           </button>
                         </div>
                       }
@@ -613,36 +672,63 @@ JSON 없이 자연스럽게 한국어로만 답해.
                           return;
                         }
                         handleSendReport();
-                      }} style={{ flex: 1, background: YELLOW, color: NAVY, border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>✅ 이대로 보내기</button>
-                      <button style={{ flex: 1, background: "#F3F4F6", color: "#374151", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>✏️ 수정</button>
+                      }} style={{ flex: 1, background: T.blue, color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>이대로 보내기</button>
+                      <button style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 12, padding: "14px 16px", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>수정</button>
                     </div>
-                    : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 전송 완료</div>}
+                    : <div style={{ textAlign: "center", color: T.success, fontWeight: 700, fontSize: 14 }}>전송 완료</div>}
+                </div>
+              )}
+
+              {pendingStart && (
+                <div style={{ background: T.card, border: `1.5px solid ${T.success}30`, borderRadius: T.radius, padding: "18px", boxShadow: T.shadow }}>
+                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>착수 확인</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 4 }}>
+                    {pendingStart.sub ? pendingStart.sub.name : pendingStart.activity?.name || "공종"}
+                  </div>
+                  {pendingStart.sub && (
+                    <div style={{ fontSize: 13, color: T.sub, marginBottom: 10 }}>상위 공종: {pendingStart.activity?.name}</div>
+                  )}
+                  {pendingStart.matching_reason && (
+                    <div style={{ background: `${T.success}10`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
+                        <span style={{ fontSize: 10, background: pendingStart.matching_confidence === "high" ? `${T.success}20` : "#FFF0D0", color: pendingStart.matching_confidence === "high" ? T.success : T.warn, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
+                          {pendingStart.matching_confidence === "high" ? "높음" : "보통"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: T.text }}>{pendingStart.matching_reason}</div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={handleConfirmStart} style={{ flex: 1, background: T.success, color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>착수 확인</button>
+                    <button onClick={() => { setPendingStart(null); setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: "착수 취소됐습니다." }]); }} style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 12, padding: "14px 16px", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>취소</button>
+                  </div>
                 </div>
               )}
 
               {pendingEquipment && (
-                <div style={{ background: "#fff", border: `2px solid #10B981`, borderRadius: 14, padding: "14px 16px" }}>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8, fontWeight: 600 }}>🚜 AI 장비 투입 파싱 결과</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: NAVY, marginBottom: 8 }}>
-                    {pendingEquipment.type === "return" ? "🔄 반납" : "🚜 투입"} — {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
+                <div style={{ background: T.card, border: `1.5px solid ${T.success}30`, borderRadius: T.radius, padding: "18px", boxShadow: T.shadow }}>
+                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 장비 파싱 결과</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 12 }}>
+                    {pendingEquipment.type === "return" ? "반납" : "투입"} — {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
                   </div>
-                  <div style={{ background: "#F9FAFB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
-                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-                      장비: {pendingEquipment.equipment ? `✅ ${pendingEquipment.equipment.name} (등록된 장비)` : "⚠️ 미등록 장비"}
+                  <div style={{ background: T.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: T.text, marginBottom: 6 }}>
+                      장비: {pendingEquipment.equipment ? pendingEquipment.equipment.name : <span style={{ color: T.warn }}>미등록 장비</span>}
                     </div>
-                    <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>
-                      공종: {pendingEquipment.activity ? `✅ ${pendingEquipment.activity.name}` : "⚠️ 공종 미지정"}
+                    <div style={{ fontSize: 13, color: T.text, marginBottom: pendingEquipment.note ? 6 : 0 }}>
+                      공종: {pendingEquipment.activity ? pendingEquipment.activity.name : <span style={{ color: T.warn }}>미지정</span>}
                     </div>
                     {pendingEquipment.note && (
-                      <div style={{ fontSize: 12, color: "#6B7280" }}>비고: {pendingEquipment.note}</div>
+                      <div style={{ fontSize: 12, color: T.sub }}>비고: {pendingEquipment.note}</div>
                     )}
                   </div>
                   {!pendingEquipment.sent
                     ? <button onClick={handleSendEquipment}
-                      style={{ width: "100%", background: pendingEquipment.type === "return" ? "#6B7280" : "#10B981", color: "#fff", border: "none", borderRadius: 10, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-                      {pendingEquipment.type === "return" ? "🔄 장비 반납 기록" : "✅ 장비 투입 기록"}
+                      style={{ width: "100%", background: pendingEquipment.type === "return" ? T.sub : T.success, color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+                      {pendingEquipment.type === "return" ? "장비 반납 기록" : "장비 투입 기록"}
                     </button>
-                    : <div style={{ textAlign: "center", color: "#10B981", fontWeight: 600 }}>✅ 기록 완료</div>
+                    : <div style={{ textAlign: "center", color: T.success, fontWeight: 700, fontSize: 14 }}>기록 완료</div>
                   }
                 </div>
               )}
@@ -656,7 +742,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   onClose={() => setQuickType(null)}
                   onSubmit={(msg) => {
                     setQuickType(null);
-                    setChatMessages(p => [...p, { id: Date.now(), role: "system", content: `📋 보고 제출 완료: ${msg}` }]);
+                    setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `보고 제출 완료: ${msg}` }]);
                     setTab("report");
                     notifyApprovers(user.name, msg);
                   }}
@@ -669,7 +755,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   onClose={() => setShowWorker(false)}
                   onSubmit={() => {
                     setShowWorker(false);
-                    setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "👷 일일 인원이 보고되었습니다." }]);
+                    setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: "일일 인원이 보고되었습니다." }]);
                   }}
                 />
               )}
@@ -682,7 +768,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   onClose={() => setShowInvoice(false)}
                   onSubmit={() => {
                     setShowInvoice(false);
-                    setChatMessages(p => [...p, { id: Date.now(), role: "system", content: "💰 기성청구가 제출되었습니다. 담당자 확인 후 처리됩니다." }]);
+                    setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: "기성청구가 제출되었습니다. 담당자 확인 후 처리됩니다." }]);
                     notifyApprovers(user.name, "기성청구 제출");
                   }}
                 />
@@ -691,45 +777,37 @@ JSON 없이 자연스럽게 한국어로만 답해.
             </div>
 
             {/* 하단 고정 입력창 */}
-            <div style={{ flexShrink: 0, background: "#fff", borderTop: "1px solid #E5E7EB" }}>
-              <div style={{ padding: "6px 12px 4px", display: "flex", gap: 6, overflowX: "auto", alignItems: "center" }}>
-                {/* 원터치 작업 보고 버튼 */}
-                <button onClick={() => { setQuickType(quickType === "done" ? null : "done"); setShowInvoice(false); setShowWorker(false); }}
-                  style={{ whiteSpace: "nowrap", background: quickType === "done" ? "#10B981" : "#fff", border: `1.5px solid ${quickType === "done" ? "#10B981" : "#10B981"}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: quickType === "done" ? "#fff" : "#10B981", cursor: "pointer", fontWeight: 700 }}>
-                  ✅ 작업완료
-                </button>
-                <button onClick={() => { setQuickType(quickType === "delay" ? null : "delay"); setShowInvoice(false); setShowWorker(false); }}
-                  style={{ whiteSpace: "nowrap", background: quickType === "delay" ? "#EF4444" : "#fff", border: `1.5px solid #EF4444`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: quickType === "delay" ? "#fff" : "#EF4444", cursor: "pointer", fontWeight: 700 }}>
-                  ⚠️ 공기지연
-                </button>
-                <button onClick={() => { setShowInvoice(v => !v); setShowWorker(false); setQuickType(null); }}
-                  style={{ whiteSpace: "nowrap", background: showInvoice ? YELLOW : "#fff", border: `1px solid ${showInvoice ? YELLOW : NAVY}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: NAVY, cursor: "pointer", fontWeight: showInvoice ? 700 : 400 }}>
-                  💰 기성청구
-                </button>
-                <button onClick={() => { setShowWorker(v => !v); setShowInvoice(false); setQuickType(null); }}
-                  style={{ whiteSpace: "nowrap", background: showWorker ? NAVY : "#fff", border: `1px solid ${showWorker ? NAVY : "#6B7280"}`, borderRadius: 20, padding: "5px 12px", fontSize: 12, color: showWorker ? "#fff" : "#374151", cursor: "pointer", fontWeight: showWorker ? 700 : 400 }}>
-                  👷 일일 인원
-                </button>
-                <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 20, padding: "5px 12px", fontSize: 12, color: "#6B7280", cursor: "pointer", marginLeft: "auto" }}>🔄 초기화</button>
+            <div style={{ flexShrink: 0, background: T.card, borderTop: `1px solid ${T.border}` }}>
+              <div style={{ padding: "8px 14px 4px", display: "flex", gap: 6, overflowX: "auto", alignItems: "center" }}>
+                {[
+                  { key: "done", label: "작업완료", color: T.success, active: quickType === "done", onClick: () => { setQuickType(quickType === "done" ? null : "done"); setShowInvoice(false); setShowWorker(false); } },
+                  { key: "delay", label: "공기지연", color: T.danger, active: quickType === "delay", onClick: () => { setQuickType(quickType === "delay" ? null : "delay"); setShowInvoice(false); setShowWorker(false); } },
+                  { key: "invoice", label: "기성청구", color: T.warn, active: showInvoice, onClick: () => { setShowInvoice(v => !v); setShowWorker(false); setQuickType(null); } },
+                  { key: "worker", label: "인원보고", color: T.blue, active: showWorker, onClick: () => { setShowWorker(v => !v); setShowInvoice(false); setQuickType(null); } },
+                ].map(btn => (
+                  <button key={btn.key} onClick={btn.onClick} style={{ whiteSpace: "nowrap", background: btn.active ? btn.color : T.bg, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, color: btn.active ? "#fff" : btn.color, cursor: "pointer", fontWeight: 700, transition: "all 0.15s" }}>
+                    {btn.label}
+                  </button>
+                ))}
+                <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: T.bg, border: "none", borderRadius: 20, padding: "6px 12px", fontSize: 12, color: T.sub, cursor: "pointer", marginLeft: "auto" }}>초기화</button>
               </div>
-              {/* 사진 첨부 미리보기 */}
 
               {attachedPhoto && (
-                <div style={{ padding: "0 12px 8px", display: "flex", alignItems: "center", gap: 8 }}>
-                  <img src={attachedPhoto.url} alt="첨부" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, border: "1.5px solid #E5E7EB" }} />
-                  <div style={{ flex: 1, fontSize: 12, color: "#6B7280" }}>{attachedPhoto.file.name}</div>
+                <div style={{ padding: "6px 14px 0", display: "flex", alignItems: "center", gap: 10 }}>
+                  <img src={attachedPhoto.url} alt="첨부" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} />
+                  <div style={{ flex: 1, fontSize: 12, color: T.sub }}>{attachedPhoto.file.name}</div>
                   <button onClick={() => setAttachedPhoto(null)}
-                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "4px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer" }}>✕</button>
+                    style={{ background: T.bg, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
                 </div>
               )}
-              <div style={{ padding: "8px 12px 14px", display: "flex", gap: 8 }}>
+              <div style={{ padding: "8px 14px 16px", display: "flex", gap: 8, alignItems: "center" }}>
                 <input ref={photoRef} type="file" accept="image/*" capture="environment" onChange={e => {
                   const file = e.target.files[0];
                   if (file) setAttachedPhoto({ file, url: URL.createObjectURL(file) });
                 }} style={{ display: "none" }} />
-
-                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, minWidth: 0, border: "1.5px solid #D1D5DB", borderRadius: 12, padding: "11px 14px", fontSize: 16, outline: "none", background: "#fff" }} />
-                <button onClick={handleReportSubmit} disabled={loading} style={{ background: YELLOW, border: "none", borderRadius: 12, padding: "0 16px", fontWeight: 700, fontSize: 15, color: NAVY, cursor: "pointer", minHeight: 48, flexShrink: 0 }}>전송</button>
+                <button onClick={() => photoRef.current?.click()} style={{ background: T.bg, border: `1.5px solid ${T.border}`, borderRadius: 10, width: 42, height: 42, fontSize: 11, fontWeight: 700, color: T.sub, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>사진</button>
+                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, minWidth: 0, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "11px 16px", fontSize: 15, outline: "none", background: T.bg, color: T.text }} />
+                <button onClick={handleReportSubmit} disabled={loading} style={{ background: T.blue, border: "none", borderRadius: 22, padding: "11px 18px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: loading ? "default" : "pointer", flexShrink: 0, opacity: loading ? 0.6 : 1 }}>전송</button>
               </div>
             </div>
           </div>
@@ -743,14 +821,3 @@ JSON 없이 자연스럽게 한국어로만 답해.
   );
 }
 // ── Desktop View ──────────────────────────────────────────────────────
-const ALL_SIDEBAR_ITEMS = [{ id: "dashboard", label: "📊 대시보드", tiers: ["macro", "meso"] },
-{ id: "gantt", label: "📋 공정 현황", tiers: ["macro", "meso", "micro"] },
-{ id: "3w", label: "📅 공정표", tiers: ["macro", "meso"] },
-{ id: "equipment", label: "🚜 장비 현황", tiers: ["macro", "meso"] },
-{ id: "chat", label: "💬 채팅", tiers: ["macro", "meso", "micro"] },
-{ id: "calendar", label: "🗓 캘린더 관리", tiers: ["macro"] },
-{ id: "issues", label: "⚠️ 이슈 트래커", tiers: ["macro", "meso"] },
-{ id: "approval", label: "✅ 결재 라인", tiers: ["macro", "meso"] },
-{ id: "settings", label: "⚙️ 프로젝트 설정", tiers: ["macro"] },
-{ id: "docs", label: "📁 문서 보관함", tiers: ["macro", "meso"] },
-];
