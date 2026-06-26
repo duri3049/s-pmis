@@ -3,19 +3,23 @@ export const YELLOW = "#FFB800";    // 포인트 옐로우 (legacy)
 export const ACCENT = "#0069b4";    // HG Blue 서브 (legacy)
 export const BTN_TEXT = "#fff";
 
-// ── Toss Design Tokens ──────────────────────────────────
+// ── Toss Design Tokens (localStorage로 다크모드/테마색 동적 적용) ──
+const _dark  = localStorage.getItem("pmis_dark") === "1";
+const _color = localStorage.getItem("pmis_color") || "#0064FF";
+
 export const T = {
-  blue:    "#0064FF",   // primary
-  bg:      "#F2F4F6",   // page background
-  card:    "#FFFFFF",   // card background
-  text:    "#191F28",   // primary text
-  sub:     "#8B95A1",   // secondary text
-  border:  "#E5E8EB",   // border / divider
+  blue:    _color,
+  bg:      _dark ? "#111318" : "#F2F4F6",
+  card:    _dark ? "#1E2128" : "#FFFFFF",
+  text:    _dark ? "#F1F3F5" : "#191F28",
+  sub:     _dark ? "#6B7280" : "#8B95A1",
+  border:  _dark ? "#2D3139" : "#E5E8EB",
   success: "#0CC981",
   warn:    "#FF7B00",
   danger:  "#F04452",
   radius:  16,
-  shadow:  "0 2px 12px rgba(0,0,0,0.08)",
+  shadow:  _dark ? "0 2px 12px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)",
+  dark:    _dark,
 };
 export const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 

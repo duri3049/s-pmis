@@ -14,13 +14,26 @@ import ThreeWeekView from '../features/schedule/ThreeWeekView';
 import QuickReportCard from '../modals/QuickReportCard';
 import DailyWorkerCard from '../modals/DailyWorkerCard';
 import InvoiceCard from '../modals/InvoiceCard';
+import ProfileSettings from '../modals/ProfileSettings';
 import EquipmentManager from '../features/equipment/EquipmentManager';
 import DailyReport from '../features/reports/DailyReport';
+
+const sheetStyle = document.createElement("style");
+sheetStyle.textContent = `
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+`;
+if (!document.head.querySelector("[data-mobile-anim]")) {
+  sheetStyle.setAttribute("data-mobile-anim", "1");
+  document.head.appendChild(sheetStyle);
+}
 
 export default
 function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
@@ -480,21 +493,76 @@ JSON 없이 자연스럽게 한국어로만 답해.
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg }}>
+    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg, position: "relative" }}>
+
+      {/* 개인설정 전체화면 */}
+      {showSettings && (
+        <ProfileSettings
+          user={user}
+          profiles={profiles}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* 프로필 바텀 시트 */}
+      {showProfile && (
+        <>
+          <div onClick={() => setShowProfile(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, animation: "fadeIn 0.2s ease" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: T.card, borderRadius: "20px 20px 0 0", zIndex: 101, paddingBottom: "env(safe-area-inset-bottom, 16px)", animation: "slideUp 0.28s cubic-bezier(0.32,0.72,0,1)" }}>
+            {/* 드래그 핸들 */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: T.border }} />
+            </div>
+
+            {/* 프로필 — 클릭 시 개인설정 */}
+            <button onClick={() => { setShowProfile(false); setShowSettings(true); }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, padding: "16px 24px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 20, color: "#fff", flexShrink: 0 }}>{user.name[0]}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: T.text }}>{user.name}</div>
+                <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>{user.role}</div>
+              </div>
+              <span style={{ fontSize: 18, color: T.border }}>›</span>
+            </button>
+
+            <div style={{ height: 1, background: T.border, margin: "0 24px" }} />
+
+            {/* 메뉴 항목 */}
+            <div style={{ padding: "8px 0" }}>
+              {[
+                { label: "현장 모드", desc: "현장 작업자 화면", active: view === "mobile", onClick: () => { setView("mobile"); setShowProfile(false); } },
+                { label: "관리자 모드", desc: "데스크탑 관리 화면", active: view === "desktop", onClick: () => { setView("desktop"); setShowProfile(false); } },
+              ].map(item => (
+                <button key={item.label} onClick={item.onClick} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: item.active ? T.blue : T.text }}>{item.label}</div>
+                    <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>{item.desc}</div>
+                  </div>
+                  {item.active && <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.blue }} />}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ height: 1, background: T.border, margin: "0 24px" }} />
+
+            {/* 로그아웃 */}
+            <div style={{ padding: "8px 0 16px" }}>
+              <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ width: "100%", padding: "14px 24px", background: "none", border: "none", cursor: "pointer", textAlign: "left", fontSize: 15, fontWeight: 600, color: T.danger }}>
+                로그아웃
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* 헤더 */}
       <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, height: 56 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => setShowProfile(true)} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
           <div style={{ width: 34, height: 34, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0 }}>{user.name[0]}</div>
-          <div>
+          <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{user.name}</div>
             <div style={{ fontSize: 11, color: T.sub }}>{user.role}</div>
           </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={() => setView("mobile")} style={{ background: view === "mobile" ? T.blue : T.bg, color: view === "mobile" ? "#fff" : T.sub, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>현장</button>
-          <button onClick={() => setView("desktop")} style={{ background: view === "desktop" ? T.blue : T.bg, color: view === "desktop" ? "#fff" : T.sub, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>관리자</button>
-          <button onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 20, color: T.sub, fontSize: 11, padding: "5px 10px", cursor: "pointer" }}>로그아웃</button>
-        </div>
+        </button>
       </div>
 
       {/* 탭 */}
