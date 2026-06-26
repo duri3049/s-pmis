@@ -1,0 +1,630 @@
+import React, { useState } from 'react';
+import { NAVY, YELLOW, TODAY } from '../lib/constants';
+import { sb, ANTHROPIC_KEY } from '../lib/supabase';
+import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM } from '../lib/utils';
+import { calcAct, calcTodayTarget, rollup } from '../lib/cpm';
+import Badge from '../components/Badge';
+import KPI from '../components/KPI';
+
+export default
+function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast, isMobile }) {
+  const [open, setOpen] = useState(null);
+  const [openAct, setOpenAct] = useState(null);
+  const [predModalAct, setPredModalAct] = useState(null);
+  const [openCat, setOpenCat] = useState({});
+  const [weightLoading, setWeightLoading] = useState(null);
+  const [weightEditGroup, setWeightEditGroup] = useState(null); // 수정 중인 group
+  const [weightEdits, setWeightEdits] = useState({}); // {actId: weight}
+  const [showSubForm, setShowSubForm] = useState(null); // activity_id
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [subInput, setSubInput] = useState("");
+  const [editingSubId, setEditingSubId] = useState(null);
+  const [editingSubName, setEditingSubName] = useState("");
+  const [editingSubWeight, setEditingSubWeight] = useState(0);
+
+  const handleWeightAI = async (g) => {
+    setWeightLoading(g.group);
+    try {
+      const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+      const groupWf = project?.total_budget > 0
+        ? (g.total_budget / project.total_budget * 100)
+        : (g.total_budget / totalBudgetAll * 100);
+      const prompt = `건설 공정관리 AI야. 아래 대분류의 총 가중치를 하위 공종들에 합리적으로 배분해줘.
+
+대분류: ${g.group}
+총 가중치: ${groupWf.toFixed(2)}% (이 값의 합계가 되도록 배분)
+현재 각 공종의 가중치는 모두 0이거나 의미없는 값임. 새로 배분해줘.
+하위 공종 목록:
+${g.acts.map(a => `- [ID:${a.id}] ${a.name} | 기간: ${a.ps}~${a.pf} (${a.orig_dur}일)${a.sub_group ? ` | 구역: ${a.sub_group}` : ""}`).join("\n")}
+
+배분 기준:
+- 공사 기간이 길수록 가중치 높게
+- 층수 범위가 넓을수록 높게
+- 지하/기초 공사는 상대적으로 높게
+- 합계가 반드시 ${groupWf.toFixed(2)}%가 되도록
+
+JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
+마크다운 금지, JSON 배열만`;
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
+      });
+      const data = await r.json();
+      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("파싱 실패");
+      const recs = JSON.parse(match[0]);
+      // AI 반환값 합계로 정규화 → 대분류 총 예산(g.total_budget) 보존
+      const recSum = recs.reduce((s, r) => s + (r.weight || 0), 0);
+      if (recSum === 0) throw new Error("AI 가중치 합계가 0");
+      for (const rec of recs) {
+        const act = activities.find(a => a.id === rec.id);
+        if (!act) continue;
+        // 대분류 총 예산을 AI 비율대로만 나눔 (총합 절대 변경 안됨)
+        const newBudget = Math.round(g.total_budget * rec.weight / recSum);
+        await sb.patch("activities", rec.id, { pv_budget: newBudget });
+        setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
+    } catch (err) { alert("AI 배분 실패: " + err.message); }
+    setWeightLoading(null);
+  };
+
+  const handleWeightEqual = async (g) => {
+    const count = g.acts.length;
+    if (count === 0) return;
+    const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
+    const totalWf = project?.total_budget > 0
+      ? g.total_budget / project.total_budget
+      : g.total_budget / totalBudgetAll;
+    const perBudget = Math.round(totalBudgetAll * totalWf / count);
+    try {
+      for (const act of g.acts) {
+        await sb.patch("activities", act.id, { pv_budget: perBudget });
+        setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget }) : a));
+      }
+      setToast?.(`✅ ${g.group} 균등 분배 완료`);
+    } catch (err) { alert("균등 분배 실패: " + err.message); }
+  };
+
+  const handleAISuggest = async (act) => {
+    setAiLoading(true);
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: `한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계와 가중치를 추천해줘.
+${act.floor_start !== null && act.floor_end !== null ? `이 공종은 ${act.floor_start < 0 ? `B${Math.abs(act.floor_start)}` : `${act.floor_start}F`}~${act.floor_end < 0 ? `B${Math.abs(act.floor_end)}` : `${act.floor_end}F`} 구간이야. 각 층별로 세부공정을 나눠줘.` : ""}
+가중치는 각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 배분해줘.
+JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]
+예시 (층별): [{"name":"2F 철근 배근","weight":20},{"name":"2F 거푸집 설치","weight":15},{"name":"2F 콘크리트 타설","weight":10},{"name":"3F 철근 배근","weight":20},{"name":"3F 거푸집 설치","weight":15},{"name":"3F 콘크리트 타설","weight":10},{"name":"양생","weight":10}]
+예시 (층 없을 때): [{"name":"철근 배근","weight":35},{"name":"거푸집 설치","weight":25},{"name":"콘크리트 타설","weight":20},{"name":"양생","weight":20}]`
+          }]
+        })
+      });
+      const data = await r.json();
+      const text = data.content[0].text;
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) {
+        const suggestions = JSON.parse(match[0]);
+        // 합계 정규화 — Largest Remainder Method로 정확히 100 맞춤
+        const total = suggestions.reduce((s, x) => s + (x.weight || 0), 0);
+        const exact = suggestions.map(s => (s.weight || 0) / total * 100);
+        const floored = exact.map(v => Math.floor(v));
+        const remainder = 100 - floored.reduce((a, b) => a + b, 0);
+        const remainders = exact.map((v, i) => ({ i, r: v - floored[i] })).sort((a, b) => b.r - a.r);
+        remainders.slice(0, remainder).forEach(({ i }) => floored[i]++);
+        const normalized = suggestions.map((s, i) => ({ ...s, weight: floored[i] }));
+        // pending_approval 상태로 DB에 저장
+        for (const s of normalized) {
+          const [saved] = await sb.post("sub_activities", {
+            activity_id: act.id,
+            name: s.name,
+            phys: 0,
+            weight: s.weight || 0,
+            status: "pending_approval",
+            suggested_by: user.id,
+          });
+          setSubActivities(p => [...p, saved]);
+        }
+      }
+    } catch (err) { alert("AI 추천 실패: " + err.message); }
+    setAiLoading(false);
+  };
+
+  const handleAddSub = async (act) => {
+    if (!subInput.trim()) return;
+    try {
+      const [saved] = await sb.post("sub_activities", {
+        activity_id: act.id,
+        name: subInput.trim(),
+        phys: 0,
+        status: "active",
+        suggested_by: user.id,
+        approved_by: user.id,
+      });
+      setSubActivities(p => [...p, saved]);
+      setSubInput("");
+    } catch (err) { alert("저장 실패: " + err.message); }
+  };
+
+  const handleApproveSub = async (sub) => {
+    try {
+      await sb.patch("sub_activities", sub.id, {
+        status: "active",
+        approved_by: user.id,
+      });
+      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, status: "active", approved_by: user.id } : s));
+    } catch (err) { alert("승인 실패: " + err.message); }
+  };
+
+  const handleDeleteSub = async (sub) => {
+    if (!window.confirm(`"${sub.name}" 세부공정을 삭제할까요?`)) return;
+    try {
+      await sb.delete("sub_activities", sub.id);
+      setSubActivities(p => p.filter(s => s.id !== sub.id));
+    } catch (err) { alert("삭제 실패: " + err.message); }
+  };
+
+  const handleAIReweight = async (act) => {
+    const actSubs = subActivities.filter(s => s.activity_id === act.id && s.status === "active");
+    if (actSubs.length === 0) { alert("세부공정이 없습니다."); return; }
+    setAiLoading(true);
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 500,
+          messages: [{
+            role: "user",
+            content: `한국 건설현장에서 "${act.name}" 공종의 아래 세부공정들에 가중치를 배분해줘.
+각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 해줘.
+세부공정 목록: ${actSubs.map(s => s.name).join(", ")}
+JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]`
+          }]
+        })
+      });
+      const data = await r.json();
+      const text = data.content[0].text;
+      const match = text.match(/\[[\s\S]*\]/);
+      if (match) {
+        const suggestions = JSON.parse(match[0]);
+        for (const s of suggestions) {
+          const sub = actSubs.find(x => x.name === s.name);
+          if (sub) {
+            await sb.patch("sub_activities", sub.id, { weight: s.weight });
+            setSubActivities(p => p.map(x => x.id === sub.id ? { ...x, weight: s.weight } : x));
+          }
+        }
+      }
+    } catch (err) { alert("가중치 계산 실패: " + err.message); }
+    setAiLoading(false);
+  };
+  const handleEditSub = async (sub) => {
+    if (!editingSubName.trim()) return;
+    try {
+      await sb.patch("sub_activities", sub.id, { name: editingSubName.trim(), weight: Number(editingSubWeight) });
+      setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, name: editingSubName.trim(), weight: Number(editingSubWeight) } : s));
+      setEditingSubId(null);
+      setEditingSubName("");
+      setEditingSubWeight(0);
+    } catch (err) { alert("수정 실패: " + err.message); }
+  };
+
+  const exportToP6Excel = () => {
+    if (!window.XLSX) { alert("잠시 후 다시 시도해주세요."); return; }
+    const XLSX = window.XLSX;
+    const rows = activities.map(a => ({
+      "Activity ID": a.wbs || `ACT-${a.id}`,
+      "Activity Name": a.name,
+      "WBS Code": a.group_name || "",
+      "Original Duration": a.orig_dur || 0,
+      "Planned Start": a.ps || "",
+      "Planned Finish": a.pf || "",
+      "Actual Start": a.as_ || "",
+      "Actual Finish": a.af || "",
+      "Activity % Complete": a.phys || 0,
+      "Remaining Duration": a.rem_dur || 0,
+      "Status": a.status || "예정",
+      "Responsible Manager": a.resp || "",
+      "Primary Resource": a.subcon || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 10 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 16 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "TASK");
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+    XLSX.writeFile(wb, `P6_Import_${dateStr}.xlsx`);
+  };
+  const categories = {};
+  activities.forEach(a => {
+    const cat = a.category || "건축";
+    if (!categories[cat]) categories[cat] = {};
+    if (!categories[cat][a.group_name]) categories[cat][a.group_name] = [];
+    categories[cat][a.group_name].push(a);
+  });
+  const gl = Object.entries(categories).map(([cat, groupMap]) => ({
+    category: cat,
+    groups: Object.entries(groupMap).map(([g, acts]) => rollup(g, acts)),
+    rollup: rollup(cat, Object.values(groupMap).flat()),
+  }));
+  return (
+    <div style={{ padding: isMobile ? 12 : 20, overflowY: "auto", height: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: NAVY }}>공정 현황</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button onClick={onImport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📤 업로드" : "📤 공정표 업로드"}</button>
+          <button onClick={onDailyReport} style={{ background: "#0EA5E9", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📋 일지" : "📋 공사일지"}</button>
+          <button onClick={onReport} style={{ background: "#6366F1", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📄 주간" : "📄 주간보고서"}</button>
+          <button onClick={onMonthlyReport} style={{ background: "#8B5CF6", border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "📅 월간" : "📅 월간보고서"}</button>
+          {!isMobile && <button onClick={exportToP6Excel} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>📥 P6 Export</button>}
+          <button onClick={onRegister} style={{ background: YELLOW, border: "none", borderRadius: 8, padding: isMobile ? "6px 8px" : "8px 16px", fontWeight: 700, fontSize: isMobile ? 11 : 13, color: NAVY, cursor: "pointer" }}>+ {isMobile ? "등록" : "공정 등록"}</button>
+        </div>
+      </div>
+
+
+      {gl.map((catGroup, ci) => (
+        <div key={ci} style={{ marginBottom: 24 }}>
+          {/* 대공종 헤더 */}
+          {(() => {
+            const isCatOpen = openCat[catGroup.category] !== false;
+            const catWf = project?.total_budget > 0
+              ? (catGroup.rollup.total_budget / project.total_budget * 100).toFixed(1)
+              : (catGroup.rollup.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0) * 100).toFixed(1);
+            return (
+              <>
+                <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
+                  style={{ background: NAVY, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+                  <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: "#fff", flex: 1 }}>🏗️ {catGroup.category}</span>
+                  <span style={{ fontSize: 11, background: "rgba(255,184,0,0.2)", color: YELLOW, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
+                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>EV {fmtM(catGroup.rollup.ev)}</span>
+                  <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: YELLOW }}>{pct(catGroup.rollup.phys)}</span>
+                </div>
+                {isCatOpen && catGroup.groups.map(g => {
+                  const isOpen = open === g.group;
+                  const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
+                  return (
+                    <div key={g.group} style={{ marginBottom: 10 }}>
+                      <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: "#fff", border: `1.5px solid ${isOpen ? YELLOW : "#E5E7EB"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: "#9CA3AF", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: NAVY, flex: 1 }}>{g.group}</span>
+                          <span style={{ fontSize: 11, background: g.group === "기타(미입력)" ? "#F3F4F6" : "#EFF6FF", color: g.group === "기타(미입력)" ? "#6B7280" : "#1D4ED8", borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
+                            W/F {project?.total_budget > 0 ? ((g.total_budget / project.total_budget) * 100).toFixed(1) : ((g.total_budget / activities.reduce((s, a) => s + a.pv_budget, 0)) * 100).toFixed(1)}%
+                          </span>
+                          {g.has_critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                          <Badge label={g.status} bg={statusColor(g.status) + "22"} color={statusColor(g.status)} />
+                          {pc > 0 && <Badge label={`결재대기 ${pc}`} bg="#FEF3C7" color="#92400E" />}
+                          <button onClick={e => { e.stopPropagation(); handleWeightAI(g); }} disabled={weightLoading === g.group}
+                            style={{ background: weightLoading === g.group ? "#E5E7EB" : "#8B5CF6", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, color: weightLoading === g.group ? "#9CA3AF" : "#fff", cursor: weightLoading === g.group ? "default" : "pointer", whiteSpace: "nowrap" }}>
+                            {weightLoading === g.group ? "분석 중..." : "🤖 AI 배분"}
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); handleWeightEqual(g); }}
+                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            ⚖️ 균등
+                          </button>
+                          <button onClick={e => { e.stopPropagation(); const edits = {}; g.acts.forEach(a => { edits[a.id] = parseFloat((project?.total_budget > 0 ? a.pv_budget / project.total_budget : a.pv_budget / activities.reduce((s, x) => s + x.pv_budget, 0)) * 100).toFixed(2); }); setWeightEdits(edits); setWeightEditGroup(g); }}
+                            style={{ background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600, color: "#374151", cursor: "pointer", whiteSpace: "nowrap" }}>
+                            ✏️ 수정
+                          </button>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 6, height: 16, overflow: "hidden", position: "relative" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: "rgba(0,0,0,0.1)", borderRadius: 6 }} />
+                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6, transition: "width 0.8s ease" }} />
+                          </div>
+                          <span style={{ fontWeight: 800, fontSize: 15, color: statusColor(g.status), minWidth: 38 }}>{pct(g.phys)}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <KPI label="EV" value={fmtM(g.ev)} sub={`PV ${fmtM(g.pv)}`} />
+                          <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
+                          <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
+                          <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? "#EF4444" : NAVY} />
+                        </div>
+                      </div>
+                      {isOpen && (
+                        <div style={{ marginLeft: 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {g.acts.map(a => (
+                            <div key={a.id} style={{ background: a.group_name === "기타(미입력)" ? "#F9FAFB" : "#FAFAFA", border: `1px solid ${a.critical ? "#FECACA" : a.group_name === "기타(미입력)" ? "#E5E7EB" : "#E5E7EB"}`, borderRadius: 10, padding: "10px 14px", borderLeft: `3px solid ${a.group_name === "기타(미입력)" ? "#9CA3AF" : a.critical ? "#EF4444" : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.7 : 1 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontWeight: 600, fontSize: 14, color: NAVY, flex: 1 }}>
+                                  {a.sub_group && a.sub_group !== "-" && a.sub_group !== "" && (
+                                    <span style={{ fontSize: 12, color: "#6B7280", marginRight: 4 }}>({a.sub_group})</span>
+                                  )}
+                                  {a.name}
+                                  {a.floor_start !== null && a.floor_end !== null && (
+                                    <span style={{ fontSize: 12, color: "#6B7280", marginLeft: 6 }}>
+                                      ({a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`}~{a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`})
+                                    </span>
+                                  )}
+                                </span>                     {a.critical && <Badge label="Critical" bg="#FEE2E2" color="#991B1B" />}
+                                {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color="#991B1B" />}
+                                {(() => {
+                                  const totalBudgetAll = activities.reduce((s, x) => s + x.pv_budget, 0);
+                                  const wf = totalBudgetAll > 0 ? (a.pv_budget / totalBudgetAll * 100).toFixed(2) : "0.00";
+                                  return <Badge label={`W/F ${wf}%`} bg="#EFF6FF" color="#1D4ED8" />;
+                                })()}
+                                <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
+
+                                {predModalAct?.id === a.id && (
+                                  <PredecessorModal
+                                    act={predModalAct}
+                                    activities={activities}
+                                    onClose={() => setPredModalAct(null)}
+                                    onSave={(preds) => {
+                                      setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
+                                      setPredModalAct(null);
+                                    }}
+                                  />
+                                )}
+                                {/* 세부공정 드릴다운 버튼 */}
+                                <button onClick={(e) => { e.stopPropagation(); setOpenAct(openAct === a.id ? null : a.id); }}
+                                  style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                                  {openAct === a.id ? "▲ 세부공정" : `▼ 세부공정 ${subActivities.filter(s => s.activity_id === a.id).length > 0 ? `(${subActivities.filter(s => s.activity_id === a.id).length})` : ""}`}
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setPredModalAct(a); }}
+                                  style={{ background: a.predecessors?.length > 0 ? "#FFFBEB" : "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: a.predecessors?.length > 0 ? "#92400E" : "#6B7280", cursor: "pointer", fontWeight: 600 }}>
+                                  🔗 {a.predecessors?.length > 0 ? `선행 ${a.predecessors.length}개` : "선행공정"}
+                                </button>
+                                {a.done_qty === 0 && onDelete && (
+                                  <button onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                                    try {
+                                      await sb.delete("activities", a.id);
+                                      onDelete(a.id);
+                                    } catch (err) { alert("삭제 실패: " + err.message); }
+                                  }}
+                                    style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                    삭제
+                                  </button>
+                                )}                    </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}><div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? "#EF4444" : statusColor(a.status), borderRadius: 4 }} /></div>
+                                <span style={{ fontSize: 12, fontWeight: 700, minWidth: 32 }}>{pct(a.phys)}</span>
+                              </div>
+                              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "#6B7280", alignItems: "center" }}>
+                                <span>📅 {a.ps} ~ {a.pf}</span>
+                                {!a.as_ && a.ps <= dayStr(TODAY) && (
+                                  <button onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
+                                    try {
+                                      await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
+                                      setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
+                                    } catch (err) { alert("착수 처리 실패: " + err.message); }
+                                  }}
+                                    style={{ background: "#DBEAFE", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>
+                                    🚀 착수
+                                  </button>
+                                )}
+                                {a.as_ && (
+                                  <span style={{ color: "#10B981", fontWeight: 600 }}>🚀 착수 {a.as_}</span>
+                                )}
+                                <span style={{ color: a.total_float <= 0 ? "#EF4444" : a.total_float <= 3 ? "#F59E0B" : "#10B981", fontWeight: 600 }}>Float {a.total_float}일</span>
+                                <span>잔여 {a.rem_dur}일 · {a.resp} · {a.subcon}</span>
+                                {a.floor_start !== null && a.floor_end !== null && (
+                                  <span style={{ background: "#EFF6FF", color: "#1D4ED8", borderRadius: 4, padding: "1px 6px", fontWeight: 600 }}>
+                                    {a.floor_start < 0 ? `B${Math.abs(a.floor_start)}` : `${a.floor_start}F`} ~ {a.floor_end < 0 ? `B${Math.abs(a.floor_end)}` : `${a.floor_end}F`}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* 세부공정 패널 */}
+                              {openAct === a.id && (
+                                <div style={{ marginTop: 10, background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                                    <span style={{ fontWeight: 700, fontSize: 13, color: NAVY }}>세부공정</span>
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                      <button onClick={() => handleAISuggest(a)} disabled={aiLoading}
+                                        style={{ background: aiLoading ? "#F3F4F6" : YELLOW, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                                        {aiLoading ? "추천 중..." : "✨ AI 추천"}
+                                      </button>
+                                      <button onClick={() => handleAIReweight(a)} disabled={aiLoading}
+                                        style={{ background: aiLoading ? "#F3F4F6" : "#8B5CF6", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                                        {aiLoading ? "계산 중..." : "⚖️ 가중치 재계산"}
+                                      </button>
+                                      <button onClick={() => setShowSubForm(showSubForm === a.id ? null : a.id)}
+                                        style={{ background: NAVY, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+                                        + 직접 추가
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* 직접 입력 폼 */}
+                                  {showSubForm === a.id && (
+                                    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                                      <input value={subInput} onChange={e => setSubInput(e.target.value)}
+                                        onKeyDown={e => e.key === "Enter" && handleAddSub(a)}
+                                        placeholder="세부공정명 입력"
+                                        style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "6px 10px", fontSize: 13, outline: "none" }} />
+                                      <button onClick={() => handleAddSub(a)}
+                                        style={{ background: YELLOW, border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: NAVY, cursor: "pointer" }}>
+                                        추가
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* 세부공정 목록 */}
+                                  {subActivities.filter(s => s.activity_id === a.id).length === 0
+                                    ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
+                                    : subActivities.filter(s => s.activity_id === a.id).map(sub => (
+                                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #E5E7EB" }}>
+                                        {/* 상태 표시 */}
+                                        {sub.status === "pending_approval"
+                                          ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
+                                          : sub.phys === 100
+                                            ? <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>✅완료</span>
+                                            : sub.start_date
+                                              ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>🔨진행중</span>
+                                              : <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
+                                        }
+                                        {/* 이름 + 진도율 */}
+                                        {editingSubId === sub.id
+                                          ? <div style={{ display: "flex", gap: 6, flex: 1 }}>
+                                            <input
+                                              value={editingSubName}
+                                              onChange={e => setEditingSubName(e.target.value)}
+                                              onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
+                                              autoFocus
+                                              style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
+                                            />
+                                            <input
+                                              type="number"
+                                              value={editingSubWeight}
+                                              onChange={e => setEditingSubWeight(e.target.value)}
+                                              style={{ width: 56, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
+                                            />
+                                            <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
+                                          </div>
+                                          : <span style={{ fontSize: 13, color: NAVY, fontWeight: 600, flex: 1 }}>{sub.name}</span>
+                                        }
+                                        <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
+                                          {sub.weight || 0}%
+                                        </span>
+                                        {sub.start_date && (
+                                          <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap" }}>
+                                            {sub.start_date}{sub.end_date ? ` ~ ${sub.end_date}` : " ~"}
+                                          </span>
+                                        )}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <div style={{ width: 80, background: "#E5E7EB", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                                            <div style={{ width: `${sub.phys}%`, height: "100%", background: sub.phys === 100 ? "#10B981" : YELLOW, borderRadius: 4 }} />
+                                          </div>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: NAVY, minWidth: 28 }}>{sub.phys}%</span>
+                                        </div>
+                                        {/* 착수 / 완료 버튼 */}
+                                        {sub.status === "active" && sub.phys < 100 && editingSubId !== sub.id && (
+                                          !sub.start_date
+                                            ? <button onClick={async () => {
+                                              await sb.patch("sub_activities", sub.id, { start_date: dayStr(TODAY) });
+                                              setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: dayStr(TODAY) } : s));
+                                              setToast(`🔨 ${sub.name} 착수`);
+                                            }}
+                                              style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                              🔨 착수
+                                            </button>
+                                            : <button onClick={async () => {
+                                              if (!window.confirm(`${sub.name} 완료 처리하시겠습니까?`)) return;
+                                              const today = dayStr(TODAY);
+                                              await sb.patch("sub_activities", sub.id, { phys: 100, end_date: today });
+                                              const updatedSubs = subActivities.map(s => s.id === sub.id ? { ...s, phys: 100, end_date: today } : s);
+                                              setSubActivities(updatedSubs);
+
+                                              // 상위 공종 진도율 재계산
+                                              const actSubs = updatedSubs.filter(s => s.activity_id === a.id && s.status === "active");
+                                              const totalWeight = actSubs.reduce((s, x) => s + (x.weight || 0), 0);
+                                              const newPhys = totalWeight > 0
+                                                ? Math.round(actSubs.filter(s => s.phys === 100).reduce((s, x) => s + (x.weight || 0), 0) / totalWeight * 100)
+                                                : Math.round(actSubs.filter(s => s.phys === 100).length / Math.max(actSubs.length, 1) * 100);
+                                              const newDoneQty = Math.round(a.plan_qty * newPhys / 100);
+                                              const isActComplete = newPhys === 100;
+                                              const actualFinish = today;
+
+                                              await sb.patch("activities", a.id, {
+                                                done_qty: newDoneQty,
+                                                af: isActComplete ? actualFinish : null,
+                                              });
+
+                                              // 상위 공종 완료 + 지연 체크 → CPM 전파
+                                              if (isActComplete && actualFinish > a.pf) {
+                                                const delayDays = diffDays(actualFinish, a.pf);
+                                                await sb.patch("activities", a.id, { delay_days: (a.delay_days || 0) + delayDays });
+                                                const recalced = recalcCPM(
+                                                  activities.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: actualFinish, delay_days: (a.delay_days || 0) + delayDays }) : x),
+                                                  a.id,
+                                                  delayDays
+                                                );
+                                                // 영향받은 후행 공종 DB patch
+                                                for (const u of recalced) {
+                                                  const orig = activities.find(x => x.id === u.id);
+                                                  if (orig && (orig.ps !== u.ps || orig.pf !== u.pf)) {
+                                                    await sb.patch("activities", u.id, { ps: u.ps, pf: u.pf, delay_days: u.delay_days });
+                                                  }
+                                                }
+                                                setActivities(recalced);
+                                                const affectedCount = recalced.filter(u => {
+                                                  const orig = activities.find(x => x.id === u.id);
+                                                  return orig && orig.id !== a.id && orig.pf !== u.pf;
+                                                }).length;
+                                                setToast(`✅ ${sub.name} 완료 — ${a.name} ${delayDays}일 지연${affectedCount > 0 ? ` · ${affectedCount}개 후행 공종 일정 조정` : ""}`);
+                                              } else {
+                                                setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, done_qty: newDoneQty, af: isActComplete ? actualFinish : null }) : x));
+                                                setToast(isActComplete ? `🎉 ${a.name} 전체 완료!` : `✅ ${sub.name} 완료`);
+                                              }
+                                            }}
+                                              style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#065F46", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                                              ✅ 완료
+                                            </button>
+                                        )}
+                                        {/* 수정 버튼 */}
+                                        {editingSubId === sub.id
+                                          ? <button onClick={() => handleEditSub(sub)}
+                                            style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                            확인
+                                          </button>
+                                          : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); setEditingSubWeight(sub.weight || 0); }}
+                                            style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
+                                            수정
+                                          </button>
+                                        }
+                                        {/* 승인 버튼 (승인대기 + 건축기사/소장만) */}
+                                        {sub.status === "pending_approval" && ["공무과장", "현장소장", "기사", "대리"].includes(user.role) && (
+                                          <button onClick={() => handleApproveSub(sub)}
+                                            style={{ background: "#10B981", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                                            승인
+                                          </button>
+                                        )}
+                                        <button onClick={() => handleDeleteSub(sub)}
+                                          style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
+                                          삭제
+                                        </button>
+                                      </div>
+                                    ))
+                                  }
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const EMPTY_FORM = { group: "", group_custom: "", name: "", floor: "3F", loc: "", subcon: "한일건설", resp: "이기사", ps: "", pf: "", plan_qty: "", unit: "㎡", pv_budget: "", risk: "중", weather: false, critical: false, steps: [{ name: "", w: 100 }], predecessors: [] };
+
