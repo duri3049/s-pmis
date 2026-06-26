@@ -354,13 +354,13 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
             return (
               <>
                 <div onClick={() => setOpenCat(p => ({ ...p, [catGroup.category]: !isCatOpen }))}
-                  style={{ background: T.card, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none", borderLeft: `4px solid ${T.blue}` }}>
+                  style={{ background: T.card, borderRadius: 10, padding: "10px 16px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none", borderLeft: `4px solid ${T.blue}` }}>
                   <span style={{ fontSize: 12, color: T.sub, display: "inline-block", transform: isCatOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▶</span>
-                  <span style={{ fontWeight: 800, fontSize: 15, color: T.text, flex: 1 }}>{catGroup.category}</span>
-                  <span style={{ fontSize: 11, background: `${T.blue}14`, color: T.blue, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>W/F {catWf}%</span>
-                  <span style={{ fontSize: 12, color: T.sub }}>EV {fmtM(catGroup.rollup.ev)}</span>
-                  <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi) }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: T.blue }}>{pct(catGroup.rollup.phys)}</span>
+                  <span style={{ fontWeight: 800, fontSize: 15, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{catGroup.category}</span>
+                  {!isMobile && <span style={{ fontSize: 11, background: `${T.blue}14`, color: T.blue, borderRadius: 6, padding: "2px 8px", fontWeight: 700, flexShrink: 0 }}>W/F {catWf}%</span>}
+                  {!isMobile && <span style={{ fontSize: 12, color: T.sub, flexShrink: 0 }}>EV {fmtM(catGroup.rollup.ev)}</span>}
+                  {!isMobile && <span style={{ fontSize: 12, color: cpiColor(catGroup.rollup.cpi), flexShrink: 0 }}>CPI {catGroup.rollup.cpi.toFixed(2)}</span>}
+                  <span style={{ fontSize: 13, fontWeight: 800, color: T.blue, flexShrink: 0 }}>{pct(catGroup.rollup.phys)}</span>
                 </div>
                 {isCatOpen && catGroup.groups.map(g => {
                   const isOpen = open === g.group;
@@ -386,11 +386,19 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                           <span style={{ fontSize: 11, color: T.sub, whiteSpace: "nowrap" }}>계획 {g.plan_pct?.toFixed(0) ?? 0}%</span>
                         </div>
                         {/* KPI 요약 */}
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
-                          <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
-                          <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? T.danger : T.text} />
-                        </div>
+                        {isMobile ? (
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 12, color: cpiColor(g.cpi) }}>CPI {g.cpi.toFixed(2)}</span>
+                            <span style={{ fontSize: 12, color: cpiColor(g.spi) }}>SPI {g.spi.toFixed(2)}</span>
+                            <span style={{ fontSize: 12, color: g.eac > g.total_budget ? T.danger : T.sub }}>EAC {fmtM(g.eac)}</span>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <KPI label="CPI" value={g.cpi.toFixed(2)} color={cpiColor(g.cpi)} sub={g.cpi >= 1 ? "효율" : "초과"} />
+                            <KPI label="SPI" value={g.spi.toFixed(2)} color={cpiColor(g.spi)} sub={g.spi >= 1 ? "양호" : "지연"} />
+                            <KPI label="EAC" value={fmtM(g.eac)} sub={`BAC ${fmtM(g.total_budget)}`} color={g.eac > g.total_budget ? T.danger : T.text} />
+                          </div>
+                        )}
                         {/* 가중치 편집 — 열렸을 때만 */}
                         {isOpen && (
                           <div onClick={e => e.stopPropagation()} style={{ display: "flex", gap: 6, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
@@ -411,9 +419,9 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                         )}
                       </div>
                       {isOpen && (
-                        <div style={{ marginLeft: 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ marginLeft: isMobile ? 8 : 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
                           {g.acts.map(a => (
-                            <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px", borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.6 : 1 }}>
+                            <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 14px", borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.6 : 1 }}>
                               {/* 1행: 이름 + 상태배지 + 진도율 */}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -431,14 +439,12 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                   <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
                                     {a.delay_days > 0 && <Badge label={`+${a.delay_days}일 지연`} bg="#FEE2E2" color={T.danger} />}
                                     {a.critical && <Badge label="Critical" bg="#FEE2E2" color={T.danger} />}
-                                    <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />
-                                    <span style={{ fontSize: 11, color: T.sub }}>
-                                      {a.ps} ~ {a.pf}
-                                    </span>
+                                    {!isMobile && <Badge label={`리스크 ${a.risk}`} bg={riskBg(a.risk)} color={riskColor(a.risk)} />}
+                                    <span style={{ fontSize: 11, color: T.sub }}>{a.ps} ~ {a.pf}</span>
                                     <span style={{ fontSize: 11, fontWeight: 600, color: a.total_float <= 0 ? T.danger : a.total_float <= 3 ? T.warn : T.success }}>
                                       Float {a.total_float}일
                                     </span>
-                                    <span style={{ fontSize: 11, color: T.sub }}>{a.resp} · {a.subcon}</span>
+                                    {!isMobile && <span style={{ fontSize: 11, color: T.sub }}>{a.resp} · {a.subcon}</span>}
                                   </div>
                                 </div>
                                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
