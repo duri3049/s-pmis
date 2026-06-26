@@ -5,7 +5,7 @@ const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", bo
 const rTdStyle = { padding: "6px 10px", border: "1px solid #D1D5DB", verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
-export default
+export default function WeeklyReport({ activities, issues, progressReports, onClose }) {
   const reportDate = new Date();
   const weekAgo = new Date(reportDate); weekAgo.setDate(weekAgo.getDate() - 7);
   const nextWeek = new Date(reportDate); nextWeek.setDate(nextWeek.getDate() + 7);
@@ -168,5 +168,3 @@ export default
     </div>
   );
 }
-
-// ── 월간공정보고서 ────────────────────────────────────────────────────

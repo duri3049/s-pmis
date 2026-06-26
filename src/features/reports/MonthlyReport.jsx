@@ -1,11 +1,11 @@
 import { NAVY, YELLOW, TODAY } from '../../lib/constants';
-import { fmtM, pct, cpiColor } from '../../lib/utils';
+import { fmtM, pct, cpiColor, dayStr, diffDays } from '../../lib/utils';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
 const rTdStyle = { padding: "6px 10px", border: "1px solid #D1D5DB", verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
-export default
+export default function MonthlyReport({ activities, issues, progressReports, onClose }) {
   const reportDate = new Date();
   const monthAgo = new Date(reportDate); monthAgo.setMonth(monthAgo.getMonth() - 1);
   const nextMonth = new Date(reportDate); nextMonth.setMonth(nextMonth.getMonth() + 1);
