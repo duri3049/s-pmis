@@ -57,15 +57,15 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
   const btnLabel = type === "done" ? "✅ 완료 보고" : "⚠️ 지연 보고";
 
   return (
-    <div style={{ background: "#fff", border: `2px solid ${btnColor}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+    <div style={{ background: T.card, border: `2px solid ${btnColor}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: btnColor }}>{type === "done" ? "✅ 작업 완료 보고" : "⚠️ 공기 지연 보고"}</div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.sub }}>✕</button>
       </div>
 
       {/* 공종 선택 */}
       <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "#374151", marginBottom: 6 }}>공종 선택</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 6 }}>공종 선택</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {myActivities.map(a => (
             <button key={a.id} onClick={() => { setSelectedActId(a.id); setSelectedSubId(null); }}
@@ -73,7 +73,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
               <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${btnColor}`, background: selectedActId === a.id ? btnColor : "transparent", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div>
-                <div style={{ fontSize: 11, color: "#9CA3AF" }}>진도 {a.phys}% · {a.subcon !== "미정" ? a.subcon : "미분류"}</div>
+                <div style={{ fontSize: 11, color: T.sub }}>진도 {a.phys}% · {a.subcon !== "미정" ? a.subcon : "미분류"}</div>
               </div>
             </button>
           ))}
@@ -83,7 +83,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
       {/* 세부공정 선택 (완료 보고 시) */}
       {type === "done" && actSubs.length > 0 && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#374151", marginBottom: 6 }}>세부공정 선택 (선택)</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 6 }}>세부공정 선택 (선택)</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {actSubs.map(s => (
               <button key={s.id} onClick={() => setSelectedSubId(selectedSubId === s.id ? null : s.id)}
@@ -98,7 +98,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
       {/* 지연일수 (지연 보고 시) */}
       {type === "delay" && (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#374151", marginBottom: 6 }}>지연 일수</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.text, marginBottom: 6 }}>지연 일수</div>
           <div style={{ display: "flex", gap: 6 }}>
             {[1, 2, 3, 5, 7].map(d => (
               <button key={d} onClick={() => setDelayDays(d)}
@@ -113,7 +113,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
       {/* 특이사항 */}
       <input value={note} onChange={e => setNote(e.target.value)}
         placeholder={type === "done" ? "특이사항 (선택)" : "지연 사유 (선택)"}
-        style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
+        style={{ width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
 
       <button onClick={handleSubmit} disabled={saving || !selectedActId}
         style={{ width: "100%", background: !selectedActId ? "#F3F4F6" : btnColor, color: !selectedActId ? "#9CA3AF" : "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: !selectedActId ? "default" : "pointer" }}>

@@ -1,9 +1,10 @@
-import { TODAY } from '../../lib/constants';
-import { fmtM, pct, cpiColor, statusColor } from '../../lib/utils';
+import { TODAY, T } from '../../lib/constants';
+import { fmtM, pct, cpiColor, statusColor, dayStr } from '../../lib/utils';
 import { sb } from '../../lib/supabase';
+import { calcTodayTarget } from '../../lib/cpm';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
-const rTdStyle = { padding: "6px 10px", border: "1px solid #D1D5DB", verticalAlign: "top" };
+const rTdStyle = { padding: "6px 10px", border: `1px solid ${T.border}`, verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
 export default
@@ -98,7 +99,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
 
   // ── 스타일 ─────────────────────────────────────────────
   const th = { background: "#1A2332", color: "#fff", padding: "5px 8px", border: "1px solid #374151", fontWeight: 600, textAlign: "center", fontSize: 11 };
-  const td = { padding: "5px 8px", border: "1px solid #D1D5DB", fontSize: 11, verticalAlign: "top" };
+  const td = { padding: "5px 8px", border: `1px solid ${T.border}`, fontSize: 11, verticalAlign: "top" };
   const tdC = { ...td, textAlign: "center" };
   const secTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, margin: "14px 0 6px" };
 
@@ -147,7 +148,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
       </div>
 
-      <div id="dr-content" style={{ maxWidth: 800, margin: "0 auto", background: "#fff", padding: "28px 36px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
+      <div id="dr-content" style={{ maxWidth: 800, margin: "0 auto", background: T.card, padding: "28px 36px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
 
         {/* 제목 */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -216,7 +217,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
               {/* 전일 실적 */}
               <td style={{ ...td, verticalAlign: "top", minHeight: 120 }}>
                 {yesterdayReports.length === 0
-                  ? <span style={{ color: "#9CA3AF" }}>-</span>
+                  ? <span style={{ color: T.sub }}>-</span>
                   : yesterdayReports.map((r, i) => {
                     const act = activities.find(a => a.id === r.activity_id);
                     return (
@@ -231,7 +232,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
               {/* 금일 계획 */}
               <td style={{ ...td, verticalAlign: "top", minHeight: 120 }}>
                 {todayPlan.length === 0
-                  ? <span style={{ color: "#9CA3AF" }}>-</span>
+                  ? <span style={{ color: T.sub }}>-</span>
                   : todayPlan.map((a, i) => (
                     <div key={i} style={{ marginBottom: 4 }}>
                       {i + 1}. {a.name} ({a.subcon}) — 목표 {calcTodayTarget(a).daily_target}{a.unit}
@@ -256,7 +257,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
           </thead>
           <tbody>
             {jobList.length === 0
-              ? <tr><td colSpan={4} style={{ ...tdC, color: "#9CA3AF" }}>투입 인원 없음</td></tr>
+              ? <tr><td colSpan={4} style={{ ...tdC, color: T.sub }}>투입 인원 없음</td></tr>
               : jobList.map((j, i) => (
                 <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
                   <td style={td}>{j.job}</td>
@@ -266,7 +267,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
                 </tr>
               ))
             }
-            <tr style={{ background: "#F9FAFB", fontWeight: 700 }}>
+            <tr style={{ background: T.bg, fontWeight: 700 }}>
               <td style={{ ...tdC, fontWeight: 700 }}>합 계</td>
               <td style={tdC}>{prevWorkers}</td>
               <td style={tdC}>{todayWorkers}</td>
@@ -321,7 +322,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
             <tr>
               <td style={{ ...td, minHeight: 60, verticalAlign: "top" }}>
                 {(issues || []).filter(i => i.status !== "closed").length === 0
-                  ? <span style={{ color: "#9CA3AF" }}>특이사항 없음</span>
+                  ? <span style={{ color: T.sub }}>특이사항 없음</span>
                   : (issues || []).filter(i => i.status !== "closed").map((issue, i) => (
                     <div key={i} style={{ marginBottom: 4 }}>
                       {i + 1}. [{issue.severity}] {issue.title}
@@ -357,7 +358,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
           </tbody>
         </table>
 
-        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: "#9CA3AF" }}>
+        <div style={{ textAlign: "center", marginTop: 12, fontSize: 10, color: T.sub }}>
           본 공사일지는 현장 톡.톡. 에서 자동 생성되었습니다. | 생성일시: {today.toLocaleString("ko-KR")}
         </div>
       </div>

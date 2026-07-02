@@ -179,11 +179,11 @@ ${(activities || []).map(a => {
         <React.Fragment key={m.id}>
           {showDate && (
             <div style={{ textAlign: "center", margin: "12px 0" }}>
-              <span style={{ background: "#E5E7EB", color: "#6B7280", fontSize: 11, borderRadius: 20, padding: "3px 14px" }}>{msgDate}</span>
+              <span style={{ background: T.border, color: T.sub, fontSize: 11, borderRadius: 20, padding: "3px 14px" }}>{msgDate}</span>
             </div>
           )}
           <div style={{ display: "flex", flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 8, marginBottom: 6 }}>
-            {!isMe && <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: "#374151", flexShrink: 0 }}>{m.avatar || m.user_name?.[0]}</div>}
+            {!isMe && <div style={{ width: 32, height: 32, borderRadius: "50%", background: T.border, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, color: T.text, flexShrink: 0 }}>{m.avatar || m.user_name?.[0]}</div>}
             <div style={{ maxWidth: "65%" }}>
               {!isMe && <div style={{ fontSize: 11, color: m.user_role === "AI" ? T.blue : T.sub, marginBottom: 3, fontWeight: m.user_role === "AI" ? 700 : 400 }}>{m.user_name} · {m.user_role}</div>}
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, flexDirection: isMe ? "row-reverse" : "row" }}>
@@ -194,7 +194,7 @@ ${(activities || []).map(a => {
                   padding: "10px 14px", fontSize: 14, lineHeight: 1.5,
                   border: isMe ? "none" : m.user_role === "AI" ? "none" : "1px solid #E5E7EB"
                 }}>{m.content}</div>
-                <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap", flexShrink: 0 }}>{fmtTime(m.created_at)}</span>
+                <span style={{ fontSize: 10, color: T.sub, whiteSpace: "nowrap", flexShrink: 0 }}>{fmtTime(m.created_at)}</span>
               </div>
             </div>
           </div>
@@ -205,7 +205,7 @@ ${(activities || []).map(a => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "12px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+      <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         {onBack && <button onClick={onBack} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: T.text, padding: 0 }}>←</button>}
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: room.type === "group" ? T.blue : T.bg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: room.type === "group" ? "#fff" : T.sub }}>{roomName[0]}</div>
         <div>
@@ -213,16 +213,16 @@ ${(activities || []).map(a => {
           <div style={{ fontSize: 11, color: "#10B981" }}>● 실시간</div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px", background: "#F9FAFB" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", background: T.bg }}>
         {renderMessages()}
         <div ref={bottom} />
       </div>
-      <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #E5E7EB", display: "flex", gap: 8, background: "#fff", flexShrink: 0 }}>
+      <div style={{ padding: "10px 16px 14px", borderTop: `1px solid ${T.border}`, display: "flex", gap: 8, background: T.card, flexShrink: 0 }}>
         <button onClick={() => setInput(prev => prev.includes("@AI") ? prev : "@AI " + prev)}
           style={{ background: aiLoading ? T.bg : T.text, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 12, color: aiLoading ? T.sub : "#fff", cursor: "pointer", flexShrink: 0 }}>
           {aiLoading ? "⏳" : "AI"}
         </button>
-        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, minWidth: 0, border: "1.5px solid #D1D5DB", borderRadius: 22, padding: "10px 16px", fontSize: 16, outline: "none", background: "#F9FAFB" }} />
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSend()} placeholder="메시지를 입력하세요" style={{ flex: 1, minWidth: 0, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "10px 16px", fontSize: 16, outline: "none", background: T.bg }} />
         <button onClick={handleSend} style={{ background: T.blue, border: "none", borderRadius: "50%", width: 42, height: 42, fontWeight: 700, fontSize: 16, color: "#fff", cursor: "pointer", flexShrink: 0 }}>↑</button>
       </div>
     </div>

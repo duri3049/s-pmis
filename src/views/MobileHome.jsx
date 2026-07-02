@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TODAY, getTier, T } from '../lib/constants';
 import { sb, ANTHROPIC_KEY } from '../lib/supabase';
 import { pct, cpiColor, statusColor, sevColor, dayStr, fmtM } from '../lib/utils';
+import { calcTodayTarget } from '../lib/cpm';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
 
@@ -104,6 +105,31 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
     </div>
   ) : null;
 
+  // 오늘 할 일 카드 — 착수 예정 / 지연 / 오늘 진행
+  const TodayTasks = () => {
+    const startToday = activities.filter(a => !a.as_ && a.ps <= todayStr && a.pf >= todayStr && a.phys === 0);
+    const delayed = activities.filter(a => a.delay_days > 0 && a.phys < 100);
+    const items = [
+      ...delayed.slice(0, 2).map(a => ({ icon: "🔴", label: a.name, sub: `${a.delay_days}일 지연 — 확인 필요`, color: T.danger })),
+      ...startToday.slice(0, 2).map(a => ({ icon: "🔵", label: a.name, sub: "오늘 착수 예정", color: T.blue })),
+    ];
+    if (items.length === 0) return null;
+    return (
+      <div style={cardStyle}>
+        <div style={secTitle}>오늘 챙길 일 · {items.length}건</div>
+        {items.map((it, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < items.length - 1 ? `1px solid ${T.border}` : "none" }}>
+            <div style={{ width: 4, height: 32, background: it.color, borderRadius: 2, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</div>
+              <div style={{ fontSize: 12, color: it.color, marginTop: 1, fontWeight: 600 }}>{it.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // ── MACRO 뷰 ─────────────────────────────────────────
   if (tier === "macro") {
     const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
@@ -117,6 +143,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
     return (
       <div style={{ padding: "16px 16px 32px", overflowY: "auto", height: "100%", background: T.bg, boxSizing: "border-box" }}>
         <BriefingCard />
+        <TodayTasks />
 
         {/* 날씨 */}
         {weather && (
@@ -193,6 +220,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
     return (
       <div style={{ padding: "16px 16px 32px", overflowY: "auto", height: "100%", background: T.bg, boxSizing: "border-box" }}>
         <BriefingCard />
+        <TodayTasks />
 
         {/* 날씨 간략 */}
         {weather && (
@@ -273,6 +301,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
       </div>
 
       <BriefingCard />
+      <TodayTasks />
 
       {/* 기상 경고 */}
       {weatherWarnings.length > 0 && (

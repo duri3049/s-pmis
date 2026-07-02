@@ -31,7 +31,7 @@ function SectionHeader({ title }) {
 function Toggle({ on, onChange }) {
   return (
     <button onClick={onChange} style={{ width: 48, height: 28, borderRadius: 14, background: on ? T.blue : T.border, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-      <div style={{ position: "absolute", top: 3, left: on ? 23 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
+      <div style={{ position: "absolute", top: 3, left: on ? 23 : 3, width: 22, height: 22, borderRadius: "50%", background: T.card, transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
     </button>
   );
 }
@@ -50,6 +50,9 @@ export default function ProfileSettings({ user, profiles, onClose, onThemeChange
   const applyTheme = (key, value) => {
     localStorage.setItem(key, value);
     onThemeChange?.();
+    // 계정에도 저장 — 다른 기기 로그인 시 복원 (컬럼 없으면 조용히 무시)
+    const patch = key === "pmis_color" ? { theme_color: value } : { dark_mode: value === "1" };
+    sb.patch("profiles", user.id, patch).catch(() => {});
   };
 
   const handleSaveProfile = async () => {

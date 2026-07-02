@@ -158,12 +158,12 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
+      <div className="modal-enter" style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
         {/* 헤더 */}
         <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>📤 공정표 업로드</div>
-            <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>
               {step === 1 && "템플릿을 다운로드 후 작성하여 업로드하세요"}
               {step === 2 && `${parsed.length}개 공종 파싱 완료 — 확인 후 등록하세요`}
               {step === 3 && "DB에 저장 중..."}
@@ -180,7 +180,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
               <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 12, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: "#065F46", marginBottom: 4 }}>📥 템플릿 먼저 다운로드하세요</div>
-                  <div style={{ fontSize: 12, color: "#6B7280" }}>대분류 / 공종명 / 가중치 / 시작년월 / 완료년월 / 세부구간 형식</div>
+                  <div style={{ fontSize: 12, color: T.sub }}>대분류 / 공종명 / 가중치 / 시작년월 / 완료년월 / 세부구간 형식</div>
                 </div>
                 <button onClick={downloadTemplate}
                   style={{ background: "#10B981", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -196,12 +196,12 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
 
               {/* 업로드 영역 */}
               <div onClick={() => fileRef.current?.click()}
-                style={{ border: "2px dashed #D1D5DB", borderRadius: 14, padding: "48px 24px", textAlign: "center", cursor: "pointer", background: "#F9FAFB" }}
+                style={{ border: "2px dashed #D1D5DB", borderRadius: 14, padding: "48px 24px", textAlign: "center", cursor: "pointer", background: T.bg }}
                 onMouseEnter={e => e.currentTarget.style.borderColor = T.blue}
                 onMouseLeave={e => e.currentTarget.style.borderColor = "#D1D5DB"}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 6 }}>공정표 Excel 업로드</div>
-                <div style={{ fontSize: 13, color: "#9CA3AF" }}>클릭하거나 파일을 드래그하세요 (.xlsx, .xls)</div>
+                <div style={{ fontSize: 13, color: T.sub }}>클릭하거나 파일을 드래그하세요 (.xlsx, .xls)</div>
               </div>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
             </div>
@@ -211,7 +211,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
           {step === 2 && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                <div style={{ fontSize: 13, color: "#6B7280", display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ fontSize: 13, color: T.sub, display: "flex", gap: 12, alignItems: "center" }}>
                   총 {parsed.length}개 공종 ·
                   <span style={{ color: T.text, fontWeight: 700 }}>{parsed.filter(p => p.checked).length}개 선택됨</span>
                   {parsed.filter(p => p.duplicate).length > 0 && (
@@ -222,13 +222,13 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => setParsed(p => p.map(i => ({ ...i, checked: true })))}
-                    style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 선택</button>
+                    style={{ background: T.bg, border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 선택</button>
                   <button onClick={() => setParsed(p => p.map(i => ({ ...i, checked: false })))}
-                    style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 해제</button>
+                    style={{ background: T.bg, border: "none", borderRadius: 8, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>전체 해제</button>
                 </div>
               </div>
 
-              <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: T.text, color: "#fff" }}>
@@ -257,17 +257,17 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                         </td>
                         <td style={{ padding: "8px 12px" }}>
                           <input value={item.group_name} onChange={e => updateField(item.id, "group_name", e.target.value)}
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                            style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
                         </td>
                         <td style={{ padding: "8px 12px" }}>
                           <input value={item.sub_group} onChange={e => updateField(item.id, "sub_group", e.target.value)}
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
+                            style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, width: "100%" }} />
                         </td>
 
                         <td style={{ padding: "8px 12px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <input value={item.name} onChange={e => updateField(item.id, "name", e.target.value)}
-                              style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, flex: 1 }} />
+                              style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, flex: 1 }} />
                             {item.duplicate && (
                               <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, whiteSpace: "nowrap" }}>
                                 중복
@@ -277,25 +277,25 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input type="number" value={item.weight} onChange={e => updateField(item.id, "weight", Number(e.target.value))}
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 60, textAlign: "center" }} />
+                            style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 60, textAlign: "center" }} />
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input value={item.ps_ym} onChange={e => { updateField(item.id, "ps_ym", e.target.value); updateField(item.id, "ps", toStartDate(e.target.value)); }}
                             placeholder="YYYY-MM"
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
+                            style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           <input value={item.pf_ym} onChange={e => { updateField(item.id, "pf_ym", e.target.value); updateField(item.id, "pf", toEndDate(e.target.value)); }}
                             placeholder="YYYY-MM"
-                            style={{ border: "1px solid #E5E7EB", borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
+                            style={{ border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, width: 90, textAlign: "center" }} />
                         </td>
-                        <td style={{ padding: "8px 12px", textAlign: "center", color: "#6B7280" }}>
+                        <td style={{ padding: "8px 12px", textAlign: "center", color: T.sub }}>
                           {item.ps && item.pf ? `${Math.round(diffDays(item.pf, item.ps) / 30)}개월` : "-"}
                         </td>
                         <td style={{ padding: "8px 12px", textAlign: "center" }}>
                           {item.floor_start !== null || item.floor_end !== null
                             ? `${item.floor_start}F ~ ${item.floor_end}F`
-                            : <span style={{ color: "#9CA3AF" }}>-</span>}
+                            : <span style={{ color: T.sub }}>-</span>}
                         </td>
                       </tr>
                     ))}
@@ -321,7 +321,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
 
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button onClick={() => { setStep(1); setParsed([]); setError(""); }}
-                  style={{ background: "#F3F4F6", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, cursor: "pointer" }}>← 다시 업로드</button>
+                  style={{ background: T.bg, border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, cursor: "pointer" }}>← 다시 업로드</button>
                 <button onClick={handleSaveAll} disabled={parsed.filter(p => p.checked).length === 0}
                   style={{ background: T.blue, border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
                   ✅ {parsed.filter(p => p.checked).length}개 공종 등록
@@ -335,7 +335,7 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
             <div style={{ textAlign: "center", padding: "48px 24px" }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>💾</div>
               <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 8 }}>DB에 저장 중입니다</div>
-              <div style={{ fontSize: 13, color: "#9CA3AF" }}>잠시만 기다려주세요...</div>
+              <div style={{ fontSize: 13, color: T.sub }}>잠시만 기다려주세요...</div>
             </div>
           )}
         </div>

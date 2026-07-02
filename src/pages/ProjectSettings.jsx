@@ -135,7 +135,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
             <label style={ls}>총 공사비 (원)</label>
             <input type="number" value={form.total_budget} onChange={e => set("total_budget", e.target.value)} style={is} placeholder="예: 50000000000 (500억)" />
             {form.total_budget > 0 && (
-              <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>
+              <div style={{ fontSize: 12, color: T.sub, marginTop: 6 }}>
                 = {(Number(form.total_budget) / 100000000).toFixed(1)}억원
               </div>
             )}
@@ -154,7 +154,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
 
         {/* 현재 공종별 예산 미리보기 */}
         {form.total_budget > 0 && activities.length > 0 && (
-          <div style={{ marginTop: 24, borderTop: "1px solid #E5E7EB", paddingTop: 20 }}>
+          <div style={{ marginTop: 24, borderTop: `1px solid ${T.border}`, paddingTop: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: T.text, marginBottom: 12 }}>공종별 예산 미리보기</div>
             <div style={{ maxHeight: 240, overflowY: "auto" }}>
               {activities.map(a => {
@@ -163,7 +163,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
                 return (
                   <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F3F4F6", fontSize: 13 }}>
                     <div>
-                      <span style={{ color: "#9CA3AF", fontSize: 11, marginRight: 6 }}>{a.group_name}</span>
+                      <span style={{ color: T.sub, fontSize: 11, marginRight: 6 }}>{a.group_name}</span>
                       <span style={{ color: T.text }}>{a.name}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

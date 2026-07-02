@@ -33,11 +33,11 @@ export default function AuthScreen({ onAuth }) {
     setLoading(false);
   };
 
-  const inputStyle = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 10, padding: "11px 14px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 12 };
+  const inputStyle = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 10, padding: "11px 14px", fontSize: 16, outline: "none", boxSizing: "border-box", marginBottom: 12 };
 
   return (
     <div style={{ minHeight: "100vh", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+      <div style={{ background: T.card, borderRadius: 20, padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div style={{ background: T.blue, borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="28" height="32" viewBox="-70 -92 136 156" xmlns="http://www.w3.org/2000/svg">
@@ -51,9 +51,9 @@ export default function AuthScreen({ onAuth }) {
               <line x1="25" y1="52" x2="58" y2="52" stroke="white" strokeWidth="9" strokeLinecap="round" />
             </svg>
           </div>
-          <div><div style={{ fontWeight: 800, fontSize: 18, color: T.text }}>현장 톡.톡.</div><div style={{ fontSize: 12, color: "#9CA3AF" }}>스카이라인 플라자</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18, color: T.text }}>현장 톡.톡.</div><div style={{ fontSize: 12, color: T.sub }}>스카이라인 플라자</div></div>
         </div>
-        <div style={{ display: "flex", marginBottom: 24, background: "#F3F4F6", borderRadius: 10, padding: 4 }}>
+        <div style={{ display: "flex", marginBottom: 24, background: T.bg, borderRadius: 10, padding: 4 }}>
           {[["login", "로그인"], ["signup", "회원가입"]].map(([m, label]) => (
             <button key={m} onClick={() => { setMode(m); setError(""); }} style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 8, background: mode === m ? "#fff" : "transparent", fontWeight: mode === m ? 700 : 400, fontSize: 13, color: mode === m ? T.text : "#6B7280", cursor: "pointer", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{label}</button>
           ))}
@@ -62,11 +62,11 @@ export default function AuthScreen({ onAuth }) {
         <input value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호 (6자 이상)" type="password" onKeyDown={e => e.key === "Enter" && (mode === "login" ? handleLogin() : handleSignup())} style={inputStyle} />
         {mode === "signup" && <>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="이름" style={inputStyle} />
-          <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, background: "#fff" }}>
+          <select value={role} onChange={e => setRole(e.target.value)} style={{ ...inputStyle, background: T.card }}>
             {ROLES.map(r => <option key={r}>{r}</option>)}
           </select>
           {role === "협력사 반장" && (
-            <select value={subcon} onChange={e => setSubcon(e.target.value)} style={{ ...inputStyle, background: "#fff" }}>
+            <select value={subcon} onChange={e => setSubcon(e.target.value)} style={{ ...inputStyle, background: T.card }}>
               <option value="">협력사 선택</option>
               {SUBCONS.map(s => <option key={s}>{s}</option>)}
             </select>

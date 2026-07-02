@@ -75,8 +75,8 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
     return "#EF4444";
   };
 
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" };
-  const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+  const is = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box", background: T.card };
+  const ls = { fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4, display: "block" };
 
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
@@ -101,14 +101,14 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
           const available = getAvailableUnits(eq);
           return (
             <div key={eq.id} onClick={() => setSelectedEq(selectedEq?.id === eq.id ? null : eq)}
-              style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", cursor: "pointer", border: `1.5px solid ${selectedEq?.id === eq.id ? T.blue : "#E5E7EB"}` }}>
+              style={{ background: T.card, borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", cursor: "pointer", border: `1.5px solid ${selectedEq?.id === eq.id ? T.blue : "#E5E7EB"}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{eq.name}</div>
                 <span style={{ fontSize: 11, background: statusColor(available, eq.total_count) + "22", color: statusColor(available, eq.total_count), borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
                   {available === 0 ? "전부 투입" : available === eq.total_count ? "대기" : "일부 투입"}
                 </span>
               </div>
-              {eq.spec && <div style={{ fontSize: 12, color: "#9CA3AF", marginBottom: 10 }}>{eq.spec}</div>}
+              {eq.spec && <div style={{ fontSize: 12, color: T.sub, marginBottom: 10 }}>{eq.spec}</div>}
               <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
                 {Array.from({ length: eq.total_count }, (_, i) => (
                   <div key={i} style={{
@@ -122,7 +122,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: "#6B7280" }}>
+              <div style={{ fontSize: 12, color: T.sub }}>
                 투입 {activeUnits.length}대 / 가용 {available}대 / 총 {eq.total_count}대
               </div>
             </div>
@@ -132,12 +132,12 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
 
       {/* 선택된 장비 투입 상세 */}
       {selectedEq && (
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>
             {selectedEq.name} 투입 현황
           </div>
           {getActiveUnits(selectedEq.id).length === 0
-            ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>현재 투입된 장비 없음</div>
+            ? <div style={{ color: T.sub, fontSize: 13 }}>현재 투입된 장비 없음</div>
             : getActiveUnits(selectedEq.id).map(log => {
               const act = activities?.find(a => a.id === log.activity_id);
               return (
@@ -147,7 +147,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{act?.name || "공종 미지정"}</div>
-                    <div style={{ fontSize: 11, color: "#9CA3AF" }}>
+                    <div style={{ fontSize: 11, color: T.sub }}>
                       투입: {new Date(log.started_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                       {log.note && ` · ${log.note}`}
                     </div>
@@ -163,10 +163,10 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       )}
 
       {/* 오늘 전체 투입 현황 */}
-      <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+      <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>오늘 투입 현황</div>
         {logs.length === 0
-          ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>투입된 장비가 없습니다</div>
+          ? <div style={{ color: T.sub, fontSize: 13 }}>투입된 장비가 없습니다</div>
           : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: T.text, color: "#fff" }}>
@@ -180,7 +180,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
                 const eq = equipment.find(e => e.id === log.equipment_id);
                 const act = activities?.find(a => a.id === log.activity_id);
                 return (
-                  <tr key={log.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <tr key={log.id} style={{ background: i % 2 === 0 ? "#fff" : "#F9FAFB", borderBottom: `1px solid ${T.border}` }}>
                     <td style={{ padding: "8px 12px" }}>{eq?.name}</td>
                     <td style={{ padding: "8px 12px" }}>#{log.unit_number}</td>
                     <td style={{ padding: "8px 12px" }}>{act?.name || "-"}</td>
@@ -203,7 +203,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       {/* 장비 등록 모달 */}
       {showForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440 }}>
+          <div style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 440 }}>
             <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 등록</div>
               <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
@@ -226,7 +226,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
               </div>
             </div>
             <div style={{ padding: "0 24px 24px", display: "flex", gap: 8 }}>
-              <button onClick={() => setShowForm(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontSize: 13, cursor: "pointer" }}>취소</button>
+              <button onClick={() => setShowForm(false)} style={{ flex: 1, background: T.bg, border: "none", borderRadius: 10, padding: "11px 0", fontSize: 13, cursor: "pointer" }}>취소</button>
               <button onClick={handleSaveEquipment} disabled={saving} style={{ flex: 2, background: T.blue, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
                 {saving ? "저장 중..." : "✅ 등록"}
               </button>
@@ -238,7 +238,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       {/* 장비 투입 모달 */}
       {showLogForm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 440 }}>
+          <div style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 440 }}>
             <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 투입</div>
               <button onClick={() => setShowLogForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
@@ -288,7 +288,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
               </div>
             </div>
             <div style={{ padding: "0 24px 24px", display: "flex", gap: 8 }}>
-              <button onClick={() => setShowLogForm(false)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontSize: 13, cursor: "pointer" }}>취소</button>
+              <button onClick={() => setShowLogForm(false)} style={{ flex: 1, background: T.bg, border: "none", borderRadius: 10, padding: "11px 0", fontSize: 13, cursor: "pointer" }}>취소</button>
               <button onClick={handleDeploy} disabled={saving} style={{ flex: 2, background: "#10B981", border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>
                 {saving ? "처리 중..." : "✅ 투입"}
               </button>

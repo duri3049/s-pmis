@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { T, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
-import { calcAct } from '../lib/cpm';
+import { calcAct, calcTodayTarget } from '../lib/cpm';
 import { pct, dayStr, fmtM } from '../lib/utils';
 
 export default
@@ -128,7 +128,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 12 }}>📋 결재 라인</div>
       {/* 탭 */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, background: "#F3F4F6", borderRadius: 12, padding: 4 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, background: T.bg, borderRadius: 12, padding: 4 }}>
         {APPROVAL_TABS.map(t => (
           <button key={t.key} onClick={() => setApprovalTab(t.key)}
             style={{ flex: 1, background: approvalTab === t.key ? "#fff" : "none", border: "none", borderRadius: 9, padding: "8px 0", fontSize: 13, fontWeight: approvalTab === t.key ? 700 : 400, color: approvalTab === t.key ? T.text : "#6B7280", cursor: "pointer", boxShadow: approvalTab === t.key ? "0 1px 4px rgba(0,0,0,0.08)" : "none", transition: "all 0.15s", position: "relative" }}>
@@ -142,8 +142,12 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
         ))}
       </div>
       {tabPending.length === 0
-        ? <div style={{ textAlign: "center", color: "#9CA3AF", padding: 40 }}>
-          {approvalTab === "work" ? "대기 중인 작업보고가 없습니다" : approvalTab === "invoice" ? "대기 중인 기성청구가 없습니다" : "대기 중인 공기지연 보고가 없습니다"}
+        ? <div style={{ textAlign: "center", padding: "56px 20px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${T.success}14`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 14px" }}>✓</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 4 }}>모두 처리했어요</div>
+          <div style={{ fontSize: 13, color: T.sub }}>
+            {approvalTab === "work" ? "대기 중인 작업보고가 없어요" : approvalTab === "invoice" ? "대기 중인 기성청구가 없어요" : "대기 중인 공기지연 보고가 없어요"}
+          </div>
         </div>
         : tabPending.map(report => {
           const act = activities.find(a => a.id === report.activity_id);
@@ -160,28 +164,28 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                 <div style={{ fontWeight: 700, fontSize: 15, color: T.text, flex: 1 }}>{act?.name}</div>
                 {isInvoice && <span style={{ background: T.blue, color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>💰 기성청구</span>}
               </div>
-              <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 10 }}>{report.reporter} · {report.reporter_company}</div>
+              <div style={{ fontSize: 11, color: T.sub, marginBottom: 10 }}>{report.reporter} · {report.reporter_company}</div>
 
               {isInvoice ? (
                 /* 기성청구 전용 UI */
                 <div style={{ background: "#F8FAFF", border: "1px solid #DBEAFE", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>청구 금액</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: "#6B7280", marginLeft: 4 }}>만원</span></div>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginTop: 6 }}>BAC 대비 {act ? Math.round(report.invoice_amount / act.pv_budget * 100) : 0}%</div>
+                  <div style={{ fontSize: 12, color: T.sub, marginBottom: 6 }}>청구 금액</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: T.text }}>{(report.invoice_amount / 10000).toLocaleString()}<span style={{ fontSize: 14, fontWeight: 400, color: T.sub, marginLeft: 4 }}>만원</span></div>
+                  <div style={{ fontSize: 12, color: T.sub, marginTop: 6 }}>BAC 대비 {act ? Math.round(report.invoice_amount / act.pv_budget * 100) : 0}%</div>
                 </div>
               ) : (
                 /* 작업보고 기존 UI */
-                <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span>{report.prev_done_qty}{report.unit}</span><span style={{ color: "#9CA3AF" }}>→</span>
+                    <span>{report.prev_done_qty}{report.unit}</span><span style={{ color: T.sub }}>→</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: T.text }}>{report.new_done_qty}{report.unit}</span>
                     <span style={{ color: "#10B981", fontWeight: 700 }}>+{today_qty}</span>
                   </div>
-                  <div style={{ background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
+                  <div style={{ background: T.border, borderRadius: 4, height: 10, overflow: "hidden", position: "relative" }}>
                     <div style={{ position: "absolute", left: 0, top: 0, width: `${oldPct}%`, height: "100%", background: "#D1D5DB", borderRadius: 4 }} />
                     <div style={{ position: "absolute", left: 0, top: 0, width: `${newPct}%`, height: "100%", background: T.blue, borderRadius: 4, transition: "width 0.8s ease" }} />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#6B7280", marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: T.text }}>승인 후 {newPct}%</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.sub, marginTop: 4 }}><span>이전 {oldPct}%</span><span style={{ fontWeight: 700, color: T.text }}>승인 후 {newPct}%</span></div>
                 </div>
               )}
 
@@ -189,12 +193,12 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
               {report.special_note && <div style={{ fontSize: 12, color: "#EF4444", marginBottom: 8 }}>⚠️ {report.special_note}</div>}
               {report.photo_url && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 4 }}>{isInvoice ? "📄 첨부 서류" : "📷 첨부 사진"}</div>
+                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{isInvoice ? "📄 첨부 서류" : "📷 첨부 사진"}</div>
                   <img src={report.photo_url} alt="첨부" onClick={() => window.open(report.photo_url, "_blank")}
-                    style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid #E5E7EB" }} />
+                    style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: `1px solid ${T.border}` }} />
                 </div>
               )}
-              {!isInvoice && <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>{report.ai_summary}</div>}
+              {!isInvoice && <div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>{report.ai_summary}</div>}
               {!isInvoice && report.matching_reason && (
                 <div style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
@@ -203,7 +207,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
                       {report.matching_confidence === "high" ? "높음" : report.matching_confidence === "medium" ? "보통" : "낮음"}
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: "#374151" }}>{report.matching_reason}</div>
+                  <div style={{ fontSize: 12, color: T.text }}>{report.matching_reason}</div>
                 </div>
               )}
               <div style={{ display: "flex", alignItems: "center", gap: 1, marginBottom: 14 }}>
@@ -211,7 +215,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => handleApprove(report)} style={{ flex: 1, background: T.blue, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✅ 승인</button>
-                <button onClick={() => handleReject(report)} style={{ flex: 1, background: "#F3F4F6", border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 600, fontSize: 14, color: "#374151", cursor: "pointer" }}>❌ 반려</button>
+                <button onClick={() => handleReject(report)} style={{ flex: 1, background: T.bg, border: "none", borderRadius: 10, padding: "11px 0", fontWeight: 600, fontSize: 14, color: T.text, cursor: "pointer" }}>❌ 반려</button>
               </div>
             </div>
           );

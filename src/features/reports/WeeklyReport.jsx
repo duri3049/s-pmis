@@ -1,8 +1,8 @@
-import { TODAY } from '../../lib/constants';
+import { TODAY, T } from '../../lib/constants';
 import { fmtM, pct, cpiColor, statusColor } from '../../lib/utils';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
-const rTdStyle = { padding: "6px 10px", border: "1px solid #D1D5DB", verticalAlign: "top" };
+const rTdStyle = { padding: "6px 10px", border: `1px solid ${T.border}`, verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
 export default function WeeklyReport({ activities, issues, progressReports, onClose }) {
@@ -64,10 +64,10 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
 
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
       </div>
-      <div id="wr-content" style={{ maxWidth: 800, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
+      <div id="wr-content" style={{ maxWidth: 800, margin: "0 auto", background: T.card, padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
         <div style={{ textAlign: "center", borderBottom: "2px solid #1A2332", paddingBottom: 16, marginBottom: 20 }}>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#1A2332", marginBottom: 4 }}>주 간 공 정 보 고 서</div>
-          <div style={{ fontSize: 12, color: "#6B7280" }}>Weekly Progress Report</div>
+          <div style={{ fontSize: 12, color: T.sub }}>Weekly Progress Report</div>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20 }}>
           <tbody>
@@ -90,7 +90,7 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
             </tr>
           </tbody>
         </table>
-        <div style={{ fontSize: 10, color: "#6B7280", marginBottom: 20 }}>
+        <div style={{ fontSize: 10, color: T.sub, marginBottom: 20 }}>
           * CPI ≥ 1.0: 비용 효율 / SPI ≥ 1.0: 일정 양호
           {deviation < 0 && <span style={{ color: "#EF4444", marginLeft: 12 }}>⚠️ 공정 지연 — 만회 계획 수립 필요</span>}
         </div>
@@ -133,7 +133,7 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
               <thead><tr><th style={rThStyle}>공정명</th><th style={{ ...rThStyle, width: "32%" }}>완료일</th></tr></thead>
               <tbody>
                 {thisWeekDone.length === 0
-                  ? <tr><td colSpan={2} style={{ ...rTdStyle, textAlign: "center", color: "#9CA3AF" }}>완료 작업 없음</td></tr>
+                  ? <tr><td colSpan={2} style={{ ...rTdStyle, textAlign: "center", color: T.sub }}>완료 작업 없음</td></tr>
                   : thisWeekDone.map((a, i) => <tr key={i}><td style={rTdStyle}>{a.name}</td><td style={{ ...rTdStyle, textAlign: "center" }}>{a.af}</td></tr>)}
               </tbody>
             </table>
@@ -144,7 +144,7 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
               <thead><tr><th style={rThStyle}>공정명</th><th style={{ ...rThStyle, width: "32%" }}>예정일</th></tr></thead>
               <tbody>
                 {nextWeekPlan.length === 0
-                  ? <tr><td colSpan={2} style={{ ...rTdStyle, textAlign: "center", color: "#9CA3AF" }}>예정 작업 없음</td></tr>
+                  ? <tr><td colSpan={2} style={{ ...rTdStyle, textAlign: "center", color: T.sub }}>예정 작업 없음</td></tr>
                   : nextWeekPlan.slice(0, 6).map((a, i) => <tr key={i}><td style={rTdStyle}>{a.name}</td><td style={{ ...rTdStyle, textAlign: "center" }}>{a.ps}</td></tr>)}
               </tbody>
             </table>
@@ -161,7 +161,7 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
             <tr><td style={{ ...rTdStyle, height: 48 }}></td><td style={rTdStyle}></td><td style={rTdStyle}></td><td style={rTdStyle}></td></tr>
           </tbody>
         </table>
-        <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: "#9CA3AF" }}>
+        <div style={{ textAlign: "center", marginTop: 16, fontSize: 10, color: T.sub }}>
           본 보고서는 현장 톡.톡. 에서 자동 생성되었습니다. | 생성일시: {reportDate.toLocaleString("ko-KR")}
         </div>
       </div>

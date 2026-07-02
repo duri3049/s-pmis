@@ -90,18 +90,18 @@ function DocumentVault() {
 
       {/* 파일 목록 */}
       {loading
-        ? <div style={{ textAlign: "center", padding: 40, color: "#9CA3AF" }}>불러오는 중...</div>
+        ? <div style={{ textAlign: "center", padding: 40, color: T.sub }}>불러오는 중...</div>
         : files.length === 0
-          ? <div style={{ textAlign: "center", padding: 40, color: "#9CA3AF" }}>파일이 없습니다</div>
+          ? <div style={{ textAlign: "center", padding: 40, color: T.sub }}>파일이 없습니다</div>
           : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
             {files.map((file, i) => {
               const url = getPublicUrl(file);
               const img = isImage(file.name);
               return (
-                <div key={i} style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", cursor: "pointer" }}
+                <div key={i} style={{ background: T.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.08)", cursor: "pointer" }}
                   onClick={() => setSelectedFile({ ...file, url })}>
                   {/* 썸네일 */}
-                  <div style={{ width: "100%", height: 140, background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                  <div style={{ width: "100%", height: 140, background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                     {img
                       ? <img src={url} alt={file.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       : <span style={{ fontSize: 40 }}>📄</span>
@@ -109,13 +109,13 @@ function DocumentVault() {
                   </div>
                   {/* 파일 정보 */}
                   <div style={{ padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>
                       {getFolderIcon(file.folder)} {getFolderLabel(file.folder)}
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {file.name.replace(/^\d{8}_/, "").replace(/\.[^.]+$/, "")}
                     </div>
-                    <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 4 }}>
+                    <div style={{ fontSize: 10, color: T.sub, marginTop: 4 }}>
                       {file.name.slice(0, 8).replace(/(\d{4})(\d{2})(\d{2})/, "$1.$2.$3")}
                     </div>
                   </div>
@@ -129,7 +129,7 @@ function DocumentVault() {
       {selectedFile && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
           onClick={() => setSelectedFile(null)}>
-          <div style={{ background: "#fff", borderRadius: 16, overflow: "hidden", maxWidth: 600, width: "100%", maxHeight: "90vh" }}
+          <div style={{ background: T.card, borderRadius: 16, overflow: "hidden", maxWidth: 600, width: "100%", maxHeight: "90vh" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ background: T.blue, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
@@ -151,10 +151,10 @@ function DocumentVault() {
             <div style={{ padding: 20, overflowY: "auto", maxHeight: "calc(90vh - 80px)" }}>
               {isImage(selectedFile.name)
                 ? <img src={selectedFile.url} alt={selectedFile.name} style={{ width: "100%", borderRadius: 8 }} />
-                : <div style={{ textAlign: "center", padding: 40 }}><span style={{ fontSize: 60 }}>📄</span><div style={{ marginTop: 12, color: "#374151" }}>{selectedFile.name}</div></div>
+                : <div style={{ textAlign: "center", padding: 40 }}><span style={{ fontSize: 60 }}>📄</span><div style={{ marginTop: 12, color: T.text }}>{selectedFile.name}</div></div>
               }
-              <div style={{ marginTop: 16, padding: "12px 16px", background: "#F9FAFB", borderRadius: 10 }}>
-                <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 4 }}>파일명</div>
+              <div style={{ marginTop: 16, padding: "12px 16px", background: T.bg, borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: T.sub, marginBottom: 4 }}>파일명</div>
                 <div style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{selectedFile.name}</div>
               </div>
             </div>

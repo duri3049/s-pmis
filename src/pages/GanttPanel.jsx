@@ -341,7 +341,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
 
 
       {filteredGl.length === 0 && (
-        <div style={{ textAlign: "center", padding: "48px 0", color: T.sub, fontSize: 14 }}>해당 상태의 공종이 없어요</div>
+        <div style={{ textAlign: "center", padding: "56px 20px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, margin: "0 auto 14px" }}>📋</div>
+          <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 4 }}>해당 상태의 공종이 없어요</div>
+          <div style={{ fontSize: 13, color: T.sub }}>다른 필터를 선택해보세요</div>
+        </div>
       )}
       {filteredGl.map((catGroup, ci) => (
         <div key={ci} style={{ marginBottom: 24 }}>
@@ -367,7 +371,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                   const pc = progressReports.filter(r => r.status === "pending" && g.acts.some(a => a.id === r.activity_id)).length;
                   return (
                     <div key={g.group} style={{ marginBottom: 10 }}>
-                      <div onClick={() => setOpen(isOpen ? null : g.group)} style={{ background: T.card, border: `1px solid ${isOpen ? T.blue : T.border}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer" }}>
+                      <div onClick={() => setOpen(isOpen ? null : g.group)} className="hover-card" style={{ background: T.card, border: `1px solid ${isOpen ? T.blue : T.border}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer" }}>
                         {/* 그룹 헤더 행 */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                           <span style={{ fontSize: 11, color: T.sub, display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>▶</span>
@@ -381,7 +385,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                           <div style={{ flex: 1, background: T.bg, borderRadius: 6, height: 8, overflow: "hidden", position: "relative" }}>
                             <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.plan_pct}%`, background: T.border, borderRadius: 6 }} />
-                            <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6, transition: "width 0.8s ease" }} />
+                            <div className="progress-bar" style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${g.phys}%`, background: statusColor(g.status), borderRadius: 6 }} />
                           </div>
                           <span style={{ fontSize: 11, color: T.sub, whiteSpace: "nowrap" }}>계획 {g.plan_pct?.toFixed(0) ?? 0}%</span>
                         </div>
@@ -421,7 +425,8 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                       {isOpen && (
                         <div style={{ marginLeft: isMobile ? 8 : 16, marginTop: 4, display: "flex", flexDirection: "column", gap: 6 }}>
                           {g.acts.map(a => (
-                            <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 14px", borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.6 : 1 }}>
+                            <div key={a.id} className="hover-card" onClick={() => setOpenAct(openAct === a.id ? null : a.id)}
+                              style={{ background: T.card, border: `1px solid ${openAct === a.id ? T.blue : T.border}`, borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 14px", borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}`, opacity: a.group_name === "기타(미입력)" ? 0.6 : 1 }}>
                               {/* 1행: 이름 + 상태배지 + 진도율 */}
                               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -467,7 +472,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                               </div>
                               {/* 2행: 진행 바 */}
                               <div style={{ background: T.bg, borderRadius: 4, height: 6, overflow: "hidden", marginBottom: 8 }}>
-                                <div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? T.danger : statusColor(a.status), borderRadius: 4 }} />
+                                <div className="progress-bar" style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? T.danger : statusColor(a.status), borderRadius: 4 }} />
                               </div>
                               {/* 3행: 액션 버튼들 */}
                               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -495,20 +500,22 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                               </div>
 
                               {predModalAct?.id === a.id && (
-                                <PredecessorModal
-                                  act={predModalAct}
-                                  activities={activities}
-                                  onClose={() => setPredModalAct(null)}
-                                  onSave={(preds) => {
-                                    setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
-                                    setPredModalAct(null);
-                                  }}
-                                />
+                                <div onClick={e => e.stopPropagation()}>
+                                  <PredecessorModal
+                                    act={predModalAct}
+                                    activities={activities}
+                                    onClose={() => setPredModalAct(null)}
+                                    onSave={(preds) => {
+                                      setActivities(p => p.map(x => x.id === a.id ? { ...x, predecessors: preds } : x));
+                                      setPredModalAct(null);
+                                    }}
+                                  />
+                                </div>
                               )}
 
                               {/* 세부공정 패널 */}
                               {openAct === a.id && (
-                                <div style={{ marginTop: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px" }}>
+                                <div onClick={e => e.stopPropagation()} style={{ marginTop: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px", cursor: "default" }}>
                                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
                                     <span style={{ fontWeight: 700, fontSize: 13, color: T.text }}>세부공정</span>
                                     <div style={{ display: "flex", gap: 6 }}>
@@ -543,9 +550,9 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
 
                                   {/* 세부공정 목록 */}
                                   {subActivities.filter(s => s.activity_id === a.id).length === 0
-                                    ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
+                                    ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "12px 0" }}>세부공정이 없습니다. AI 추천 또는 직접 추가해보세요.</div>
                                     : subActivities.filter(s => s.activity_id === a.id).map(sub => (
-                                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid #E5E7EB" }}>
+                                      <div key={sub.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
                                         {/* 상태 표시 */}
                                         {sub.status === "pending_approval"
                                           ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>승인대기</span>
@@ -553,7 +560,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                             ? <span style={{ fontSize: 10, background: "#D1FAE5", color: "#065F46", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>✅완료</span>
                                             : sub.start_date
                                               ? <span style={{ fontSize: 10, background: "#FEF3C7", color: "#92400E", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>🔨진행중</span>
-                                              : <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
+                                              : <span style={{ fontSize: 10, background: T.bg, color: T.sub, borderRadius: 4, padding: "2px 6px", fontWeight: 700, flexShrink: 0 }}>미착수</span>
                                         }
                                         {/* 이름 + 진도율 */}
                                         {editingSubId === sub.id
@@ -563,23 +570,23 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                               onChange={e => setEditingSubName(e.target.value)}
                                               onKeyDown={e => e.key === "Enter" && handleEditSub(sub)}
                                               autoFocus
-                                              style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
+                                              style={{ flex: 1, border: `1.5px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none" }}
                                             />
                                             <input
                                               type="number"
                                               value={editingSubWeight}
                                               onChange={e => setEditingSubWeight(e.target.value)}
-                                              style={{ width: 56, border: "1.5px solid #D1D5DB", borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
+                                              style={{ width: 56, border: `1.5px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 13, outline: "none", textAlign: "center" }}
                                             />
-                                            <span style={{ fontSize: 11, color: "#6B7280", alignSelf: "center" }}>%</span>
+                                            <span style={{ fontSize: 11, color: T.sub, alignSelf: "center" }}>%</span>
                                           </div>
                                           : <span style={{ fontSize: 13, color: T.text, fontWeight: 600, flex: 1 }}>{sub.name}</span>
                                         }
-                                        <span style={{ fontSize: 11, color: "#6B7280", background: "#F3F4F6", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
+                                        <span style={{ fontSize: 11, color: T.sub, background: T.bg, borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>
                                           {sub.weight || 0}%
                                         </span>
                                         {sub.start_date && (
-                                          <span style={{ fontSize: 10, color: "#9CA3AF", whiteSpace: "nowrap" }}>
+                                          <span style={{ fontSize: 10, color: T.sub, whiteSpace: "nowrap" }}>
                                             {sub.start_date}{sub.end_date ? ` ~ ${sub.end_date}` : " ~"}
                                           </span>
                                         )}
@@ -660,7 +667,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                             확인
                                           </button>
                                           : <button onClick={() => { setEditingSubId(sub.id); setEditingSubName(sub.name); setEditingSubWeight(sub.weight || 0); }}
-                                            style={{ background: "#F3F4F6", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#374151", cursor: "pointer", fontWeight: 600 }}>
+                                            style={{ background: T.bg, border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: T.text, cursor: "pointer", fontWeight: 600 }}>
                                             수정
                                           </button>
                                         }

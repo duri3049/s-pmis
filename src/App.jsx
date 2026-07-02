@@ -79,6 +79,18 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+        // 계정에 저장된 테마 복원
+        if (profile?.theme_color && profile.theme_color !== localStorage.getItem("pmis_color")) {
+          localStorage.setItem("pmis_color", profile.theme_color);
+          setThemeKey(k => k + 1);
+        }
+        if (profile?.dark_mode !== undefined && profile?.dark_mode !== null) {
+          const dv = profile.dark_mode ? "1" : "0";
+          if (dv !== (localStorage.getItem("pmis_dark") || "0")) {
+            localStorage.setItem("pmis_dark", dv);
+            setThemeKey(k => k + 1);
+          }
+        }
         setUser({ ...session.user, name: profile?.name || session.user.email?.split("@")[0] || "사용자", role: profile?.role || "기타" });
       } else {
         setDbLoading(false);
@@ -277,8 +289,8 @@ export default function App() {
             <span style={{ color: T.text, fontWeight: 700, fontSize: 16 }}>현장 톡.톡.</span>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button onClick={() => setView("mobile")} style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>현장</button>
-            <button onClick={() => setView("desktop")} style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", position: "relative" }}>
+            <button onClick={() => setView("mobile")} className="btn-ripple" style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>현장</button>
+            <button onClick={() => setView("desktop")} className="btn-ripple" style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", position: "relative" }}>
               관리자
               {pendingCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: T.danger, color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700 }}>{pendingCount}</span>}
             </button>

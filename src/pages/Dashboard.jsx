@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { T, TODAY } from '../lib/constants';
 import { diffDays, fmtM, pct, cpiColor, statusColor, sevColor, dayStr } from '../lib/utils';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
 
 export default function Dashboard({ activities, progressReports, issues, weather, project }) {
+  const [kpiDetail, setKpiDetail] = useState(null); // 'progress' | 'cpi' | 'spi' | 'delay' | 'issues'
+  const toggleKpi = (key) => setKpiDetail(p => p === key ? null : key);
   const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
   const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalEV = activities.reduce((s, a) => s + a.ev, 0);
@@ -133,14 +136,69 @@ export default function Dashboard({ activities, progressReports, issues, weather
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`SPI ${gSPI.toFixed(2)}`} />
-        <KPI label="CPI" value={gCPI.toFixed(2)} color={cpiColor(gCPI)} sub={gCPI >= 1 ? "비용 효율" : "비용 초과"} />
-        <KPI label="SPI" value={gSPI.toFixed(2)} color={cpiColor(gSPI)} sub={gSPI >= 1 ? "일정 양호" : "일정 지연"} />
+      <div style={{ display: "flex", gap: 10, marginBottom: kpiDetail ? 8 : 16, flexWrap: "wrap" }}>
+        <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`SPI ${gSPI.toFixed(2)}`} onClick={() => toggleKpi("progress")} active={kpiDetail === "progress"} />
+        <KPI label="CPI" value={gCPI.toFixed(2)} color={cpiColor(gCPI)} sub={gCPI >= 1 ? "비용 효율" : "비용 초과"} onClick={() => toggleKpi("cpi")} active={kpiDetail === "cpi"} />
+        <KPI label="SPI" value={gSPI.toFixed(2)} color={cpiColor(gSPI)} sub={gSPI >= 1 ? "일정 양호" : "일정 지연"} onClick={() => toggleKpi("spi")} active={kpiDetail === "spi"} />
         <KPI label="EV" value={fmtM(totalEV)} sub={`AC ${fmtM(totalAC)}`} />
-        <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" />
-        <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" />
+        <KPI label="공기 지연" value={`${delayedCount}건`} color={delayedCount > 0 ? "#EF4444" : "#10B981"} sub="영향받은 공정" onClick={() => toggleKpi("delay")} active={kpiDetail === "delay"} />
+        <KPI label="오픈 이슈" value={`${openIssues}건`} color={openIssues > 0 ? "#F59E0B" : "#10B981"} sub="처리 대기" onClick={() => toggleKpi("issues")} active={kpiDetail === "issues"} />
       </div>
+      {kpiDetail && (() => {
+        const detail = {
+          progress: {
+            title: "진행 중인 공종",
+            rows: activities.filter(a => a.as_ && a.phys < 100).sort((a, b) => b.phys - a.phys)
+              .map(a => ({ name: a.name, sub: `${a.subcon || "-"} · ${a.ps}~${a.pf}`, value: pct(a.phys), color: statusColor(a.status) })),
+            empty: "진행 중인 공종이 없어요",
+          },
+          cpi: {
+            title: "비용 초과 공종 (CPI < 1)",
+            rows: activities.filter(a => a.ac > 0 && a.ev / a.ac < 1).sort((a, b) => a.ev / a.ac - b.ev / b.ac)
+              .map(a => ({ name: a.name, sub: `EV ${fmtM(a.ev)} · AC ${fmtM(a.ac)}`, value: (a.ev / a.ac).toFixed(2), color: cpiColor(a.ev / a.ac) })),
+            empty: "비용 초과 공종이 없어요",
+          },
+          spi: {
+            title: "일정 지연 공종 (SPI < 1)",
+            rows: activities.filter(a => a.pv > 0 && a.ev / a.pv < 1 && a.phys < 100).sort((a, b) => a.ev / a.pv - b.ev / b.pv)
+              .map(a => ({ name: a.name, sub: `계획 ${Math.round(a.plan_pct)}% · 실적 ${a.phys}%`, value: (a.ev / a.pv).toFixed(2), color: cpiColor(a.ev / a.pv) })),
+            empty: "일정 지연 공종이 없어요",
+          },
+          delay: {
+            title: "공기 지연 공종",
+            rows: activities.filter(a => a.delay_days > 0).sort((a, b) => b.delay_days - a.delay_days)
+              .map(a => ({ name: a.name, sub: `${a.subcon || "-"} · 완료예정 ${a.pf}`, value: `+${a.delay_days}일`, color: T.danger })),
+            empty: "지연된 공종이 없어요",
+          },
+          issues: {
+            title: "오픈 이슈",
+            rows: (issues || []).filter(i => i.status !== "closed")
+              .map(i => ({ name: i.title, sub: `${i.issue_type || ""} · 담당 ${i.assignee || "-"}`, value: i.severity, color: sevColor(i.severity) })),
+            empty: "오픈된 이슈가 없어요",
+          },
+        }[kpiDetail];
+        return (
+          <div className="page-enter" style={{ background: T.card, borderRadius: 14, padding: "14px 18px", marginBottom: 16, boxShadow: T.shadow, border: `1px solid ${T.blue}30` }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{detail.title}</span>
+              <span style={{ fontSize: 12, color: T.sub, marginLeft: 8 }}>{detail.rows.length}건</span>
+              <button onClick={() => setKpiDetail(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: T.sub, fontSize: 16, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            {detail.rows.length === 0 && <div style={{ fontSize: 13, color: T.sub, padding: "8px 0" }}>{detail.empty}</div>}
+            <div style={{ maxHeight: 260, overflowY: "auto" }}>
+              {detail.rows.map((r, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: i < detail.rows.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: T.sub, marginTop: 1 }}>{r.sub}</div>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: r.color, flexShrink: 0 }}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       {sCurveData.length > 0 && (() => {
         const W = 800, H = 120, PAD = { top: 8, right: 16, bottom: 26, left: 36 };
         const innerW = W - PAD.left - PAD.right;
@@ -157,19 +215,19 @@ export default function Dashboard({ activities, progressReports, issues, weather
         const todayData = sCurveData.find(d => d.isToday);
         const dev = todayData ? todayData.actual - todayData.plan : 0;
         return (
-          <div style={{ background: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16 }}>
+          <div style={{ background: T.card, borderRadius: 14, padding: "14px 18px", marginBottom: 16, boxShadow: T.shadow }}>
             {/* 상단: 제목 + 수치 뱃지 + 범례 */}
             <div style={{ display: "flex", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: T.text, marginRight: 8 }}>S커브</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.bg, borderRadius: 8, padding: "4px 12px" }}>
                 <span style={{ fontSize: 11, color: T.sub }}>계획</span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: T.sub }}>{todayData?.plan ?? 0}%</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.bg, borderRadius: 8, padding: "4px 12px" }}>
                 <span style={{ fontSize: 11, color: T.sub }}>실적</span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: T.blue }}>{todayData?.actual ?? 0}%</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#F9FAFB", borderRadius: 8, padding: "4px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.bg, borderRadius: 8, padding: "4px 12px" }}>
                 <span style={{ fontSize: 11, color: T.sub }}>편차</span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: dev >= 0 ? T.success : T.danger }}>{dev >= 0 ? "+" : ""}{dev}%</span>
               </div>
@@ -217,7 +275,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
         );
       })()}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>협력사별 실적</div>
           {subcons.map(s => (
             <div key={s.name} style={{ marginBottom: 14 }}>
@@ -229,7 +287,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ flex: 1, background: "#E5E7EB", borderRadius: 4, height: 10, overflow: "hidden" }}>
+                <div style={{ flex: 1, background: T.border, borderRadius: 4, height: 10, overflow: "hidden" }}>
                   <div style={{ width: `${s.phys}%`, height: "100%", background: cpiColor(s.cpi), borderRadius: 4, transition: "width 0.8s" }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: T.text, minWidth: 32 }}>{pct(s.phys)}</span>
@@ -237,13 +295,13 @@ export default function Dashboard({ activities, progressReports, issues, weather
             </div>
           ))}
         </div>
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>향후 7일 예정 공종</div>
-          {lookahead.length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>예정된 공종이 없습니다</div>}
+          {lookahead.length === 0 && <div style={{ color: T.sub, fontSize: 13 }}>예정된 공종이 없습니다</div>}
           {lookahead.map(a => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F3F4F6" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: a.critical ? "#EF4444" : statusColor(a.status), flexShrink: 0 }} />
-              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div><div style={{ fontSize: 11, color: "#9CA3AF" }}>{a.ps} ~ {a.pf} · {a.subcon}</div></div>
+              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div><div style={{ fontSize: 11, color: T.sub }}>{a.ps} ~ {a.pf} · {a.subcon}</div></div>
               {a.delay_days > 0 && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일</span>}
               <Badge label={pct(a.phys)} bg={statusColor(a.status) + "22"} color={statusColor(a.status)} />
             </div>
@@ -252,7 +310,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>⚠️ Critical Path</div>
           {criticals.length === 0 && <div style={{ color: "#10B981", fontSize: 13 }}>크리티컬 공종 없음</div>}
           {criticals.map(a => (
@@ -261,16 +319,16 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 <span style={{ fontWeight: 600, fontSize: 13, color: T.text }}>{a.name}</span>
                 <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 700 }}>Float 0일</span>
               </div>
-              <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6B7280" }}>
+              <div style={{ display: "flex", gap: 8, fontSize: 11, color: T.sub }}>
                 <span>완료일 {a.pf}</span><span>잔여 {a.rem_dur}일</span>
                 {a.delay_days > 0 && <span style={{ color: "#EF4444", fontWeight: 700 }}>+{a.delay_days}일 지연</span>}
               </div>
             </div>
           ))}
         </div>
-        <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>최근 이슈</div>
-          {(issues || []).length === 0 && <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 이슈가 없습니다</div>}
+          {(issues || []).length === 0 && <div style={{ color: T.sub, fontSize: 13 }}>등록된 이슈가 없습니다</div>}
 
 
           {(issues || []).slice(0, 4).map(issue => (
@@ -280,7 +338,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 <span style={{ fontWeight: 600, fontSize: 13, color: T.text, flex: 1 }}>{issue.title}</span>
                 <Badge label={issue.status} bg={issue.status === "closed" ? "#F0FDF4" : "#FEF3C7"} color={issue.status === "closed" ? "#166534" : "#92400E"} />
               </div>
-              <div style={{ fontSize: 11, color: "#9CA3AF", paddingLeft: 16 }}>{issue.issue_type} · {issue.delay_days > 0 ? `+${issue.delay_days}일 지연` : "일정 영향 없음"}</div>
+              <div style={{ fontSize: 11, color: T.sub, paddingLeft: 16 }}>{issue.issue_type} · {issue.delay_days > 0 ? `+${issue.delay_days}일 지연` : "일정 영향 없음"}</div>
             </div>
           ))}
         </div>

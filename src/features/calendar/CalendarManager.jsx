@@ -84,24 +84,24 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         {[["#FEE2E2", "공휴일 (자동)"], ["#FECACA", "작업불가일"], ["#F3F4F6", "주말"]].map(([bg, label]) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: "1px solid #E5E7EB" }} />
-            <span style={{ fontSize: 12, color: "#6B7280" }}>{label}</span>
+            <div style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: `1px solid ${T.border}` }} />
+            <span style={{ fontSize: 12, color: T.sub }}>{label}</span>
           </div>
         ))}
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "#6B7280" }}>
+        <div style={{ marginLeft: "auto", fontSize: 12, color: T.sub }}>
           이번 달 비작업일: <strong style={{ color: T.text }}>{noWorkCount}일</strong>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: selectedDate ? "1fr 340px" : "1fr", gap: 16 }}>
         {/* 달력 */}
-        <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-              style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>←</button>
+              style={{ background: T.bg, border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>←</button>
             <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{year}년 {month + 1}월</div>
             <button onClick={() => setCurrentMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-              style={{ background: "#F3F4F6", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>→</button>
+              style={{ background: T.bg, border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>→</button>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
@@ -149,10 +149,10 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
         {/* 날짜 상세 패널 */}
         {selectedDate && (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: T.card, borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{selectedDate}</div>
-              <button onClick={() => setSelectedDate(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#9CA3AF" }}>✕</button>
+              <button onClick={() => setSelectedDate(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.sub }}>✕</button>
             </div>
 
             {/* 날짜 상태 */}
@@ -164,8 +164,8 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
                 <div style={{ fontSize: 12, color: "#7F1D1D", marginTop: 4 }}>{selectedInfo.name}</div>
               </div>
             ) : isWeekend ? (
-              <div style={{ background: "#F3F4F6", borderRadius: 10, padding: "10px 14px" }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "#6B7280" }}>주말</div>
+              <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px" }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: T.sub }}>주말</div>
               </div>
             ) : (
               <div style={{ background: "#F0FDF4", borderRadius: 10, padding: "10px 14px" }}>
@@ -179,11 +179,11 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
                 📋 진행 중인 공정 {selectedActivities.length > 0 ? `(${selectedActivities.length}건)` : ""}
               </div>
               {selectedActivities.length === 0
-                ? <div style={{ fontSize: 12, color: "#9CA3AF" }}>해당일 진행 공정 없음</div>
+                ? <div style={{ fontSize: 12, color: T.sub }}>해당일 진행 공정 없음</div>
                 : selectedActivities.map(a => (
-                  <div key={a.id} style={{ background: "#F9FAFB", borderRadius: 8, padding: "8px 12px", marginBottom: 6, borderLeft: `3px solid ${a.critical ? "#EF4444" : "#3B82F6"}` }}>
+                  <div key={a.id} style={{ background: T.bg, borderRadius: 8, padding: "8px 12px", marginBottom: 6, borderLeft: `3px solid ${a.critical ? "#EF4444" : "#3B82F6"}` }}>
                     <div style={{ fontWeight: 600, fontSize: 13, color: T.text }}>{a.name}</div>
-                    <div style={{ display: "flex", gap: 8, fontSize: 11, color: "#6B7280", marginTop: 3 }}>
+                    <div style={{ display: "flex", gap: 8, fontSize: 11, color: T.sub, marginTop: 3 }}>
                       <span>{a.subcon}</span>
                       <span>진척 {a.phys}%</span>
                       {a.critical && <span style={{ color: "#EF4444", fontWeight: 700 }}>CP</span>}
@@ -194,20 +194,20 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
             {/* 작업불가일 설정/해제 */}
             {!isWeekend && selectedInfo?.type !== "holiday" && (
-              <div style={{ borderTop: "1px solid #E5E7EB", paddingTop: 14 }}>
+              <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14 }}>
                 {selectedInfo?.type === "no_work" ? (
                   <button onClick={handleRemoveNoWork} disabled={saving}
-                    style={{ width: "100%", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+                    style={{ width: "100%", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, color: T.text, cursor: "pointer" }}>
                     {saving ? "처리 중..." : "✅ 작업불가일 해제"}
                   </button>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>작업불가 사유</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>작업불가 사유</div>
                     <input
                       value={reason}
                       onChange={e => setReason(e.target.value)}
                       placeholder="예: 기상 불량, 자재 미도착, 민원 등"
-                      style={{ border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none" }}
+                      style={{ border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none" }}
                     />
                     <button onClick={handleSetNoWork} disabled={saving}
                       style={{ background: "#EF4444", border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
@@ -222,13 +222,13 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
       </div>
 
       {/* 이번 달 비작업일 목록 */}
-      <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", marginTop: 16 }}>
+      <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", marginTop: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 12 }}>이번 달 비작업일 목록</div>
         {calendarDates.filter(d => {
           const [y, m] = d.date.split("-").map(Number);
           return y === year && m === month + 1;
         }).length === 0
-          ? <div style={{ color: "#9CA3AF", fontSize: 13 }}>등록된 비작업일이 없습니다</div>
+          ? <div style={{ color: T.sub, fontSize: 13 }}>등록된 비작업일이 없습니다</div>
           : calendarDates.filter(d => {
             const [y, m] = d.date.split("-").map(Number);
             return y === year && m === month + 1;
@@ -238,7 +238,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
                 {d.type === "holiday" ? "공휴일" : "작업불가"}
               </span>
               <span style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>{d.date}</span>
-              <span style={{ fontSize: 12, color: "#6B7280", flex: 1 }}>{d.name}</span>
+              <span style={{ fontSize: 12, color: T.sub, flex: 1 }}>{d.name}</span>
             </div>
           ))}
       </div>

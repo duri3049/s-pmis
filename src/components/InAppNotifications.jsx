@@ -25,12 +25,12 @@ export default function InAppNotifications({ notifications, dismiss, onClickRoom
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: T.text }}>{n.from}</span>
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{n.role}</span>
-              <span style={{ fontSize: 10, background: "#F3F4F6", color: "#6B7280", borderRadius: 4, padding: "1px 6px", marginLeft: "auto" }}>{n.roomName}</span>
+              <span style={{ fontSize: 11, color: T.sub }}>{n.role}</span>
+              <span style={{ fontSize: 10, background: T.bg, color: T.sub, borderRadius: 4, padding: "1px 6px", marginLeft: "auto" }}>{n.roomName}</span>
             </div>
-            <div style={{ fontSize: 13, color: "#374151", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.content}</div>
+            <div style={{ fontSize: 13, color: T.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.content}</div>
           </div>
-          <button onClick={e => { e.stopPropagation(); dismiss(n.id); }} style={{ background: "none", border: "none", color: "#9CA3AF", cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
+          <button onClick={e => { e.stopPropagation(); dismiss(n.id); }} style={{ background: "none", border: "none", color: T.sub, cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>✕</button>
         </div>
       ))}
     </div>

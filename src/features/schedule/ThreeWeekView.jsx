@@ -598,7 +598,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
   };
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%", background: "#F3F4F6" }}>
+    <div style={{ padding: 20, overflowY: "auto", height: "100%", background: T.bg }}>
 
       <style dangerouslySetInnerHTML={{
         __html: `
@@ -616,26 +616,26 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             <button onClick={() => window.print()} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
             <button onClick={() => setShowPdfPreview(false)} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
           </div>
-          <div id="wp-content" style={{ maxWidth: 900, margin: "0 auto", background: "#fff", padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6 }}>
+          <div id="wp-content" style={{ maxWidth: 900, margin: "0 auto", background: T.card, padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6 }}>
             {/* 제목 */}
             <div style={{ textAlign: "center", borderBottom: "2px solid #1A2332", paddingBottom: 12, marginBottom: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: "#1A2332" }}>{viewMode === "3w" ? "3 주 공 정 표" : "3 개 월 공 정 표"}</div>
-              <div style={{ fontSize: 11, color: "#6B7280", marginTop: 4 }}>{viewMode === "3w" ? "Three-Week Lookahead Schedule" : "Three-Month Schedule"}</div>
+              <div style={{ fontSize: 11, color: T.sub, marginTop: 4 }}>{viewMode === "3w" ? "Three-Week Lookahead Schedule" : "Three-Month Schedule"}</div>
             </div>
             {/* 기본 정보 */}
             <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
               <tbody>
                 <tr>
                   <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, width: "15%" }}>기준일</td>
-                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px", width: "35%" }}>{dayStr(TODAY)}</td>
+                  <td style={{ border: `1px solid ${T.border}`, padding: "5px 10px", width: "35%" }}>{dayStr(TODAY)}</td>
                   <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, width: "15%" }}>대상기간</td>
-                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>{weeks[0].startStr} ~ {weeks[2].endStr}</td>
+                  <td style={{ border: `1px solid ${T.border}`, padding: "5px 10px" }}>{weeks[0].startStr} ~ {weeks[2].endStr}</td>
                 </tr>
                 <tr>
                   <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600 }}>작성자</td>
-                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>공무과장</td>
+                  <td style={{ border: `1px solid ${T.border}`, padding: "5px 10px" }}>공무과장</td>
                   <td style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600 }}>이번주</td>
-                  <td style={{ border: "1px solid #D1D5DB", padding: "5px 10px" }}>{weeks[1].startStr} ~ {weeks[1].endStr}</td>
+                  <td style={{ border: `1px solid ${T.border}`, padding: "5px 10px" }}>{weeks[1].startStr} ~ {weeks[1].endStr}</td>
                 </tr>
               </tbody>
             </table>
@@ -653,14 +653,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                   ))}
                 </tr>
                 <tr style={{ background: "#374151" }}>
-                  <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
-                  <th style={{ color: "#9CA3AF", padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
+                  <th style={{ color: T.sub, padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
+                  <th style={{ color: T.sub, padding: "4px 8px", border: "1px solid #4B5563", fontSize: 10 }}></th>
                   {[0, 1, 2].map(i => (
-                    <th key={`p${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>계획</th>
+                    <th key={`p${i}`} style={{ color: T.sub, padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>계획</th>
                   )).concat([0, 1, 2].map(i => (
-                    <th key={`a${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>실적</th>
+                    <th key={`a${i}`} style={{ color: T.sub, padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>실적</th>
                   ))).concat([0, 1, 2].map(i => (
-                    <th key={`w${i}`} style={{ color: "#9CA3AF", padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>인원</th>
+                    <th key={`w${i}`} style={{ color: T.sub, padding: "4px 6px", border: "1px solid #4B5563", fontSize: 10 }}>인원</th>
                   )))}
                 </tr>
               </thead>
@@ -679,11 +679,11 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                   };
                   return (
                     <tr key={a.id} style={{ background: ri % 2 === 0 ? "#fff" : "#F9FAFB" }}>
-                      <td style={{ padding: "5px 8px", border: "1px solid #E5E7EB", fontSize: 11, fontWeight: 600 }}>
+                      <td style={{ padding: "5px 8px", border: `1px solid ${T.border}`, fontSize: 11, fontWeight: 600 }}>
                         {a.name}
                         {a.delay_days > 0 && <span style={{ color: "#EF4444", fontSize: 9, marginLeft: 4 }}>+{a.delay_days}일</span>}
                       </td>
-                      <td style={{ padding: "5px 8px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", fontWeight: 700, color: a.phys >= 80 ? "#10B981" : a.phys >= 40 ? "#F59E0B" : "#EF4444" }}>{a.phys}%</td>
+                      <td style={{ padding: "5px 8px", border: `1px solid ${T.border}`, fontSize: 11, textAlign: "center", fontWeight: 700, color: a.phys >= 80 ? "#10B981" : a.phys >= 40 ? "#F59E0B" : "#EF4444" }}>{a.phys}%</td>
                       {weeks.map((w, wi) => {
                         const plan = getPlan(a.id, w.startStr);
                         const planQty = plan?.plan_qty ?? calcOverlap(w);
@@ -693,9 +693,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                           .reduce((s, r) => s + (r.workers || 0), 0);
                         const isThisWeek = wi === 1;
                         return [
-                          <td key={`p${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{planQty}{a.unit}</td>,
-                          <td key={`a${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent", color: actualQty > 0 ? "#10B981" : "#9CA3AF", fontWeight: actualQty > 0 ? 700 : 400 }}>{actualQty > 0 ? `${actualQty}${a.unit}` : "-"}</td>,
-                          <td key={`w${wi}`} style={{ padding: "5px 6px", border: "1px solid #E5E7EB", fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{workers > 0 ? `${workers}명` : "-"}</td>
+                          <td key={`p${wi}`} style={{ padding: "5px 6px", border: `1px solid ${T.border}`, fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{planQty}{a.unit}</td>,
+                          <td key={`a${wi}`} style={{ padding: "5px 6px", border: `1px solid ${T.border}`, fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent", color: actualQty > 0 ? "#10B981" : "#9CA3AF", fontWeight: actualQty > 0 ? 700 : 400 }}>{actualQty > 0 ? `${actualQty}${a.unit}` : "-"}</td>,
+                          <td key={`w${wi}`} style={{ padding: "5px 6px", border: `1px solid ${T.border}`, fontSize: 11, textAlign: "center", background: isThisWeek ? "#FFFBEB" : "transparent" }}>{workers > 0 ? `${workers}명` : "-"}</td>
                         ];
                       })}
                     </tr>
@@ -704,13 +704,13 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               </tbody>
             </table>
             {/* 특이사항 */}
-            <div style={{ marginTop: 16, border: "1px solid #D1D5DB", borderRadius: 4 }}>
+            <div style={{ marginTop: 16, border: `1px solid ${T.border}`, borderRadius: 4 }}>
               <div style={{ background: "#1A2332", color: "#fff", padding: "5px 10px", fontWeight: 600, fontSize: 11 }}>특이사항</div>
               <div style={{ padding: "8px 10px", minHeight: 60, fontSize: 11 }}>
                 {active.filter(a => getPlan(a.id, weeks[1].startStr)?.note).map(a => (
                   <div key={a.id} style={{ marginBottom: 4 }}>· {a.name}: {getPlan(a.id, weeks[1].startStr)?.note}</div>
                 ))}
-                {active.filter(a => getPlan(a.id, weeks[1].startStr)?.note).length === 0 && <span style={{ color: "#9CA3AF" }}>없음</span>}
+                {active.filter(a => getPlan(a.id, weeks[1].startStr)?.note).length === 0 && <span style={{ color: T.sub }}>없음</span>}
               </div>
             </div>
             {/* 서명란 */}
@@ -718,12 +718,12 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               <tbody>
                 <tr>
                   {["작 성", "검 토", "승 인", "발 주 처"].map(r => (
-                    <td key={r} style={{ border: "1px solid #D1D5DB", textAlign: "center", padding: "8px", width: "25%", height: 48, fontWeight: 600, fontSize: 11, color: "#1A2332" }}>{r}</td>
+                    <td key={r} style={{ border: `1px solid ${T.border}`, textAlign: "center", padding: "8px", width: "25%", height: 48, fontWeight: 600, fontSize: 11, color: "#1A2332" }}>{r}</td>
                   ))}
                 </tr>
                 <tr>
                   {[0, 1, 2, 3].map(i => (
-                    <td key={i} style={{ border: "1px solid #D1D5DB", height: 48 }} />
+                    <td key={i} style={{ border: `1px solid ${T.border}`, height: 48 }} />
                   ))}
                 </tr>
               </tbody>
@@ -735,7 +735,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: T.text }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 8, flexWrap: "wrap" }}>
           {viewMode !== "all" && (
-            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
+            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)} style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
           )}
           <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, color: T.text, minWidth: isMobile ? 120 : 180, textAlign: "center" }}>
             {viewMode === "3w" && (
@@ -766,7 +766,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             )}
           </div>
           {viewMode !== "all" && (
-            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w + 1) : setMonthOffset(m => m + 1)} style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
+            <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w + 1) : setMonthOffset(m => m + 1)} style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>→</button>
           )}
           {!isMobile && viewMode === "3w" && <input type="date"
             value={dayStr(weeks[1].start)}
@@ -788,7 +788,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </button>
           )}
           {/* 뷰 토글 */}
-          <div style={{ display: "flex", background: "#F3F4F6", borderRadius: 8, padding: 3, gap: 2 }}>
+          <div style={{ display: "flex", background: T.bg, borderRadius: 8, padding: 3, gap: 2 }}>
             <button onClick={() => setViewMode("3w")} style={{ background: viewMode === "3w" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3w" ? 700 : 400, color: viewMode === "3w" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3w" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3주</button>
             <button onClick={() => setViewMode("3m")} style={{ background: viewMode === "3m" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "3m" ? 700 : 400, color: viewMode === "3m" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "3m" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>3개월</button>
             <button onClick={() => setViewMode("all")} style={{ background: viewMode === "all" ? "#fff" : "none", border: "none", borderRadius: 6, padding: isMobile ? "4px 8px" : "5px 14px", fontSize: isMobile ? 11 : 12, fontWeight: viewMode === "all" ? 700 : 400, color: viewMode === "all" ? T.text : "#6B7280", cursor: "pointer", boxShadow: viewMode === "all" ? "0 1px 3px rgba(0,0,0,0.1)" : "none" }}>전체</button>          </div>
@@ -808,18 +808,18 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
       {/* 마일스톤 등록 폼 */}
       {showMilestoneForm && (
-        <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 16, marginBottom: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: 2, minWidth: 160 }}>
-            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>제목 *</div>
-            <input value={msForm.title} onChange={e => setMsForm(p => ({ ...p, title: e.target.value }))} style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            <div style={{ fontSize: 11, color: T.text, fontWeight: 600, marginBottom: 4 }}>제목 *</div>
+            <input value={msForm.title} onChange={e => setMsForm(p => ({ ...p, title: e.target.value }))} style={{ width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>날짜 *</div>
-            <input type="date" value={msForm.milestone_date} onChange={e => setMsForm(p => ({ ...p, milestone_date: e.target.value }))} style={{ border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }} />
+            <div style={{ fontSize: 11, color: T.text, fontWeight: 600, marginBottom: 4 }}>날짜 *</div>
+            <input type="date" value={msForm.milestone_date} onChange={e => setMsForm(p => ({ ...p, milestone_date: e.target.value }))} style={{ border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }} />
           </div>
           <div>
-            <div style={{ fontSize: 11, color: "#374151", fontWeight: 600, marginBottom: 4 }}>유형</div>
-            <select value={msForm.type} onChange={e => setMsForm(p => ({ ...p, type: e.target.value }))} style={{ border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }}>
+            <div style={{ fontSize: 11, color: T.text, fontWeight: 600, marginBottom: 4 }}>유형</div>
+            <select value={msForm.type} onChange={e => setMsForm(p => ({ ...p, type: e.target.value }))} style={{ border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 13, outline: "none" }}>
               <option value="complete">★ 완료</option>
               <option value="gate">🔷 Gate</option>
               <option value="inspection">🔍 검사</option>
@@ -827,7 +827,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </select>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setShowMilestoneForm(false)} style={{ background: "#F3F4F6", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>취소</button>
+            <button onClick={() => setShowMilestoneForm(false)} style={{ background: T.bg, border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, cursor: "pointer" }}>취소</button>
             <button onClick={handleMsSave} disabled={saving} style={{ background: T.blue, border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>{saving ? "저장 중..." : "✅ 등록"}</button>
           </div>
         </div>
@@ -866,7 +866,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 
       {/* 전체 공정표 */}
       {viewMode === "all" && (() => {
-        if (activities.length === 0) return <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>공종 데이터가 없습니다</div>;
+        if (activities.length === 0) return <div style={{ padding: 40, textAlign: "center", color: T.sub }}>공종 데이터가 없습니다</div>;
         const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
         const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
         if (!allPs || !allPf) return null;
@@ -946,16 +946,16 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         }
 
         return (
-          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+          <div id="gantt-print-area" style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "auto" }}>
             {/* 헤더 */}
-            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + totalColW }}>
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: T.card, minWidth: LEFT_W + totalColW }}>
               <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: T.blue, display: "flex", alignItems: "center", padding: "0 12px" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
               </div>
               <div style={{ flex: 1 }}>
                 {/* 연도 행 (월별일 때만) */}
                 {useMonthly && (
-                  <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB" }}>
+                  <div style={{ display: "flex", borderBottom: `1px solid ${T.border}` }}>
                     {yearGroups.map((y, yi) => (
                       <div key={yi} style={{ width: COL_W * y.count, flexShrink: 0, background: T.blue, borderRight: "1px solid #374151", textAlign: "center", padding: "3px 0" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{y.year}</span>
@@ -995,7 +995,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </div>
 
             {/* 공종 없을 때 */}
-            {activities.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>공종이 없습니다</div>}
+            {activities.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.sub }}>공종이 없습니다</div>}
 
             {/* 대공종 + 공종 행 */}
             {Object.entries(grouped).map(([cat, acts]) => (
@@ -1011,14 +1011,14 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                   const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
                   const actualEi = actualSi >= 0 ? Math.min(cols.length - 1, findColIdxEnd(actualEndStr)) : -1;
                   return (
-                    <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + totalColW }}>
+                    <div key={a.id} style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + totalColW }}>
                       <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "5px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 1 }}>
                           {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
                           {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
                         </div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: T.text }}>{a.name}</div>
-                        <div style={{ fontSize: 9, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
+                        <div style={{ fontSize: 9, color: T.sub }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
                       </div>
                       <div style={{ flex: 1, position: "relative", height: 48 }}>
                         {/* 셀 배경 */}
@@ -1049,11 +1049,11 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             ))}
 
             {/* 범례 */}
-            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
-              <div style={{ marginLeft: "auto", fontSize: 11, color: "#9CA3AF" }}>
+            <div style={{ padding: "8px 16px", background: T.bg, borderTop: `1px solid ${T.border}`, display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: T.sub }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: T.sub }}>실적</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: T.sub }}>오늘</span></div>
+              <div style={{ marginLeft: "auto", fontSize: 11, color: T.sub }}>
                 {useMonthly ? "월별 보기" : useWeekly ? "주별 보기" : "일별 보기"} · 총 {activities.length}개 공종 · {allPs} ~ {allPf}
               </div>
             </div>
@@ -1097,15 +1097,15 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         if (cur) months.push(cur);
 
         return (
-          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+          <div id="gantt-print-area" style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "auto" }}>
             {/* 날짜 헤더 */}
-            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: LEFT_W + DAY_W * days.length }}>
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: T.card, minWidth: LEFT_W + DAY_W * days.length }}>
               <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", background: T.blue, display: "flex", alignItems: "center", padding: "0 12px" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>공종명</span>
               </div>
               <div style={{ flex: 1, position: "relative" }}>
                 {/* 월 헤더 */}
-                <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB" }}>
+                <div style={{ display: "flex", borderBottom: `1px solid ${T.border}` }}>
                   {months.map((m, mi) => {
                     const isThis = m.month === TODAY.getMonth() && m.year === TODAY.getFullYear();
                     const isPast = new Date(m.year, m.month) < new Date(TODAY.getFullYear(), TODAY.getMonth());
@@ -1158,7 +1158,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </div>
 
             {/* 공종 없을 때 */}
-            {active3m.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF" }}>이 기간에 진행 예정인 공종이 없습니다</div>}
+            {active3m.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.sub }}>이 기간에 진행 예정인 공종이 없습니다</div>}
 
             {/* 대공종 + 공종별 행 */}
             {Object.entries(grouped).map(([cat, acts]) => (
@@ -1175,7 +1175,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                   const actualEndStr = a.af && a.af <= todayStr ? a.af : todayStr;
                   const actualEi = a.as_ ? days.findLastIndex(d => d.str <= actualEndStr) : -1;
                   return (
-                    <div key={a.id} style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + DAY_W * days.length }}>
+                    <div key={a.id} style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: LEFT_W + DAY_W * days.length }}>
                       <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "6px 12px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
                           {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
@@ -1213,10 +1213,10 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             ))}
 
             {/* 범례 */}
-            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
+            <div style={{ padding: "8px 16px", background: T.bg, borderTop: `1px solid ${T.border}`, display: "flex", gap: 16, alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#10B981", borderRadius: 3 }} /><span style={{ fontSize: 11, color: T.sub }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 6, background: "#3B82F6", borderRadius: 3 }} /><span style={{ fontSize: 11, color: T.sub }}>실적</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: T.sub }}>오늘</span></div>
             </div>
           </div>
         );
@@ -1247,10 +1247,10 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         });
 
         return (
-          <div id="gantt-print-area" style={{ background: "#fff", borderRadius: 12, border: "1px solid #E5E7EB", overflow: "auto" }}>
+          <div id="gantt-print-area" style={{ background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, overflow: "auto" }}>
 
             {/* 상단 헤더 */}
-            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: "#fff", minWidth: TOTAL_W }}>
+            <div style={{ display: "flex", borderBottom: "2px solid #E5E7EB", position: "sticky", top: 0, zIndex: 10, background: T.card, minWidth: TOTAL_W }}>
               <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB" }}>
                 <div style={{ display: "flex", height: 28 }}>
                   {weeks.map((w, wi) => (
@@ -1261,7 +1261,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                     </div>
                   ))}
                 </div>
-                <div style={{ padding: "0 12px", fontSize: 11, fontWeight: 700, color: T.text, display: "flex", alignItems: "center", height: 28, borderTop: "1px solid #E5E7EB" }}>공종명</div>
+                <div style={{ padding: "0 12px", fontSize: 11, fontWeight: 700, color: T.text, display: "flex", alignItems: "center", height: 28, borderTop: `1px solid ${T.border}` }}>공종명</div>
               </div>
 
               <div style={{ display: "flex", flex: 1, overflowX: "auto" }}>
@@ -1277,7 +1277,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                         <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: isToday ? 800 : 400, color: isSun ? "#EF4444" : isSat ? "#6B7280" : "#374151" }}>
                           {d.date.getMonth() + 1}/{d.date.getDate()}
                         </div>
-                        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isSun ? "#EF4444" : isSat ? "#9CA3AF" : "#9CA3AF", borderTop: "1px solid #E5E7EB" }}>
+                        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isSun ? "#EF4444" : isSat ? "#9CA3AF" : "#9CA3AF", borderTop: `1px solid ${T.border}` }}>
                           {["일", "월", "화", "수", "목", "금", "토"][d.dow]}
                         </div>
                       </div>
@@ -1288,7 +1288,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </div>
 
             {/* 마일스톤 행 */}
-            <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: "#1E293B", minWidth: TOTAL_W }}>
+            <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: "#1E293B", minWidth: TOTAL_W }}>
               <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #374151", padding: "4px 12px", fontSize: 10, fontWeight: 700, color: T.blue, display: "flex", alignItems: "center" }}>★ 마일스톤</div>
               <div style={{ display: "flex", width: DAY_W * 21, position: "relative", height: 28 }}>
                 {days.map((d, di) => {
@@ -1308,7 +1308,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             </div>
 
             {active.length === 0 && (
-              <div style={{ padding: 40, textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>이 기간에 진행 예정인 공종이 없습니다</div>
+              <div style={{ padding: 40, textAlign: "center", color: T.sub, fontSize: 13 }}>이 기간에 진행 예정인 공종이 없습니다</div>
             )}
 
             {(() => {
@@ -1382,7 +1382,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                     return (
                       <React.Fragment key={a.id}>
                         {/* 1. 상위 공종 행 (이전 코드와 동일하므로 생략하지 않고 그대로 둠) */}
-                        <div style={{ display: "flex", borderBottom: "1px solid #E5E7EB", background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: TOTAL_W }}>
+                        <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: ai % 2 === 0 ? "#fff" : "#FAFAFA", minWidth: TOTAL_W }}>
                           <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "6px 12px" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
                               {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>CP</span>}
@@ -1390,7 +1390,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                               {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>+{a.delay_days}일</span>}
                             </div>
                             <div style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{a.name}</div>
-                            <div style={{ fontSize: 10, color: "#9CA3AF" }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
+                            <div style={{ fontSize: 10, color: T.sub }}>{a.subcon !== "미정" ? a.subcon + " · " : ""}{a.phys}%</div>
                           </div>
 
                           <div style={{ width: DAY_W * 21, flexShrink: 0, position: "relative", height: 64 }}>
@@ -1466,9 +1466,9 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                         setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: val } : s));
                                         await sb.patch("sub_activities", sub.id, { start_date: val });
                                       }}
-                                      style={{ width: 88, border: "1px solid #E5E7EB", borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: "#374151" }}
+                                      style={{ width: 88, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: T.text }}
                                     />
-                                    <span style={{ fontSize: 9, color: "#9CA3AF" }}>~</span>
+                                    <span style={{ fontSize: 9, color: T.sub }}>~</span>
                                     <input type="date"
                                       value={sub.planned_end_date?.slice(0, 10) || sub.end_date?.slice(0, 10) || ""}
                                       onChange={async e => {
@@ -1482,7 +1482,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                         setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, planned_end_date: val } : s));
                                         await sb.patch("sub_activities", sub.id, { planned_end_date: val });
                                       }}
-                                      style={{ width: 88, border: "1px solid #E5E7EB", borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: "#374151" }}
+                                      style={{ width: 88, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 3px", fontSize: 9, outline: "none", color: T.text }}
                                     />
                                   </div>
                                 </div>
@@ -1502,7 +1502,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                               </div>
 
                               {/* 실적 줄 (파란 막대) */}
-                              <div style={{ display: "flex", borderBottom: "1px dashed #E5E7EB", background: "#fff", minWidth: TOTAL_W }}>
+                              <div style={{ display: "flex", borderBottom: "1px dashed #E5E7EB", background: T.card, minWidth: TOTAL_W }}>
                                 <div style={{ width: LEFT_W, flexShrink: 0, borderRight: "1px solid #E5E7EB", padding: "2px 8px 2px 20px" }}>
                                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
                                     <div style={{ fontSize: 10, color: "#3B82F6", fontWeight: 600 }}>진도율</div>
@@ -1512,7 +1512,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                     defaultValue={getPlan(a.id, weeks[1].startStr)?.note || ""}
                                     placeholder="이번주 계획 내용"
                                     onBlur={e => handlePlanSave(a.id, weeks[1].startStr, "note", e.target.value)}
-                                    style={{ width: "100%", border: "1px solid #E5E7EB", borderRadius: 4, padding: "2px 5px", fontSize: 9, outline: "none", boxSizing: "border-box", color: "#374151", background: "#F8FAFC" }}
+                                    style={{ width: "100%", border: `1px solid ${T.border}`, borderRadius: 4, padding: "2px 5px", fontSize: 9, outline: "none", boxSizing: "border-box", color: T.text, background: "#F8FAFC" }}
                                   />
                                 </div>
                                 <div style={{ width: DAY_W * 21, flexShrink: 0, position: "relative", height: 22 }}>
@@ -1540,12 +1540,12 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             })()}
 
             {/* 범례 */}
-            <div style={{ padding: "8px 16px", background: "#F9FAFB", borderTop: "1px solid #E5E7EB", display: "flex", gap: 16, alignItems: "center", minWidth: TOTAL_W }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#10B981", borderRadius: 2, opacity: 0.7 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>계획</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#3B82F6", borderRadius: 2 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>실적 (보고 완료)</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#93C5FD", borderRadius: 2, opacity: 0.5 }} /><span style={{ fontSize: 11, color: "#6B7280" }}>진행중</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: "#6B7280" }}>오늘</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: T.blue, fontSize: 12 }}>▼</span><span style={{ fontSize: 11, color: "#6B7280" }}>마일스톤</span></div>
+            <div style={{ padding: "8px 16px", background: T.bg, borderTop: `1px solid ${T.border}`, display: "flex", gap: 16, alignItems: "center", minWidth: TOTAL_W }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#10B981", borderRadius: 2, opacity: 0.7 }} /><span style={{ fontSize: 11, color: T.sub }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#3B82F6", borderRadius: 2 }} /><span style={{ fontSize: 11, color: T.sub }}>실적 (보고 완료)</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 24, height: 8, background: "#93C5FD", borderRadius: 2, opacity: 0.5 }} /><span style={{ fontSize: 11, color: T.sub }}>진행중</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 2, height: 16, background: "#EF4444" }} /><span style={{ fontSize: 11, color: T.sub }}>오늘</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: T.blue, fontSize: 12 }}>▼</span><span style={{ fontSize: 11, color: T.sub }}>마일스톤</span></div>
             </div>
           </div>
         );

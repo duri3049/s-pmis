@@ -82,19 +82,19 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
   };
 
   return (
-    <div style={{ background: "#fff", border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+    <div style={{ background: T.card, border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>💰 기성청구</div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.sub }}>✕</button>
       </div>
 
       {/* 공종 선택 */}
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 8 }}>
         청구 공종 선택
-        {mySubcon && <span style={{ fontSize: 11, color: "#9CA3AF", marginLeft: 6 }}>({mySubcon} 담당 + 미분류)</span>}
+        {mySubcon && <span style={{ fontSize: 11, color: T.sub, marginLeft: 6 }}>({mySubcon} 담당 + 미분류)</span>}
       </div>
       {myActivities.length === 0
-        ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "16px 0" }}>담당 공종이 없습니다</div>
+        ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "16px 0" }}>담당 공종이 없습니다</div>
         : myActivities.map(a => {
           const isSelected = selected[a.id] !== undefined;
           return (
@@ -105,24 +105,24 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
                 <input type="checkbox" checked={isSelected} onChange={() => { }} style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: "#9CA3AF" }}>
+                  <div style={{ fontSize: 11, color: T.sub }}>
                     BAC {fmtM(a.pv_budget)} · 진도 {a.phys}%
-                    {a.subcon !== "미정" && a.subcon !== "-" && <span style={{ marginLeft: 6, color: "#6B7280" }}>{a.subcon}</span>}
-                    {a.subcon === "미정" && <span style={{ marginLeft: 6, background: "#F3F4F6", color: "#9CA3AF", borderRadius: 4, padding: "1px 5px", fontSize: 10 }}>미분류</span>}
+                    {a.subcon !== "미정" && a.subcon !== "-" && <span style={{ marginLeft: 6, color: T.sub }}>{a.subcon}</span>}
+                    {a.subcon === "미정" && <span style={{ marginLeft: 6, background: T.bg, color: T.sub, borderRadius: 4, padding: "1px 5px", fontSize: 10 }}>미분류</span>}
                   </div>
                 </div>
               </div>
               {isSelected && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#EFF6FF", borderRadius: "0 0 10px 10px", border: `1.5px solid ${T.blue}`, borderTop: "none" }}>
-                  <span style={{ fontSize: 12, color: "#6B7280", whiteSpace: "nowrap" }}>청구금액</span>
+                  <span style={{ fontSize: 12, color: T.sub, whiteSpace: "nowrap" }}>청구금액</span>
                   <input
                     type="number"
                     value={selected[a.id]}
                     onChange={e => setAmount(a.id, e.target.value)}
                     placeholder="만원 단위 입력"
-                    style={{ flex: 1, border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "7px 10px", fontSize: 14, outline: "none" }}
+                    style={{ flex: 1, border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "7px 10px", fontSize: 14, outline: "none" }}
                   />
-                  <span style={{ fontSize: 12, color: "#6B7280" }}>만원</span>
+                  <span style={{ fontSize: 12, color: T.sub }}>만원</span>
                 </div>
               )}
             </div>
@@ -131,7 +131,7 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
       }
 
       {/* 서류 사진 첨부 */}
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", margin: "12px 0 8px" }}>서류 첨부</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: T.text, margin: "12px 0 8px" }}>서류 첨부</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
         {photos.map((p, i) => (
           <div key={i} style={{ position: "relative" }}>
@@ -145,7 +145,7 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
           setPhotos(prev => [...prev, ...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))]);
         }} style={{ display: "none" }} />
         <button onClick={() => photoRef.current?.click()}
-          style={{ width: 64, height: 64, background: "#F3F4F6", border: "1.5px dashed #D1D5DB", borderRadius: 8, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          style={{ width: 64, height: 64, background: T.bg, border: "1.5px dashed #D1D5DB", borderRadius: 8, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           📷
         </button>
       </div>
@@ -153,7 +153,7 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
       {/* 특이사항 */}
       <input value={note} onChange={e => setNote(e.target.value)}
         placeholder="특이사항 (선택)"
-        style={{ width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
+        style={{ width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 12 }} />
 
       {/* 합계 + 제출 */}
       {selectedCount > 0 && (

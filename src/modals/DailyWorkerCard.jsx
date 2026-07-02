@@ -54,23 +54,23 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
   };
 
   return (
-    <div style={{ background: "#fff", border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
+    <div style={{ background: T.card, border: `2px solid ${T.text}`, borderRadius: 14, padding: "14px 16px", margin: "0 0 10px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text }}>👷 일일 인원 입력</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 11, color: "#9CA3AF" }}>{today}</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6B7280" }}>✕</button>
+          <span style={{ fontSize: 11, color: T.sub }}>{today}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.sub }}>✕</button>
         </div>
       </div>
 
       {rows.length === 0
-        ? <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", padding: "16px 0" }}>오늘 진행 중인 공종이 없습니다</div>
+        ? <div style={{ fontSize: 12, color: T.sub, textAlign: "center", padding: "16px 0" }}>오늘 진행 중인 공종이 없습니다</div>
         : rows.map((r, ai) => (
-          <div key={r.actId} style={{ marginBottom: 12, border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
+          <div key={r.actId} style={{ marginBottom: 12, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
             <div style={{ background: "#F8FAFC", padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{r.actName}</div>
-                {r.subcon && r.subcon !== "미정" && <div style={{ fontSize: 11, color: "#6B7280" }}>{r.subcon}</div>}
+                {r.subcon && r.subcon !== "미정" && <div style={{ fontSize: 11, color: T.sub }}>{r.subcon}</div>}
               </div>
               <button onClick={() => addJob(ai)} style={{ background: "#EFF6FF", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, color: "#1D4ED8", cursor: "pointer", fontWeight: 600 }}>+ 직종 추가</button>
             </div>
@@ -79,11 +79,11 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
                 <div key={ji} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
                   <input value={d.job} onChange={e => updateDetail(ai, ji, "job", e.target.value)}
                     placeholder="직종 (예: 철근공)"
-                    style={{ flex: 2, border: "1px solid #D1D5DB", borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none" }} />
+                    style={{ flex: 2, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none" }} />
                   <input type="number" value={d.count} onChange={e => updateDetail(ai, ji, "count", e.target.value)}
                     placeholder="인원"
-                    style={{ flex: 1, border: "1px solid #D1D5DB", borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none", textAlign: "center" }} />
-                  <span style={{ fontSize: 12, color: "#6B7280" }}>명</span>
+                    style={{ flex: 1, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 8px", fontSize: 12, outline: "none", textAlign: "center" }} />
+                  <span style={{ fontSize: 12, color: T.sub }}>명</span>
                   {r.details.length > 1 && (
                     <button onClick={() => removeJob(ai, ji)} style={{ background: "#FEE2E2", border: "none", borderRadius: 6, width: 24, height: 24, color: "#991B1B", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
                   )}

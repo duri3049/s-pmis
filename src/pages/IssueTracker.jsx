@@ -109,8 +109,8 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
     } catch (err) { alert("저장 실패: " + err.message); } setSaving(false);
   };
   const handleClose = async (issue) => { await sb.patch("issues", issue.id, { status: "closed" }); setIssues(p => p.map(i => i.id === issue.id ? { ...i, status: "closed" } : i)); setToast("이슈가 종결되었습니다"); };
-  const is = { width: "100%", border: "1.5px solid #D1D5DB", borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box" };
-  const ls = { fontSize: 12, color: "#374151", fontWeight: 600, marginBottom: 4, display: "block" };
+  const is = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box" };
+  const ls = { fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4, display: "block" };
   return (
     <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -132,9 +132,9 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
               { label: "미해결", val: `${openDelays}건`, color: "#F59E0B" },
               { label: "해결 완료", val: `${delayIssues.length - openDelays}건`, color: "#10B981" },
             ].map((k, i) => (
-              <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "10px 16px", flex: 1, minWidth: 80, textAlign: "center", border: "1px solid #FECACA" }}>
+              <div key={i} style={{ background: T.card, borderRadius: 10, padding: "10px 16px", flex: 1, minWidth: 80, textAlign: "center", border: "1px solid #FECACA" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.val}</div>
-                <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 2 }}>{k.label}</div>
+                <div style={{ fontSize: 10, color: T.sub, marginTop: 2 }}>{k.label}</div>
               </div>
             ))}
           </div>
@@ -142,10 +142,10 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
           <div style={{ fontSize: 11, fontWeight: 700, color: "#991B1B", marginBottom: 6 }}>사유별 집계</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {Object.entries(causeMap).sort((a, b) => b[1].days - a[1].days).map(([cause, d], i) => (
-              <div key={i} style={{ background: "#fff", border: "1px solid #FECACA", borderRadius: 8, padding: "4px 10px", fontSize: 11 }}>
-                <span style={{ color: "#374151" }}>{cause}</span>
+              <div key={i} style={{ background: T.card, border: "1px solid #FECACA", borderRadius: 8, padding: "4px 10px", fontSize: 11 }}>
+                <span style={{ color: T.text }}>{cause}</span>
                 <span style={{ color: "#DC2626", fontWeight: 700, marginLeft: 6 }}>+{d.days}일</span>
-                <span style={{ color: "#9CA3AF", marginLeft: 4 }}>({d.count}건)</span>
+                <span style={{ color: T.sub, marginLeft: 4 }}>({d.count}건)</span>
               </div>
             ))}
           </div>
@@ -159,7 +159,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
         ))}
       </div>
       {showForm && (
-        <div style={{ background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
+        <div style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div style={{ gridColumn: "1/-1" }}><label style={ls}>이슈 제목 *</label><input value={form.title} onChange={e => set("title", e.target.value)} style={is} /></div>
             <div><label style={ls}>연결 공정 *</label><select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={is}><option value="">선택하세요</option>{(activities || []).filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
@@ -169,9 +169,9 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
             <div style={{ gridColumn: "1/-1" }}><label style={ls}>원인</label><input value={form.cause} onChange={e => set("cause", e.target.value)} style={is} /></div>
             <div style={{ gridColumn: "1/-1" }}><label style={ls}>조치 계획</label><input value={form.action_plan} onChange={e => set("action_plan", e.target.value)} style={is} /></div>
           </div>
-          {affectedPreview.length > 0 && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}><div style={{ fontWeight: 600, fontSize: 13, color: "#991B1B", marginBottom: 8 }}>⚠️ {affectedPreview.length}개 후행 공정 영향</div>{affectedPreview.map(a => <div key={a.id} style={{ fontSize: 12, color: "#374151", padding: "4px 0", display: "flex", justifyContent: "space-between" }}><span>{a.name}</span><span style={{ color: "#EF4444" }}>+{form.delay_days}일</span></div>)}</div>}
+          {affectedPreview.length > 0 && <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 16px", marginBottom: 12 }}><div style={{ fontWeight: 600, fontSize: 13, color: "#991B1B", marginBottom: 8 }}>⚠️ {affectedPreview.length}개 후행 공정 영향</div>{affectedPreview.map(a => <div key={a.id} style={{ fontSize: 12, color: T.text, padding: "4px 0", display: "flex", justifyContent: "space-between" }}><span>{a.name}</span><span style={{ color: "#EF4444" }}>+{form.delay_days}일</span></div>)}</div>}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button onClick={() => setShowForm(false)} style={{ background: "none", border: "1px solid #E5E7EB", borderRadius: 8, padding: "9px 18px", fontSize: 13, color: "#6B7280", cursor: "pointer" }}>취소</button>
+            <button onClick={() => setShowForm(false)} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 18px", fontSize: 13, color: T.sub, cursor: "pointer" }}>취소</button>
             <button onClick={handleSave} disabled={saving} style={{ background: "#EF4444", border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>{saving ? "등록 중..." : "✅ 이슈 등록"}</button>
           </div>
         </div>
@@ -179,7 +179,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
       {(issues || []).filter(i => filterType === "전체" || i.issue_type === filterType).map(issue => {
         const act = activities.find(a => a.id === issue.activity_id);
         return (
-          <div key={issue.id} style={{ background: "#fff", border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
+          <div key={issue.id} style={{ background: T.card, border: `1.5px solid ${issue.status === "closed" ? "#E5E7EB" : sevColor(issue.severity) + "44"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 12, opacity: issue.status === "closed" ? 0.6 : 1 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: sevColor(issue.severity), display: "inline-block" }} /><span style={{ fontWeight: 700, fontSize: 15, color: T.text }}>{issue.title}</span></div>
@@ -192,8 +192,8 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
               </div>
               {issue.status !== "closed" && <button onClick={() => handleClose(issue)} style={{ background: "#F0FDF4", border: "1px solid #6EE7B7", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#065F46", cursor: "pointer", fontWeight: 600 }}>Close</button>}
             </div>
-            {act && <div style={{ fontSize: 12, color: "#6B7280" }}>연결 공정: <strong>{act.name}</strong></div>}
-            {issue.cause && <div style={{ fontSize: 12, color: "#374151", marginTop: 4 }}>원인: {issue.cause}</div>}
+            {act && <div style={{ fontSize: 12, color: T.sub }}>연결 공정: <strong>{act.name}</strong></div>}
+            {issue.cause && <div style={{ fontSize: 12, color: T.text, marginTop: 4 }}>원인: {issue.cause}</div>}
           </div>
         );
       })}

@@ -172,7 +172,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
             </button>
           </div>
         )}
-        <div style={{ flex: 1, overflow: "hidden" }}>
+        <div key={activeMenu} className="page-enter" style={{ flex: 1, overflow: "hidden" }}>
           {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} onImport={() => setShowImport(true)} />
           )}
