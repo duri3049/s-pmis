@@ -84,7 +84,7 @@ export default function RoomList({ rooms, setRooms, user, onEnterRoom, profiles 
       {/* 헤더 */}
       <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 16, color: T.text, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          💬 채팅
+          채팅
           <span style={{ fontSize: 11, color: "#10B981", background: "rgba(16,185,129,0.1)", borderRadius: 6, padding: "2px 8px" }}>● 실시간</span>
         </div>
         <button onClick={() => { setShowNewChat(true); setShowGroupForm(false); }}

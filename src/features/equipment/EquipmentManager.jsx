@@ -81,7 +81,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
   return (
     <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>🚜 장비 현황</div>
+        <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>장비 현황</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => setShowLogForm(true)}
             style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "8px 16px", fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
@@ -205,7 +205,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 440 }}>
             <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 등록</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>장비 등록</div>
               <button onClick={() => setShowForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>
             <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -240,7 +240,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 440 }}>
             <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>🚜 장비 투입</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#fff" }}>장비 투입</div>
               <button onClick={() => setShowLogForm(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, color: "#fff", width: 32, height: 32, cursor: "pointer", fontSize: 16 }}>✕</button>
             </div>
             <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>

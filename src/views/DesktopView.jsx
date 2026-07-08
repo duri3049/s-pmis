@@ -24,6 +24,7 @@ import CalendarManager from '../features/calendar/CalendarManager';
 import LiftingReport from '../features/equipment/LiftingReport';
 import EquipmentManager from '../features/equipment/EquipmentManager';
 import ProfileSettings from '../modals/ProfileSettings';
+import CommandPalette from '../components/CommandPalette';
 
 export default
 function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady, onThemeChange, onProfileSaved }) {
@@ -38,11 +39,16 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
   const [toast, setToast] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
 
   useEffect(() => {
     const handleResize = () => setIsMobileScreen(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const handleKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setShowPalette(p => !p); }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => { window.removeEventListener("resize", handleResize); window.removeEventListener("keydown", handleKey); };
   }, []);
 
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
@@ -54,6 +60,8 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
   return (
     <div style={{ display: "flex", height: "calc(100vh - 56px)", background: T.bg, overflow: "hidden", position: "relative" }}>
       {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
+      <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} activities={activities} issues={issues} user={user}
+        onNavigate={(menu) => { setActiveMenu(menu); setActiveRoom(null); }} />
       {showModal && <ActivityFormModal onClose={() => setShowModal(false)} onSave={act => { setActivities(p => [...p, act]); setShowModal(false); setToast(`"${act.name}" 공정 등록 완료`); }} activities={activities} existingGroups={existingGroups} />}
       {showReport && <WeeklyReport activities={activities} issues={issues} progressReports={progressReports} onClose={() => setShowReport(false)} />}
       {showMonthly && <MonthlyReport activities={activities} issues={issues} progressReports={progressReports} onClose={() => setShowMonthly(false)} />}
@@ -166,10 +174,16 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {!isMobileScreen && (
           <div style={{ padding: "0 24px", height: 52, background: T.card, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{currentLabel}</span>
-            <button onClick={() => setRefreshKey(k => k + 1)}
-              style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500 }}>
-              새로고침
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowPalette(true)}
+                style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
+                ⌕ 검색 <span style={{ fontSize: 10, background: T.card, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 5px", fontWeight: 600 }}>Ctrl K</span>
+              </button>
+              <button onClick={() => setRefreshKey(k => k + 1)}
+                style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500 }}>
+                새로고침
+              </button>
+            </div>
           </div>
         )}
         <div key={activeMenu} className="page-enter" style={{ flex: 1, overflow: "hidden" }}>

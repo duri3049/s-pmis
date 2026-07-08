@@ -34,6 +34,8 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const [loading, setLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [pullDist, setPullDist] = useState(0);
+  const pullRef = useRef({ y: 0, active: false });
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
@@ -492,8 +494,32 @@ JSON 없이 자연스럽게 한국어로만 답해.
     } catch (err) { alert("전송 실패: " + err.message); }
   };
 
+  // 당겨서 새로고침
+  const onPullStart = (e) => {
+    let el = e.target, scrolled = false;
+    while (el && el !== document.body) { if (el.scrollTop > 0) { scrolled = true; break; } el = el.parentElement; }
+    pullRef.current = { y: e.touches[0].clientY, active: !scrolled && tab !== "chat" };
+  };
+  const onPullMove = (e) => {
+    if (!pullRef.current.active) return;
+    const d = e.touches[0].clientY - pullRef.current.y;
+    if (d > 10) setPullDist(Math.min((d - 10) * 0.4, 76));
+  };
+  const onPullEnd = () => {
+    if (pullDist > 54) { setPullDist(60); window.location.reload(); return; }
+    setPullDist(0);
+    pullRef.current.active = false;
+  };
+
   return (
-    <div style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg, position: "relative" }}>
+    <div onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd}
+      style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg, position: "relative" }}>
+      {/* 당겨서 새로고침 인디케이터 */}
+      {pullDist > 0 && (
+        <div style={{ position: "absolute", top: pullDist - 40, left: "50%", transform: "translateX(-50%)", zIndex: 500, width: 34, height: 34, borderRadius: "50%", background: T.card, boxShadow: T.shadow, display: "flex", alignItems: "center", justifyContent: "center", transition: pullDist === 60 ? "none" : "top 0.05s" }}>
+          <span style={{ fontSize: 16, color: pullDist > 54 ? T.blue : T.sub, display: "inline-block", transform: `rotate(${pullDist * 4}deg)`, transition: "color 0.15s" }}>↻</span>
+        </div>
+      )}
 
       {/* 개인설정 전체화면 */}
       {showSettings && (

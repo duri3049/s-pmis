@@ -262,9 +262,18 @@ export default function App() {
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 14 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, color: "#fff" }}>S</div>
-      <div style={{ fontSize: 14, color: T.sub, fontWeight: 500 }}>데이터를 불러오는 중이에요</div>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, padding: 16, maxWidth: 560, margin: "0 auto" }}>
+      {/* 스켈레톤 — 홈 레이아웃 미리보기 */}
+      <div className="skeleton" style={{ height: 110, borderRadius: 16, marginBottom: 10 }} />
+      <div className="skeleton" style={{ height: 72, borderRadius: 16, marginBottom: 10 }} />
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <div className="skeleton" style={{ flex: 1, height: 76, borderRadius: 12 }} />
+        <div className="skeleton" style={{ flex: 1, height: 76, borderRadius: 12 }} />
+        <div className="skeleton" style={{ flex: 1, height: 76, borderRadius: 12 }} />
+      </div>
+      <div className="skeleton" style={{ height: 180, borderRadius: 16, marginBottom: 10 }} />
+      <div className="skeleton" style={{ height: 64, borderRadius: 16, marginBottom: 10 }} />
+      <div style={{ textAlign: "center", marginTop: 22, fontSize: 13, color: T.sub, fontWeight: 500 }}>데이터를 불러오는 중이에요</div>
     </div>
   );
 

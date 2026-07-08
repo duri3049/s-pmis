@@ -78,7 +78,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
 
   return (
     <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
-      <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>🗓 캘린더 관리</div>
+      <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>캘린더 관리</div>
 
       {/* 범례 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -176,7 +176,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
             {/* 해당일 공정 목록 */}
             <div>
               <div style={{ fontWeight: 600, fontSize: 13, color: T.text, marginBottom: 8 }}>
-                📋 진행 중인 공정 {selectedActivities.length > 0 ? `(${selectedActivities.length}건)` : ""}
+                진행 중인 공정 {selectedActivities.length > 0 ? `(${selectedActivities.length}건)` : ""}
               </div>
               {selectedActivities.length === 0
                 ? <div style={{ fontSize: 12, color: T.sub }}>해당일 진행 공정 없음</div>

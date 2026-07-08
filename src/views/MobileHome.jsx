@@ -284,9 +284,15 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
   return (
     <div style={{ padding: "16px 16px 32px", overflowY: "auto", height: "100%", background: T.bg, boxSizing: "border-box" }}>
       {/* 인사 배너 */}
-      <div style={{ background: T.blue, borderRadius: T.radius, padding: "20px", marginBottom: 10, boxShadow: `0 4px 20px rgba(0,100,255,0.25)` }}>
+      {(() => {
+        const h = new Date().getHours();
+        const greet = h < 6 ? "이른 새벽까지 고생 많으세요" : h < 11 ? "좋은 아침이에요" : h < 14 ? "든든히 챙겨 드셨나요" : h < 18 ? "오늘도 안전이 최우선이에요" : "오늘 하루 수고 많으셨어요";
+        const grad = h < 11 ? `linear-gradient(135deg, ${T.blue}, #4A9FFF)` : h < 18 ? `linear-gradient(135deg, ${T.blue}, #2E7CE0)` : `linear-gradient(135deg, #1E3A5F, ${T.blue})`;
+        return (
+      <div style={{ background: grad, borderRadius: T.radius, padding: "20px", marginBottom: 10, boxShadow: `0 4px 20px rgba(0,100,255,0.25)` }}>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", marginBottom: 3 }}>{greet}</div>
         <div style={{ fontWeight: 700, fontSize: 18, color: "#fff", marginBottom: 2 }}>
-          안녕하세요, {user.name}님
+          {user.name}님
         </div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{user.role}</div>
         {weather && (
@@ -299,6 +305,8 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
           </div>
         )}
       </div>
+        );
+      })()}
 
       <BriefingCard />
       <TodayTasks />

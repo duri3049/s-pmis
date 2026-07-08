@@ -733,7 +733,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: T.text }}>📅 {viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 15 : 18, color: T.text }}>{viewMode === "3w" ? "3주 공정표" : viewMode === "3m" ? "3개월 공정표" : "전체 공정표"}</div>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 8, flexWrap: "wrap" }}>
           {viewMode !== "all" && (
             <button onClick={() => viewMode === "3w" ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)} style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16 }}>←</button>
@@ -801,7 +801,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           </button>
           {!isMobile && <button onClick={handleExcelDownload}
             style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "0 16px", height: 34, fontWeight: 700, fontSize: 13, color: "#fff", cursor: "pointer" }}>
-            📊 엑셀 저장
+            엑셀 저장
           </button>}
           <button onClick={() => setShowMilestoneForm(v => !v)} style={{ background: T.blue, border: "none", borderRadius: 8, padding: isMobile ? "0 8px" : "0 16px", height: 34, fontWeight: 700, fontSize: isMobile ? 11 : 13, color: "#fff", cursor: "pointer" }}>{isMobile ? "★" : "+ 마일스톤"}</button>
         </div>
@@ -1004,7 +1004,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             {Object.entries(grouped).map(([cat, acts]) => (
               <div key={cat}>
                 <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: LEFT_W + totalColW }}>
-                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>{cat}</div>
                   <div style={{ flex: 1, background: T.blue }} />
                 </div>
                 {acts.map((a, ai) => {
@@ -1252,7 +1252,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
             {Object.entries(grouped).map(([cat, acts]) => (
               <div key={cat}>
                 <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: LEFT_W + DAY_W * days.length }}>
-                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                  <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>{cat}</div>
                   <div style={{ flex: 1, background: T.blue }} />
                 </div>
                 {acts.map((a, ai) => {
@@ -1499,7 +1499,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
               return Object.entries(grouped).map(([cat, acts]) => (
                 <div key={cat}>
                   <div style={{ display: "flex", borderBottom: "1px solid #374151", background: T.blue, minWidth: TOTAL_W }}>
-                    <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>🏗️ {cat}</div>
+                    <div style={{ width: LEFT_W, flexShrink: 0, padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#fff", borderRight: "1px solid #374151" }}>{cat}</div>
                     <div style={{ flex: 1, background: T.blue }} />
                   </div>
                   {acts.map((a, ai) => {
