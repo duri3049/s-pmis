@@ -92,6 +92,17 @@ html, body, #root {
   animation: modalIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* ── 모바일 반응형 유틸 ── */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-wrap table { min-width: 560px; }
+
+@media (max-width: 768px) {
+  .grid-2-m { grid-template-columns: 1fr !important; }
+  .grid-3-m { grid-template-columns: 1fr 1fr !important; }
+  .grid-cal-m { grid-template-columns: 1fr !important; }
+  .pad-m { padding: 12px !important; }
+}
+
 /* ── 스크롤바 커스텀 ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

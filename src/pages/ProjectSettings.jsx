@@ -140,7 +140,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
               </div>
             )}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="grid-2-m" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={ls}>착공일</label>
               <input type="date" value={form.start_date} onChange={e => set("start_date", e.target.value)} style={is} />

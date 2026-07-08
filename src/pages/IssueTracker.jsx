@@ -112,7 +112,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
   const is = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box" };
   const ls = { fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4, display: "block" };
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>⚠️ 이슈 트래커</div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -160,7 +160,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
       </div>
       {showForm && (
         <div style={{ background: T.card, border: "1.5px solid #E5E7EB", borderRadius: 14, padding: 20, marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div className="grid-2-m" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div style={{ gridColumn: "1/-1" }}><label style={ls}>이슈 제목 *</label><input value={form.title} onChange={e => set("title", e.target.value)} style={is} /></div>
             <div><label style={ls}>연결 공정 *</label><select value={form.activity_id} onChange={e => set("activity_id", e.target.value)} style={is}><option value="">선택하세요</option>{(activities || []).filter(a => a.phys < 100).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
             <div><label style={ls}>이슈 유형</label><select value={form.issue_type} onChange={e => set("issue_type", e.target.value)} style={is}>{ISSUE_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>

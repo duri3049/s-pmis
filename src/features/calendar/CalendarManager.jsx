@@ -77,7 +77,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   const isWeekend = selectedDate ? [0, 6].includes(new Date(selectedDate).getDay()) : false;
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>🗓 캘린더 관리</div>
 
       {/* 범례 */}
@@ -93,7 +93,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: selectedDate ? "1fr 340px" : "1fr", gap: 16 }}>
+      <div className="grid-cal-m" style={{ display: "grid", gridTemplateColumns: selectedDate ? "1fr 340px" : "1fr", gap: 16 }}>
         {/* 달력 */}
         <div style={{ background: T.card, borderRadius: 14, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>

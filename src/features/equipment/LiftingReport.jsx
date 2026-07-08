@@ -70,7 +70,7 @@ function LiftingReport({ reservations, equipment }) {
   const maxHour = Math.max(...hourMap, 1);
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       {/* 헤더 + 기간 필터 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>양중 부하 분석</div>
@@ -100,7 +100,7 @@ function LiftingReport({ reservations, equipment }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="grid-2-m" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         {/* 협력사별 양중 횟수 차트 */}
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 16 }}>협력사별 양중 횟수</div>
@@ -145,7 +145,7 @@ function LiftingReport({ reservations, equipment }) {
       {/* 장비별 평균 소요시간 */}
       <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>장비별 양중 현황</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div className="grid-3-m" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {eqList.map(eq => (
             <div key={eq.name} style={{ background: T.bg, borderRadius: 10, padding: "12px 16px", border: `1px solid ${T.border}` }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: T.text, marginBottom: 8 }}>{eq.name}</div>
@@ -166,7 +166,7 @@ function LiftingReport({ reservations, equipment }) {
       {/* 상세 테이블 */}
       <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>양중 이력 상세</div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div className="table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr style={{ background: T.text, color: "#fff" }}>
               {["날짜", "장비", "협력사", "자재", "계획시간", "실제완료", "편차", "상태"].map(h => (
@@ -205,7 +205,7 @@ function LiftingReport({ reservations, equipment }) {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

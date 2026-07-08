@@ -69,7 +69,7 @@ function DocumentVault() {
   const isImage = (name) => /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(name);
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>📁 문서 보관함</div>
 
       {/* 폴더 탭 */}

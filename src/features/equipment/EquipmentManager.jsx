@@ -79,7 +79,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
   const ls = { fontSize: 12, color: T.text, fontWeight: 600, marginBottom: 4, display: "block" };
 
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>🚜 장비 현황</div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -95,7 +95,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       </div>
 
       {/* 장비 현황 카드 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+      <div className="grid-3-m" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
         {equipment.map(eq => {
           const activeUnits = getActiveUnits(eq.id);
           const available = getAvailableUnits(eq);
@@ -167,7 +167,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
         <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>오늘 투입 현황</div>
         {logs.length === 0
           ? <div style={{ color: T.sub, fontSize: 13 }}>투입된 장비가 없습니다</div>
-          : <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          : <div className="table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: T.text, color: "#fff" }}>
                 {["장비", "번호", "투입 공종", "투입 시각", "비고", ""].map(h => (
@@ -196,7 +196,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         }
       </div>
 

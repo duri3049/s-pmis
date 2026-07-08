@@ -125,7 +125,7 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
   };
   const handleReject = async (report) => { try { await sb.patch("progress_reports", report.id, { status: "rejected" }); setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "rejected" } : r)); setToast("반려되었습니다"); } catch (err) { alert("반려 실패: " + err.message); } };
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 12 }}>📋 결재 라인</div>
       {/* 탭 */}
       <div style={{ display: "flex", gap: 6, marginBottom: 16, background: T.bg, borderRadius: 12, padding: 4 }}>

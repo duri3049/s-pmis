@@ -100,7 +100,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
     });
   })();
   return (
-    <div style={{ padding: 20, overflowY: "auto", height: "100%" }}>
+    <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       {weather && (
         <div style={{ background: T.card, borderRadius: 14, padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", boxShadow: T.shadow }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -274,7 +274,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
           </div>
         );
       })()}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="grid-2-m" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>협력사별 실적</div>
           {subcons.map(s => (
@@ -309,7 +309,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2-m" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 20px" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: T.text, marginBottom: 14 }}>⚠️ Critical Path</div>
           {criticals.length === 0 && <div style={{ color: "#10B981", fontSize: 13 }}>크리티컬 공종 없음</div>}

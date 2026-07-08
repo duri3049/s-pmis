@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { T, TODAY } from '../../lib/constants';
 import { ANTHROPIC_KEY, sb } from '../../lib/supabase';
-import { diffDays, dayStr } from '../../lib/utils';
+import { diffDays, dayStr, statusColor } from '../../lib/utils';
 import { calcAct } from '../../lib/cpm';
 
 export default
@@ -16,6 +16,7 @@ function ThreeWeekView({ activities, setActivities, milestones, setMilestones, p
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [viewMode, setViewMode] = useState("3w");
+  const [selWeek, setSelWeek] = useState(1); // 모바일 3주뷰 주 선택 (0 지난주 | 1 이번주 | 2 다음주)
   const [weightLoading, setWeightLoading] = useState(null);
 
   const handlePrint = async () => {
@@ -833,7 +834,8 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         </div>
       )}
 
-      {/* 마일스톤 행 */}
+      {/* 마일스톤 행 — 모바일은 각 뷰 안에 자체 표시 */}
+      {!isMobile && (
       <div style={{ background: "#1E293B", borderRadius: 12, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 12, color: T.blue, fontWeight: 700, minWidth: 60 }}>★ 마일스톤</span>
         <div style={{ display: "flex", flex: 1, gap: 8 }}>
@@ -863,9 +865,10 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
           })}
         </div>
       </div>
+      )}
 
       {/* 전체 공정표 */}
-      {viewMode === "all" && (() => {
+      {viewMode === "all" && !isMobile && (() => {
         if (activities.length === 0) return <div style={{ padding: 40, textAlign: "center", color: T.sub }}>공종 데이터가 없습니다</div>;
         const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
         const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
@@ -1061,8 +1064,93 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         );
       })()}
 
+      {/* 3개월/전체 모바일 타임라인 뷰 */}
+      {isMobile && (viewMode === "3m" || viewMode === "all") && (() => {
+        const todayStr = dayStr(TODAY);
+        let rangeS, rangeE, acts;
+        if (viewMode === "3m") {
+          const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1 + monthOffset, 1);
+          const endD = new Date(base); endD.setDate(endD.getDate() + 91);
+          rangeS = dayStr(base); rangeE = dayStr(endD);
+          acts = activities.filter(a => a.phys < 100 && a.ps <= rangeE && a.pf >= rangeS);
+        } else {
+          rangeS = activities.map(a => a.ps).filter(Boolean).sort()[0];
+          rangeE = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
+          acts = activities;
+        }
+        if (!rangeS || !rangeE || acts.length === 0) return <div style={{ textAlign: "center", padding: "48px 20px", color: T.sub, fontSize: 13 }}>표시할 공종이 없어요</div>;
+        const total = Math.max(1, diffDays(rangeE, rangeS) + 1);
+        const posPct = d => Math.max(0, Math.min(100, diffDays(d, rangeS) / total * 100));
+        const todayPos = todayStr >= rangeS && todayStr <= rangeE ? posPct(todayStr) : null;
+        const grouped = {};
+        acts.forEach(a => { const c = a.category || "건축"; if (!grouped[c]) grouped[c] = []; grouped[c].push(a); });
+        const rangeMs = (milestones || [])
+          .filter(m => m.milestone_date >= rangeS && m.milestone_date <= rangeE)
+          .sort((x, y) => (x.status === "achieved") - (y.status === "achieved") || x.milestone_date.localeCompare(y.milestone_date));
+        const msShown = rangeMs.slice(0, 6);
+        const msRest = rangeMs.length - msShown.length;
+        return (
+          <div>
+            {msShown.length > 0 && (
+              <div style={{ background: "#1E293B", borderRadius: 12, padding: "10px 14px", marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: T.blue, fontWeight: 700 }}>★</span>
+                {msShown.map(m => (
+                  <span key={m.id} style={{ fontSize: 11, color: m.status === "achieved" ? "#6B7280" : "#fff", background: m.status === "achieved" ? "#374151" : T.blue, borderRadius: 6, padding: "2px 8px", fontWeight: 600, textDecoration: m.status === "achieved" ? "line-through" : "none", whiteSpace: "nowrap" }}>
+                    {m.milestone_date.slice(5)} {m.title}
+                  </span>
+                ))}
+                {msRest > 0 && <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 600 }}>외 {msRest}개</span>}
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.sub, padding: "0 4px", marginBottom: 8 }}>
+              <span>{rangeS}</span>
+              <span style={{ color: T.danger, fontWeight: 700 }}>│ 오늘</span>
+              <span>{rangeE}</span>
+            </div>
+            {Object.entries(grouped).map(([cat, catActs]) => (
+              <div key={cat} style={{ marginBottom: 14 }}>
+                <div style={{ background: T.card, borderRadius: 10, padding: "8px 14px", marginBottom: 6, borderLeft: `4px solid ${T.blue}`, fontWeight: 800, fontSize: 13, color: T.text }}>{cat}</div>
+                {catActs.map(a => {
+                  const pL = posPct(a.ps), pW = Math.max(1.5, posPct(a.pf) - pL);
+                  const aEnd = a.af && a.af <= todayStr ? a.af : todayStr;
+                  const aL = a.as_ ? posPct(a.as_) : null;
+                  const aW = aL !== null ? Math.max(1.5, posPct(aEnd) - aL) : 0;
+                  return (
+                    <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 12px", marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: T.text, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                            {a.name}
+                            {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>CP</span>}
+                            {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                          </div>
+                          <div style={{ fontSize: 10, color: T.sub, marginTop: 1 }}>{a.ps?.slice(2)}~{a.pf?.slice(2)}{a.subcon !== "미정" ? ` · ${a.subcon}` : ""}</div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: a.critical ? T.danger : statusColor(a.status), flexShrink: 0 }}>{a.phys}%</span>
+                      </div>
+                      {/* 타임라인 트랙 */}
+                      <div style={{ position: "relative", height: 22, background: T.bg, borderRadius: 6, overflow: "hidden" }}>
+                        <div style={{ position: "absolute", left: `${pL}%`, width: `${pW}%`, top: 3, height: 7, background: `${T.success}50`, borderRadius: 4 }} />
+                        <div style={{ position: "absolute", left: `${pL}%`, width: `${pW * a.phys / 100}%`, top: 3, height: 7, background: T.success, borderRadius: 4 }} />
+                        {aL !== null && <div style={{ position: "absolute", left: `${aL}%`, width: `${aW}%`, bottom: 3, height: 7, background: T.blue, borderRadius: 4 }} />}
+                        {todayPos !== null && <div style={{ position: "absolute", left: `${todayPos}%`, top: 0, bottom: 0, width: 1.5, background: T.danger }} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 14, padding: "4px 4px 12px", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 7, background: `${T.success}50`, borderRadius: 3 }} /><span style={{ fontSize: 10, color: T.sub }}>계획</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 7, background: T.success, borderRadius: 3 }} /><span style={{ fontSize: 10, color: T.sub }}>계획 중 완료분</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 7, background: T.blue, borderRadius: 3 }} /><span style={{ fontSize: 10, color: T.sub }}>실적 기간</span></div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3개월 간트 차트 */}
-      {viewMode === "3m" && (() => {
+      {viewMode === "3m" && !isMobile && (() => {
         const days = [];
         // 이번 달 1일 기준 -1개월 ~ +2개월 (90일) monthOffset 반영
         const base = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1 + monthOffset, 1);
@@ -1222,8 +1310,102 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         );
       })()}
 
+      {/* 3주 모바일 카드 뷰 */}
+      {viewMode === "3w" && isMobile && (() => {
+        const w = weeks[selWeek];
+        const todayStr = dayStr(TODAY);
+        const wDays = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(w.start); d.setDate(d.getDate() + i);
+          return { date: d, str: dayStr(d), dow: d.getDay() };
+        });
+        const reportMap = {};
+        (progressReports || []).filter(r => r.status === "approved").forEach(r => {
+          const d = r.created_at?.slice(0, 10);
+          if (!d) return;
+          if (!reportMap[r.activity_id]) reportMap[r.activity_id] = new Set();
+          reportMap[r.activity_id].add(d);
+        });
+        const weekActs = active.filter(a => a.ps <= w.endStr && a.pf >= w.startStr);
+        const wMs = (milestones || []).filter(m => m.milestone_date >= w.startStr && m.milestone_date <= w.endStr);
+        return (
+          <div>
+            {/* 주 선택 탭 */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, background: T.bg, borderRadius: 12, padding: 4 }}>
+              {weeks.map((wk, i) => (
+                <button key={i} onClick={() => setSelWeek(i)}
+                  style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 9, background: selWeek === i ? T.card : "transparent", fontWeight: selWeek === i ? 700 : 500, fontSize: 13, color: selWeek === i ? weekLabelColor(i) : T.sub, cursor: "pointer", boxShadow: selWeek === i ? T.shadow : "none" }}>
+                  {weekLabel(wk, i)}
+                  <div style={{ fontSize: 10, fontWeight: 400, color: T.sub, marginTop: 1 }}>{fmt(wk.start)}~{fmt(wk.end)}</div>
+                </button>
+              ))}
+            </div>
+            {/* 주간 마일스톤 */}
+            {wMs.length > 0 && (
+              <div style={{ background: "#1E293B", borderRadius: 12, padding: "10px 14px", marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: T.blue, fontWeight: 700 }}>★</span>
+                {wMs.map(m => (
+                  <span key={m.id} style={{ fontSize: 11, color: m.status === "achieved" ? "#6B7280" : "#fff", background: m.status === "achieved" ? "#374151" : T.blue, borderRadius: 6, padding: "2px 8px", fontWeight: 600, textDecoration: m.status === "achieved" ? "line-through" : "none" }}>
+                    {m.milestone_date.slice(5)} {m.title}
+                  </span>
+                ))}
+              </div>
+            )}
+            {weekActs.length === 0 && (
+              <div style={{ textAlign: "center", padding: "48px 20px", color: T.sub, fontSize: 13 }}>이 주에 진행되는 공종이 없어요</div>
+            )}
+            {weekActs.map(a => {
+              const plan = getPlan(a.id, w.startStr);
+              const actual = getActual(a.id, w.startStr, w.endStr);
+              return (
+                <div key={a.id} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 8, borderLeft: `3px solid ${a.critical ? T.danger : statusColor(a.status)}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, color: T.text, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                        {a.name}
+                        {a.critical && <span style={{ fontSize: 9, background: "#FEE2E2", color: "#991B1B", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>CP</span>}
+                        {a.delay_days > 0 && <span style={{ fontSize: 9, background: "#FEF3C7", color: "#92400E", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>+{a.delay_days}일</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{a.subcon !== "미정" ? `${a.subcon} · ` : ""}{a.ps?.slice(5)}~{a.pf?.slice(5)}</div>
+                    </div>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: a.critical ? T.danger : statusColor(a.status), flexShrink: 0 }}>{a.phys}%</span>
+                  </div>
+                  {/* 7일 스트립 */}
+                  <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
+                    {wDays.map((d, di) => {
+                      const inPlan = a.ps <= d.str && a.pf >= d.str;
+                      const hasReport = reportMap[a.id]?.has(d.str);
+                      const isToday = d.str === todayStr;
+                      return (
+                        <div key={di} style={{ flex: 1, textAlign: "center" }}>
+                          <div style={{ fontSize: 9, color: d.dow === 0 ? T.danger : T.sub, marginBottom: 2, fontWeight: isToday ? 800 : 400 }}>{["일","월","화","수","목","금","토"][d.dow]}</div>
+                          <div style={{ height: 18, borderRadius: 4, background: hasReport ? T.blue : inPlan ? `${T.success}30` : T.bg, border: isToday ? `1.5px solid ${T.warn}` : "1px solid transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {hasReport && <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>✓</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 주간 계획/실적 */}
+                  <div style={{ display: "flex", gap: 8, fontSize: 11 }}>
+                    <span style={{ color: T.sub }}>주간계획 <b style={{ color: T.text }}>{plan?.plan_qty || 0}{a.unit}</b></span>
+                    <span style={{ color: T.sub }}>실적 <b style={{ color: actual >= (plan?.plan_qty || 0) ? T.success : T.blue }}>{actual}{a.unit}</b></span>
+                    {plan?.note && <span style={{ color: T.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>· {plan.note}</span>}
+                  </div>
+                </div>
+              );
+            })}
+            {/* 범례 */}
+            <div style={{ display: "flex", gap: 14, padding: "8px 4px", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 12, background: `${T.success}30`, borderRadius: 3 }} /><span style={{ fontSize: 10, color: T.sub }}>계획 기간</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 12, background: T.blue, borderRadius: 3 }} /><span style={{ fontSize: 10, color: T.sub }}>실적 보고일</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 14, height: 12, border: `1.5px solid ${T.warn}`, borderRadius: 3, boxSizing: "border-box" }} /><span style={{ fontSize: 10, color: T.sub }}>오늘</span></div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3주 간트 차트 */}
-      {viewMode === "3w" && (() => {
+      {viewMode === "3w" && !isMobile && (() => {
         const days = [];
         for (let i = 0; i < 21; i++) {
           const d = new Date(weeks[0].start);
