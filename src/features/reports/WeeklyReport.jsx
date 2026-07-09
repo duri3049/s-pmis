@@ -63,6 +63,11 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
         }} style={{ background: "#10B981", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>🖨️ PDF 출력 / 인쇄</button>
 
         <button onClick={onClose} style={{ background: "#6B7280", border: "none", borderRadius: 8, padding: "10px 24px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: "pointer" }}>✕ 닫기</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", borderRadius: 8, padding: "4px 12px 4px 4px" }}>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=52x52&data=${encodeURIComponent(window.location.origin)}`}
+            alt="QR" width={44} height={44} style={{ borderRadius: 6 }} />
+          <span style={{ fontSize: 11, color: "#6B7280", fontWeight: 600, lineHeight: 1.4 }}>폰으로<br />열기</span>
+        </div>
       </div>
       <div id="wr-content" style={{ maxWidth: 800, margin: "0 auto", background: T.card, padding: "32px 40px", fontFamily: "'Malgun Gothic','맑은 고딕',sans-serif", fontSize: 11, lineHeight: 1.6, color: "#1a1a1a" }}>
         <div style={{ textAlign: "center", borderBottom: "2px solid #1A2332", paddingBottom: 16, marginBottom: 20 }}>

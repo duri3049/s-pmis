@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { T } from '../lib/constants';
+import { T, TODAY } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';
+import { dayStr } from '../lib/utils';
 
 export default
 function ProjectSettings({ project, setProject, activities, setActivities, onImport }) {

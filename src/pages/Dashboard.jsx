@@ -1,12 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { T, TODAY } from '../lib/constants';
+import { ANTHROPIC_KEY } from '../lib/supabase';
 import { diffDays, fmtM, pct, cpiColor, statusColor, sevColor, dayStr } from '../lib/utils';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
+import { ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard({ activities, progressReports, issues, weather, project }) {
   const [kpiDetail, setKpiDetail] = useState(null); // 'progress' | 'cpi' | 'spi' | 'delay' | 'issues'
   const toggleKpi = (key) => setKpiDetail(p => p === key ? null : key);
+  const [riskBriefing, setRiskBriefing] = useState(() => sessionStorage.getItem("pmis_risk_briefing") || "");
+  const [briefLoading, setBriefLoading] = useState(false);
+
+  // AI 리스크 브리핑 — 세션당 1회 생성
+  useEffect(() => {
+    if (riskBriefing || activities.length === 0) return;
+    (async () => {
+      setBriefLoading(true);
+      try {
+        const delayed = activities.filter(a => a.delay_days > 0);
+        const criticalActs = activities.filter(a => a.critical && a.phys < 100);
+        const badCpi = activities.filter(a => a.ac > 0 && a.ev / a.ac < 0.9);
+        const openIss = (issues || []).filter(i => i.status !== "closed");
+        const prompt = `건설현장 공정관리 AI야. 아래 데이터로 관리자용 리스크 브리핑을 작성해줘.
+
+지연 공종: ${delayed.slice(0, 5).map(a => `${a.name}(+${a.delay_days}일)`).join(", ") || "없음"}
+크리티컬 패스 미완료: ${criticalActs.slice(0, 5).map(a => `${a.name}(${a.phys}%)`).join(", ") || "없음"}
+비용 초과(CPI<0.9): ${badCpi.slice(0, 3).map(a => a.name).join(", ") || "없음"}
+오픈 이슈: ${openIss.slice(0, 3).map(i => i.title).join(", ") || "없음"}
+
+규칙: 2~3문장, 가장 시급한 리스크 1개와 권장 조치 1개 포함, 마크다운 없이 순수 텍스트, 인사말 없이 바로 시작`;
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 250, messages: [{ role: "user", content: prompt }] })
+        });
+        const data = await r.json();
+        const text = data.content?.[0]?.text || "";
+        if (text) { setRiskBriefing(text); sessionStorage.setItem("pmis_risk_briefing", text); }
+      } catch { /* 실패 시 카드 미표시 */ }
+      setBriefLoading(false);
+    })();
+  }, []);
   const totalBudget = activities.reduce((s, a) => s + a.pv_budget, 0);
   const totalPhys = Math.round(activities.reduce((s, a) => s + a.phys * a.pv_budget, 0) / Math.max(totalBudget, 1));
   const totalEV = activities.reduce((s, a) => s + a.ev, 0);
@@ -136,6 +171,18 @@ export default function Dashboard({ activities, progressReports, issues, weather
         </div>
       )}
 
+      {(briefLoading || riskBriefing) && (
+        <div style={{ background: `linear-gradient(135deg, ${T.blue}, #2E7CE0)`, borderRadius: 14, padding: "14px 18px", marginBottom: 16, boxShadow: "0 4px 16px rgba(0,100,255,0.2)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }}>AI</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>리스크 브리핑</span>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginLeft: "auto" }}>{new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}</span>
+          </div>
+          {briefLoading
+            ? <div style={{ display: "flex", gap: 8 }}><div className="skeleton" style={{ height: 14, flex: 1, borderRadius: 7, opacity: 0.4 }} /><div className="skeleton" style={{ height: 14, flex: 2, borderRadius: 7, opacity: 0.4 }} /></div>
+            : <div style={{ fontSize: 13.5, color: "#fff", lineHeight: 1.7 }}>{riskBriefing}</div>}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 10, marginBottom: kpiDetail ? 8 : 16, flexWrap: "wrap" }}>
         <KPI label="전체 진척률" value={pct(totalPhys)} color={totalPhys > 60 ? "#10B981" : "#F59E0B"} sub={`SPI ${gSPI.toFixed(2)}`} onClick={() => toggleKpi("progress")} active={kpiDetail === "progress"} />
         <KPI label="CPI" value={gCPI.toFixed(2)} color={cpiColor(gCPI)} sub={gCPI >= 1 ? "비용 효율" : "비용 초과"} onClick={() => toggleKpi("cpi")} active={kpiDetail === "cpi"} />
@@ -200,20 +247,10 @@ export default function Dashboard({ activities, progressReports, issues, weather
         );
       })()}
       {sCurveData.length > 0 && (() => {
-        const W = 800, H = 120, PAD = { top: 8, right: 16, bottom: 26, left: 36 };
-        const innerW = W - PAD.left - PAD.right;
-        const innerH = H - PAD.top - PAD.bottom;
-        const n = sCurveData.length;
-        const xStep = innerW / Math.max(n - 1, 1);
-        const toX = i => PAD.left + i * xStep;
-        const toY = v => PAD.top + innerH - (v / 100) * innerH;
-        const planPath = sCurveData.map((d, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(d.plan)}`).join(" ");
-        const actualPath = sCurveData
-          .map((d, i) => d.actual !== null && d.actual !== undefined && d.actual >= 0 ? `${i === 0 || sCurveData[i - 1]?.actual == null ? "M" : "L"}${toX(i)},${toY(d.actual)}` : null)
-          .filter(Boolean).join(" ");
-        const todayIdx = sCurveData.findIndex(d => d.isToday);
         const todayData = sCurveData.find(d => d.isToday);
         const dev = todayData ? todayData.actual - todayData.plan : 0;
+        const chartData = sCurveData.map((d, i) => ({ ...d, idx: i, xLabel: `${String(d.year).slice(2)}.${d.label.replace("월", "")}` }));
+        const n = chartData.length;
         return (
           <div style={{ background: T.card, borderRadius: 14, padding: "14px 18px", marginBottom: 16, boxShadow: T.shadow }}>
             {/* 상단: 제목 + 수치 뱃지 + 범례 */}
@@ -242,35 +279,28 @@ export default function Dashboard({ activities, progressReports, issues, weather
                 </div>
               </div>
             </div>
-            {/* 그래프 */}
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
-              {[0, 25, 50, 75, 100].map(v => (
-                <g key={v}>
-                  <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)} stroke="#F3F4F6" strokeWidth="1" />
-                  <text x={PAD.left - 4} y={toY(v) + 4} textAnchor="end" fontSize="9" fill="#9CA3AF">{v}%</text>
-                </g>
-              ))}
-              {todayIdx >= 0 && (
-                <line x1={toX(todayIdx)} y1={PAD.top} x2={toX(todayIdx)} y2={H - PAD.bottom} stroke={T.blue} strokeWidth="1.5" strokeDasharray="4,3" />
-              )}
-              <path d={planPath} fill="none" stroke={T.sub} strokeWidth="1.5" strokeDasharray="5,3" strokeLinejoin="round" />
-              <path d={actualPath} fill="none" stroke={T.blue} strokeWidth="2.5" strokeLinejoin="round" />
-              {sCurveData.map((d, i) => d.actual > 0 && (
-                <circle key={i} cx={toX(i)} cy={toY(d.actual)} r="3" fill={T.blue} stroke="#fff" strokeWidth="1.5" />
-              ))}
-              {sCurveData.map((d, i) => {
-                const isYearStart = i === 0 || d.label === "1월";
-                const showLabel = i === 0 || i === n - 1 || d.isToday || isYearStart || (n <= 12 ? true : i % Math.ceil(n / 8) === 0);
-                return showLabel ? (
-                  <g key={i}>
-                    {isYearStart && (
-                      <text x={toX(i)} y={H - 14} textAnchor="middle" fontSize="10" fill={T.text} fontWeight="700">{d.year}</text>
-                    )}
-                    <text x={toX(i)} y={H - 3} textAnchor="middle" fontSize="9" fill={d.isToday ? T.blue : "#9CA3AF"} fontWeight={d.isToday ? "700" : "400"}>{d.label}</text>
-                  </g>
-                ) : null;
-              })}
-            </svg>
+            {/* 그래프 — Recharts */}
+            <div style={{ width: "100%", height: 180 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 6, right: 12, bottom: 0, left: -18 }}>
+                  <CartesianGrid stroke={T.border} strokeOpacity={0.5} vertical={false} />
+                  <XAxis dataKey="xLabel" tick={{ fontSize: 10, fill: T.sub }} tickLine={false} axisLine={{ stroke: T.border }}
+                    interval={n > 14 ? Math.ceil(n / 10) - 1 : 0} />
+                  <YAxis domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} tick={{ fontSize: 10, fill: T.sub }} tickLine={false} axisLine={false}
+                    tickFormatter={v => `${v}%`} />
+                  <Tooltip
+                    contentStyle={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, boxShadow: T.shadow, fontSize: 12, padding: "8px 12px" }}
+                    labelStyle={{ color: T.text, fontWeight: 700, marginBottom: 4 }}
+                    formatter={(value, name) => [`${value}%`, name === "plan" ? "계획" : "실적"]}
+                    labelFormatter={(label, payload) => { const p = payload?.[0]?.payload; return p ? `${p.year}년 ${p.label}` : label; }} />
+                  {todayData && <ReferenceLine x={chartData.find(d => d.isToday)?.xLabel} stroke={T.blue} strokeDasharray="4 3" strokeWidth={1.5}
+                    label={{ value: "오늘", position: "top", fontSize: 10, fill: T.blue, fontWeight: 700 }} />}
+                  <Line type="monotone" dataKey="plan" stroke={T.sub} strokeWidth={1.5} strokeDasharray="5 3" dot={false} isAnimationActive={true} animationDuration={800} />
+                  <Line type="monotone" dataKey="actual" stroke={T.blue} strokeWidth={2.5} connectNulls={false}
+                    dot={{ r: 2.5, fill: T.blue, stroke: "#fff", strokeWidth: 1 }} activeDot={{ r: 5 }} isAnimationActive={true} animationDuration={1000} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         );
       })()}

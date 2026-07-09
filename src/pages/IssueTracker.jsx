@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { T, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
+import { T, TODAY, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
 import { sb } from '../lib/supabase';
-import { riskBg, riskColor, sevColor } from '../lib/utils';
+import { riskBg, riskColor, sevColor, dayStr } from '../lib/utils';
 import { recalcCPM, calcAct } from '../lib/cpm';
 import Badge from '../components/Badge';
 

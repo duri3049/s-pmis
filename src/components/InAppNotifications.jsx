@@ -3,15 +3,18 @@ import { T } from '../lib/constants';
 
 export function useInAppNotifications() {
   const [notifications, setNotifications] = useState([]);
+  const [history, setHistory] = useState([]); // 알림 센터용 누적 히스토리
   const timerRef = useRef(null);
   const addNotification = (from, role, content, roomName, roomId) => {
     const id = Date.now();
     setNotifications([{ id, from, role, content, roomName, roomId }]);
+    setHistory(p => [{ id, from, role, content, roomName, roomId, at: new Date(), seen: false }, ...p].slice(0, 50));
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => setNotifications([]), 4000);
   };
   const dismiss = (id) => { setNotifications(p => p.filter(n => n.id !== id)); if (timerRef.current) clearTimeout(timerRef.current); };
-  return { notifications, addNotification, dismiss };
+  const markAllSeen = () => setHistory(p => p.map(n => ({ ...n, seen: true })));
+  return { notifications, addNotification, dismiss, history, markAllSeen };
 }
 
 export default function InAppNotifications({ notifications, dismiss, onClickRoom }) {

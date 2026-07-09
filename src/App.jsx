@@ -41,7 +41,7 @@ export default function App() {
   const [activeRoom, setActiveRoom] = useState(null);
   const [mobileTab, setMobileTab] = useState("report");
   const [desktopMenu, setDesktopMenu] = useState("dashboard");
-  const { notifications, addNotification, dismiss } = useInAppNotifications();
+  const { notifications, addNotification, dismiss, history: notifHistory, markAllSeen } = useInAppNotifications();
 
   const handleRoomClick = (roomId) => {
     const room = rooms.find(r => r.id === roomId);
@@ -299,15 +299,17 @@ export default function App() {
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button onClick={() => setView("mobile")} className="btn-ripple" style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>현장</button>
-            <button onClick={() => setView("desktop")} className="btn-ripple" style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer", position: "relative" }}>
-              관리자
-              {pendingCount > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: T.danger, color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700 }}>{pendingCount}</span>}
-            </button>
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <button onClick={() => setView("desktop")} className="btn-ripple" style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 20, padding: "6px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                관리자
+              </button>
+              {pendingCount > 0 && <span style={{ position: "absolute", top: -5, right: -5, background: T.danger, color: "#fff", borderRadius: 10, fontSize: 10, padding: "1px 5px", fontWeight: 700, pointerEvents: "none", border: "1.5px solid #fff" }}>{pendingCount}</span>}
+            </span>
           </div>
         </div>
       )}
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} />
+        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} notifHistory={notifHistory} markAllSeen={markAllSeen} />
       }
     </div>
   );

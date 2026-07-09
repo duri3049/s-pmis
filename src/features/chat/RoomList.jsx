@@ -185,18 +185,23 @@ export default function RoomList({ rooms, setRooms, user, onEnterRoom, profiles 
           const last = lastMsgs[room.id];
           const name = getRoomName(room);
           const avatar = getRoomAvatar(room);
+          const lastRead = localStorage.getItem(`pmis_read_${room.id}`) || "";
+          const unread = last && last.user_id !== user.id && last.created_at > lastRead;
           return (
             <div key={room.id} onClick={() => onEnterRoom(room)}
-              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: "1px solid #F3F4F6", cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#F9FAFB"}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 20px", borderBottom: `1px solid ${T.border}`, cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = T.bg}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <div style={{ width: 46, height: 46, borderRadius: "50%", background: room.type === "group" ? T.blue : "#E5E7EB", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: room.type === "group" ? "#fff" : "#374151", flexShrink: 0 }}>{avatar}</div>
+              <div style={{ width: 46, height: 46, borderRadius: "50%", background: room.type === "group" ? T.blue : T.border, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 16, color: room.type === "group" ? "#fff" : T.text, flexShrink: 0 }}>{avatar}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14, color: T.text }}>{name}</span>
-                  {last && <span style={{ fontSize: 11, color: T.sub }}>{fmtTime(last.created_at)}</span>}
+                  <span style={{ fontWeight: unread ? 800 : 700, fontSize: 14, color: T.text }}>{name}</span>
+                  {last && <span style={{ fontSize: 11, color: unread ? T.blue : T.sub, fontWeight: unread ? 700 : 400 }}>{fmtTime(last.created_at)}</span>}
                 </div>
-                <div style={{ fontSize: 13, color: T.sub, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{last ? `${last.user_name}: ${last.content}` : "대화를 시작해보세요"}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ flex: 1, fontSize: 13, color: unread ? T.text : T.sub, fontWeight: unread ? 600 : 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{last ? `${last.user_name}: ${last.content}` : "대화를 시작해보세요"}</div>
+                  {unread && <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.blue, flexShrink: 0 }} />}
+                </div>
               </div>
             </div>
           );

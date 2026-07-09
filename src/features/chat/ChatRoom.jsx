@@ -131,6 +131,11 @@ ${(activities || []).map(a => {
 
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
+  // 읽음 처리 — 방에 들어와 있는 동안 최신 메시지 시각 저장
+  useEffect(() => {
+    if (msgs.length > 0) localStorage.setItem(`pmis_read_${room.id}`, msgs[msgs.length - 1].created_at || new Date().toISOString());
+  }, [msgs, room.id]);
+
   const handleSend = async () => {
     const msgText = input.trim();
     if (!msgText || sending.current) return;

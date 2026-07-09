@@ -25,9 +25,16 @@ import LiftingReport from '../features/equipment/LiftingReport';
 import EquipmentManager from '../features/equipment/EquipmentManager';
 import ProfileSettings from '../modals/ProfileSettings';
 import CommandPalette from '../components/CommandPalette';
+import { LayoutDashboard, ListChecks, CalendarRange, Truck, MessageCircle, CalendarDays, AlertTriangle, ClipboardCheck, Settings, FolderOpen, Search, RotateCw, Bell } from 'lucide-react';
+
+const MENU_ICONS = {
+  dashboard: LayoutDashboard, gantt: ListChecks, "3w": CalendarRange, equipment: Truck,
+  chat: MessageCircle, calendar: CalendarDays, issues: AlertTriangle, approval: ClipboardCheck,
+  settings: Settings, docs: FolderOpen,
+};
 
 export default
-function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady, onThemeChange, onProfileSaved }) {
+function DesktopView({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, milestones, setMilestones, user, onLogout, onNotify, rooms, setRooms, profiles, activeMenu, setActiveMenu, activeRoom, setActiveRoom, weather, siteEquipment, setSiteEquipment, equipmentLogs, setEquipmentLogs, calendarDates, setCalendarDates, project, setProject, sendPush, subActivities, setSubActivities, dataReady, onThemeChange, onProfileSaved, notifHistory, markAllSeen }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth <= 768);
@@ -40,6 +47,8 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const unseenCount = (notifHistory || []).filter(n => !n.seen).length;
 
   useEffect(() => {
     const handleResize = () => setIsMobileScreen(window.innerWidth <= 768);
@@ -115,10 +124,12 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
             const isActive = activeMenu === item.id;
             const badge = item.id === "approval" ? pendingCount : item.id === "issues" ? openIssueCount : 0;
             const label = item.label.replace(/^[\p{Emoji}\s]+/u, "").trim();
+            const Icon = MENU_ICONS[item.id];
             return (
               <div key={item.id} onClick={() => { setActiveMenu(item.id); setActiveRoom(null); if (isMobileScreen) setSidebarOpen(false); }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 10, marginBottom: 2, background: isActive ? `${T.blue}14` : "transparent", cursor: "pointer", transition: "background 0.15s" }}>
-                <span style={{ fontSize: 14, fontWeight: isActive ? 700 : 500, color: isActive ? T.blue : T.text }}>{label}</span>
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 2, background: isActive ? `${T.blue}14` : "transparent", cursor: "pointer", transition: "background 0.15s" }}>
+                {Icon && <Icon size={17} strokeWidth={isActive ? 2.4 : 1.8} color={isActive ? T.blue : T.sub} style={{ flexShrink: 0 }} />}
+                <span style={{ flex: 1, fontSize: 14, fontWeight: isActive ? 700 : 500, color: isActive ? T.blue : T.text }}>{label}</span>
                 {badge > 0 && <span style={{ background: T.danger, color: "#fff", borderRadius: 10, fontSize: 11, padding: "1px 7px", fontWeight: 700 }}>{badge}</span>}
               </div>
             );
@@ -174,14 +185,46 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
         {!isMobileScreen && (
           <div style={{ padding: "0 24px", height: 52, background: T.card, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
             <span style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{currentLabel}</span>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, position: "relative" }}>
+              <span style={{ position: "relative", display: "inline-flex" }}>
+                <button onClick={() => { setShowNotifs(v => !v); if (!showNotifs) markAllSeen?.(); }}
+                  style={{ background: showNotifs ? `${T.blue}14` : T.bg, border: `1px solid ${showNotifs ? T.blue : T.border}`, borderRadius: 8, width: 34, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: showNotifs ? T.blue : T.sub }}>
+                  <Bell size={15} />
+                </button>
+                {unseenCount > 0 && <span style={{ position: "absolute", top: -5, right: -5, background: T.danger, color: "#fff", borderRadius: 10, fontSize: 9, padding: "1px 5px", fontWeight: 700, pointerEvents: "none", border: "1.5px solid #fff" }}>{unseenCount}</span>}
+              </span>
+              {showNotifs && (
+                <>
+                  <div onClick={() => setShowNotifs(false)} style={{ position: "fixed", inset: 0, zIndex: 1500 }} />
+                  <div className="modal-enter" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 340, maxHeight: 420, overflowY: "auto", background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, boxShadow: T.shadow, zIndex: 1501 }}>
+                    <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, fontWeight: 700, fontSize: 14, color: T.text }}>알림</div>
+                    {(notifHistory || []).length === 0 && (
+                      <div style={{ textAlign: "center", padding: "36px 20px", fontSize: 13, color: T.sub }}>새로운 알림이 없어요</div>
+                    )}
+                    {(notifHistory || []).map(n => (
+                      <div key={n.id} onClick={() => { if (n.roomId) { setActiveMenu("chat"); setActiveRoom(rooms.find(r => r.id === n.roomId) || null); } setShowNotifs(false); }}
+                        style={{ display: "flex", gap: 10, padding: "11px 16px", borderBottom: `1px solid ${T.border}`, cursor: n.roomId ? "pointer" : "default", alignItems: "flex-start" }}>
+                        <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${T.blue}14`, color: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{n.from?.[0]}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
+                            <span style={{ fontWeight: 700, fontSize: 13, color: T.text }}>{n.from}</span>
+                            {n.roomName && <span style={{ fontSize: 10, background: T.bg, color: T.sub, borderRadius: 4, padding: "1px 6px" }}>{n.roomName}</span>}
+                            <span style={{ fontSize: 10, color: T.sub, marginLeft: "auto", flexShrink: 0 }}>{n.at instanceof Date ? n.at.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : ""}</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: T.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.content}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
               <button onClick={() => setShowPalette(true)}
                 style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                ⌕ 검색 <span style={{ fontSize: 10, background: T.card, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 5px", fontWeight: 600 }}>Ctrl K</span>
+                <Search size={14} /> 검색 <span style={{ fontSize: 10, background: T.card, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 5px", fontWeight: 600 }}>Ctrl K</span>
               </button>
               <button onClick={() => setRefreshKey(k => k + 1)}
-                style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500 }}>
-                새로고침
+                style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 14px", fontSize: 13, color: T.sub, cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+                <RotateCw size={14} /> 새로고침
               </button>
             </div>
           </div>

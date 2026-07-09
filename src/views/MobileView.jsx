@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Home, ClipboardList, MessageCircle, Mic } from 'lucide-react';
 import { TODAY, T } from '../lib/constants';
 import { sb, supabase, ANTHROPIC_KEY, uploadPhoto } from '../lib/supabase';
 import { pct, cpiColor, statusColor, dayStr, fmtM, fmtTime, diffDays } from '../lib/utils';
@@ -36,6 +37,33 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const [showSettings, setShowSettings] = useState(false);
   const [pullDist, setPullDist] = useState(0);
   const pullRef = useRef({ y: 0, active: false });
+  const [listening, setListening] = useState(false);
+  const recogRef = useRef(null);
+
+  // 음성 입력 (Web Speech API)
+  const toggleVoice = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("이 브라우저는 음성 인식을 지원하지 않아요. 크롬을 사용해주세요."); return; }
+    if (listening) { recogRef.current?.stop(); return; }
+    const recog = new SR();
+    recog.lang = "ko-KR";
+    recog.interimResults = true;
+    recog.continuous = true;
+    let finalText = "";
+    recog.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    recog.onend = () => setListening(false);
+    recog.onerror = () => setListening(false);
+    recogRef.current = recog;
+    recog.start();
+    setListening(true);
+  };
   const [pendingReport, setPendingReport] = useState(null);
   const [pendingStart, setPendingStart] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
@@ -595,8 +623,9 @@ JSON 없이 자연스럽게 한국어로만 답해.
 
       {/* 탭 */}
       <div style={{ display: "flex", background: T.card, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-        {[{ id: "home", label: "홈" }, { id: "report", label: "작업보고" }, { id: "chat", label: "채팅" }].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "14px 0 12px", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 500, fontSize: 14, color: tab === t.id ? T.blue : T.sub, borderBottom: tab === t.id ? `2px solid ${T.blue}` : "2px solid transparent", cursor: "pointer", transition: "all 0.15s" }}>
+        {[{ id: "home", label: "홈", Icon: Home }, { id: "report", label: "작업보고", Icon: ClipboardList }, { id: "chat", label: "채팅", Icon: MessageCircle }].map(t => (
+          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "12px 0 10px", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 500, fontSize: 13, color: tab === t.id ? T.blue : T.sub, borderBottom: tab === t.id ? `2px solid ${T.blue}` : "2px solid transparent", cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <t.Icon size={18} strokeWidth={tab === t.id ? 2.4 : 1.8} />
             {t.label}
           </button>
         ))}
@@ -902,7 +931,12 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   if (file) setAttachedPhoto({ file, url: URL.createObjectURL(file) });
                 }} style={{ display: "none" }} />
                 <button onClick={() => photoRef.current?.click()} style={{ background: T.bg, border: `1.5px solid ${T.border}`, borderRadius: 10, width: 42, height: 42, fontSize: 11, fontWeight: 700, color: T.sub, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>사진</button>
-                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder="작업 물량, 인력, 특이사항 자유 입력" style={{ flex: 1, minWidth: 0, border: `1.5px solid ${T.border}`, borderRadius: 22, padding: "11px 16px", fontSize: 15, outline: "none", background: T.bg, color: T.text }} />
+                <button onClick={toggleVoice}
+                  style={{ background: listening ? T.danger : T.bg, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 10, width: 42, height: 42, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", animation: listening ? "micPulse 1.2s ease infinite" : "none" }}>
+                  <Mic size={17} color={listening ? "#fff" : T.sub} />
+                </button>
+                {listening && <style>{`@keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 ${T.danger}50; } 50% { box-shadow: 0 0 0 7px ${T.danger}00; } }`}</style>}
+                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder={listening ? "듣고 있어요... 말씀하세요" : "작업 물량, 인력, 특이사항 자유 입력"} style={{ flex: 1, minWidth: 0, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 22, padding: "11px 16px", fontSize: 15, outline: "none", background: T.bg, color: T.text }} />
                 <button onClick={handleReportSubmit} disabled={loading} style={{ background: T.blue, border: "none", borderRadius: 22, padding: "11px 18px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: loading ? "default" : "pointer", flexShrink: 0, opacity: loading ? 0.6 : 1 }}>전송</button>
               </div>
             </div>

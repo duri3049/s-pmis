@@ -5,7 +5,11 @@ export const BTN_TEXT = "#fff";
 
 // ── Toss Design Tokens (Proxy — 매 렌더마다 localStorage 최신값 반영) ──
 const _T = () => {
-  const dark  = localStorage.getItem("pmis_dark") === "1";
+  const saved = localStorage.getItem("pmis_dark");
+  // 수동 설정이 없으면 OS 다크모드 따라감
+  const dark = saved === null
+    ? window.matchMedia?.("(prefers-color-scheme: dark)").matches
+    : saved === "1";
   const color = localStorage.getItem("pmis_color") || "#0064FF";
   return {
     blue:    color,

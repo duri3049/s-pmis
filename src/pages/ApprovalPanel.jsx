@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { T, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
-import { calcAct, calcTodayTarget } from '../lib/cpm';
+import { calcAct, calcTodayTarget, recalcCPM } from '../lib/cpm';
 import { pct, dayStr, fmtM } from '../lib/utils';
 
 export default

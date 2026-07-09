@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TODAY, T } from '../lib/constants';
 import { sb, ANTHROPIC_KEY } from '../lib/supabase';
 import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM, riskBg, riskColor, sevColor, msIcon, msColor } from '../lib/utils';
-import { calcAct, calcTodayTarget, rollup } from '../lib/cpm';
+import { calcAct, calcTodayTarget, rollup, recalcCPM } from '../lib/cpm';
 import Badge from '../components/Badge';
 import KPI from '../components/KPI';
 
