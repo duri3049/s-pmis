@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { T, TODAY } from '../lib/constants';
-import { ANTHROPIC_KEY } from '../lib/supabase';
+import { claudeComplete } from '../lib/ai';
 import { diffDays, fmtM, pct, cpiColor, statusColor, sevColor, dayStr } from '../lib/utils';
 import KPI from '../components/KPI';
 import Badge from '../components/Badge';
@@ -30,13 +30,7 @@ export default function Dashboard({ activities, progressReports, issues, weather
 오픈 이슈: ${openIss.slice(0, 3).map(i => i.title).join(", ") || "없음"}
 
 규칙: 2~3문장, 가장 시급한 리스크 1개와 권장 조치 1개 포함, 마크다운 없이 순수 텍스트, 인사말 없이 바로 시작`;
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-          body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 250, messages: [{ role: "user", content: prompt }] })
-        });
-        const data = await r.json();
-        const text = data.content?.[0]?.text || "";
+        const text = await claudeComplete(prompt, 250);
         if (text) { setRiskBriefing(text); sessionStorage.setItem("pmis_risk_briefing", text); }
       } catch { /* 실패 시 카드 미표시 */ }
       setBriefLoading(false);

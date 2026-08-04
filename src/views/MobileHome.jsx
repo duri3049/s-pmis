@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { TODAY, getTier, T } from '../lib/constants';
-import { sb, ANTHROPIC_KEY } from '../lib/supabase';
+import { sb } from '../lib/supabase';
+import { claudeComplete } from '../lib/ai';
 import { pct, cpiColor, statusColor, sevColor, dayStr, fmtM } from '../lib/utils';
 import { calcTodayTarget } from '../lib/cpm';
 import KPI from '../components/KPI';
@@ -10,10 +11,14 @@ export default
 function MobileHome({ user, activities, issues, weather, profiles }) {
   const tier = getTier(user.role);
   const todayStr = dayStr(TODAY);
-  const [briefing, setBriefing] = useState("");
+  // 브리핑은 세션당 1회만 만든다.
+  // 예전에는 홈 탭에 들어올 때마다 컴포넌트가 재마운트되며 매번 AI를 다시 호출했다
+  // (대시보드는 이미 sessionStorage 캐시를 쓰고 있어 정책이 서로 달랐다).
+  const [briefing, setBriefing] = useState(() => sessionStorage.getItem("pmis_home_briefing") || "");
   const [briefingLoading, setBriefingLoading] = useState(false);
 
   useEffect(() => {
+    if (briefing || activities.length === 0) return;
     const generateBriefing = async () => {
       setBriefingLoading(true);
       try {
@@ -42,27 +47,13 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
 - 마크다운 없이 순수 텍스트만
 - "안녕하세요" 같은 인사말 없이 바로 브리핑 시작`;
 
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": ANTHROPIC_KEY,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true"
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 200,
-            messages: [{ role: "user", content: prompt }]
-          })
-        });
-        const data = await r.json();
-        setBriefing(data.content[0].text);
-      } catch { setBriefing(""); }
+        const text = await claudeComplete(prompt, 200);
+        if (text) { setBriefing(text); sessionStorage.setItem("pmis_home_briefing", text); }
+      } catch { /* 실패 시 브리핑 카드는 표시하지 않는다 */ }
       setBriefingLoading(false);
     };
     generateBriefing();
-  }, []);
+  }, [activities.length]);
 
   // 공통 데이터
   const inProgress = activities.filter(a => a.as_ && a.phys < 100);
@@ -92,9 +83,9 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
   const BriefingCard = () => (briefingLoading || briefing) ? (
     <div style={{ background: T.blue, borderRadius: T.radius, padding: "18px 20px", marginBottom: 10, boxShadow: `0 4px 20px rgba(0,100,255,0.25)` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, color: "#fff" }}>AI</div>
+        <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 6, padding: "2px 8px", fontSize: 13, fontWeight: 700, color: "#fff" }}>AI</div>
         <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>오늘의 현장 브리핑</span>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginLeft: "auto" }}>
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginLeft: "auto" }}>
           {new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" })}
         </span>
       </div>
@@ -122,7 +113,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
             <div style={{ width: 4, height: 32, background: it.color, borderRadius: 2, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 14, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.label}</div>
-              <div style={{ fontSize: 12, color: it.color, marginTop: 1, fontWeight: 600 }}>{it.sub}</div>
+              <div style={{ fontSize: 13, color: it.color, marginTop: 1, fontWeight: 600 }}>{it.sub}</div>
             </div>
           </div>
         ))}
@@ -151,9 +142,9 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
             <span style={{ fontSize: 36, lineHeight: 1 }}>{weather.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: "-1px" }}>{weather.temp}°C</div>
-              <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>{weather.text} · 최고 {weather.temp_max}° / 최저 {weather.temp_min}°</div>
+              <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>{weather.text} · 최고 {weather.temp_max}° / 최저 {weather.temp_min}°</div>
               {weatherWarnings.map((w, i) => (
-                <div key={i} style={{ background: "#FFF0F0", borderRadius: 8, padding: "5px 10px", marginTop: 8, fontSize: 12, color: T.danger, fontWeight: 600 }}>{w.text}</div>
+                <div key={i} style={{ background: T.dangerBg, borderRadius: 8, padding: "5px 10px", marginTop: 8, fontSize: 13, color: T.danger, fontWeight: 600 }}>{w.text}</div>
               ))}
             </div>
           </div>
@@ -169,7 +160,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
               { label: "SPI", value: gSPI.toFixed(2), color: cpiColor(gSPI) },
             ].map(item => (
               <div key={item.label} style={{ flex: 1, background: T.bg, borderRadius: 12, padding: "12px 10px", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: T.sub, marginBottom: 4 }}>{item.label}</div>
+                <div style={{ fontSize: 13, color: T.sub, marginBottom: 4 }}>{item.label}</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: item.color, letterSpacing: "-0.5px" }}>{item.value}</div>
               </div>
             ))}
@@ -188,7 +179,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
                 <div style={{ width: 4, height: 36, background: T.danger, borderRadius: 2, flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, color: T.text }}>{a.name}</div>
-                  <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>
                     완료 {a.pf} · 잔여 {a.rem_dur}일
                     {a.delay_days > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {a.delay_days}일 초과</span>}
                   </div>
@@ -206,7 +197,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
               <div key={issue.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${T.border}` }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), flexShrink: 0 }} />
                 <span style={{ fontSize: 14, color: T.text, flex: 1 }}>{issue.title}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: sevColor(issue.severity), background: sevColor(issue.severity) + "18", borderRadius: 6, padding: "2px 8px" }}>{issue.severity}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: sevColor(issue.severity), background: sevColor(issue.severity) + "18", borderRadius: 6, padding: "2px 8px" }}>{issue.severity}</span>
               </div>
             ))}
           </div>
@@ -228,10 +219,10 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
             <span style={{ fontSize: 32, lineHeight: 1 }}>{weather.icon}</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 24, fontWeight: 800, color: T.text, letterSpacing: "-0.5px" }}>{weather.temp}°C</div>
-              <div style={{ fontSize: 12, color: T.sub }}>{weather.text} · 최고 {weather.temp_max}° / 최저 {weather.temp_min}°</div>
+              <div style={{ fontSize: 13, color: T.sub }}>{weather.text} · 최고 {weather.temp_max}° / 최저 {weather.temp_min}°</div>
             </div>
             {weatherWarnings.length > 0 && (
-              <div style={{ background: "#FFF0F0", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: T.danger, fontWeight: 600 }}>
+              <div style={{ background: T.dangerBg, borderRadius: 8, padding: "6px 10px", fontSize: 13, color: T.danger, fontWeight: 600 }}>
                 ⚠️ {weatherWarnings.length}건
               </div>
             )}
@@ -252,7 +243,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
                 <div style={{ background: T.border, borderRadius: 100, height: 6, overflow: "hidden", marginBottom: 6 }}>
                   <div style={{ width: `${a.phys}%`, height: "100%", background: statusColor(a.status), borderRadius: 100 }} />
                 </div>
-                <div style={{ fontSize: 12, color: T.sub }}>
+                <div style={{ fontSize: 13, color: T.sub }}>
                   {a.subcon} · 완료 {a.pf} · 잔여 {a.rem_dur}일
                   {a.delay_days > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {a.delay_days}일 초과</span>}
                 </div>
@@ -271,7 +262,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: sevColor(issue.severity), flexShrink: 0 }} />
                   <span style={{ fontSize: 14, color: T.text, fontWeight: 600, flex: 1 }}>{issue.title}</span>
                 </div>
-                {issue.action_plan && <div style={{ fontSize: 12, color: T.sub, marginTop: 4, paddingLeft: 18 }}>조치: {issue.action_plan}</div>}
+                {issue.action_plan && <div style={{ fontSize: 13, color: T.sub, marginTop: 4, paddingLeft: 18 }}>조치: {issue.action_plan}</div>}
               </div>
             ))}
           </div>
@@ -300,7 +291,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
             <span style={{ fontSize: 20 }}>{weather.icon}</span>
             <span style={{ fontSize: 13, color: "rgba(255,255,255,0.9)" }}>{weather.temp}°C · {weather.text}</span>
             {weatherWarnings.length > 0 && (
-              <span style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: 12, color: "#fff", fontWeight: 600 }}>기상 주의</span>
+              <span style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: 13, color: "#fff", fontWeight: 600 }}>기상 주의</span>
             )}
           </div>
         )}
@@ -316,7 +307,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
         <div style={{ ...cardStyle, border: `1px solid ${T.danger}20` }}>
           <div style={{ ...secTitle, color: T.danger }}>오늘 기상 주의</div>
           {weatherWarnings.map((w, i) => (
-            <div key={i} style={{ background: "#FFF0F0", borderRadius: 10, padding: "10px 14px", marginBottom: 6, fontSize: 13, color: T.danger, fontWeight: 600 }}>
+            <div key={i} style={{ background: T.dangerBg, borderRadius: 10, padding: "10px 14px", marginBottom: 6, fontSize: 13, color: T.danger, fontWeight: 600 }}>
               ⚠️ {w.text}
             </div>
           ))}
@@ -340,9 +331,9 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
                     { label: "잔여 일수", value: rem_days, unit: "일", color: rem_days <= 3 ? T.danger : T.text },
                   ].map(kpi => (
                     <div key={kpi.label} style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontSize: 10, color: T.sub, marginBottom: 2 }}>{kpi.label}</div>
+                      <div style={{ fontSize: 13, color: T.sub, marginBottom: 2 }}>{kpi.label}</div>
                       <div style={{ fontSize: 20, fontWeight: 800, color: kpi.color, letterSpacing: "-0.5px" }}>
-                        {kpi.value}<span style={{ fontSize: 11, fontWeight: 400, color: T.sub }}> {kpi.unit}</span>
+                        {kpi.value}<span style={{ fontSize: 13, fontWeight: 400, color: T.sub }}> {kpi.unit}</span>
                       </div>
                     </div>
                   ))}
@@ -350,7 +341,7 @@ function MobileHome({ user, activities, issues, weather, profiles }) {
                 <div style={{ background: T.border, borderRadius: 100, height: 6, overflow: "hidden" }}>
                   <div style={{ width: `${a.phys}%`, height: "100%", background: a.critical ? T.danger : T.blue, borderRadius: 100 }} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.sub, marginTop: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub, marginTop: 6 }}>
                   <span>진척 {a.phys}%</span>
                   <span>{a.subcon}</span>
                 </div>

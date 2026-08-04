@@ -1,7 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { T, TODAY } from '../../lib/constants';
 import { sb } from '../../lib/supabase';
 import { dayStr } from '../../lib/utils';
+import { toastError } from '../../components/Feedback';
 
 export default
 function CalendarManager({ calendarDates, setCalendarDates, activities }) {
@@ -28,7 +29,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
   };
 
   const handleSetNoWork = async () => {
-    if (!reason.trim()) { alert("사유를 입력해주세요."); return; }
+    if (!reason.trim()) { toastError("사유를 입력해주세요."); return; }
     setSaving(true);
     try {
       const existing = getDateInfo(selectedDate);
@@ -45,7 +46,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
         setCalendarDates(p => [...p, saved]);
       }
       setSelectedDate(null);
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 
@@ -60,7 +61,7 @@ function CalendarManager({ calendarDates, setCalendarDates, activities }) {
       });
       setCalendarDates(p => p.filter(d => d.date !== selectedDate));
       setSelectedDate(null);
-    } catch (err) { alert("삭제 실패: " + err.message); }
+    } catch (err) { toastError("삭제 실패: " + err.message); }
     setSaving(false);
   };
 

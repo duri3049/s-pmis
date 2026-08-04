@@ -1,7 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { T, TODAY } from '../../lib/constants';
 import { sb } from '../../lib/supabase';
 import { dayStr, fmtM } from '../../lib/utils';
+import { toastError } from '../../components/Feedback';
 
 export default
 function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }) {
@@ -31,7 +32,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       setEquipment(p => [...p, saved]);
       setShowForm(false);
       setForm({ name: "", spec: "", total_count: 1 });
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 
@@ -39,7 +40,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
   const handleDeploy = async () => {
     if (!logForm.equipment_id || !logForm.activity_id) return;
     const eq = equipment.find(e => e.id === Number(logForm.equipment_id));
-    if (getAvailableUnits(eq) <= 0) { alert("가용 장비가 없습니다."); return; }
+    if (getAvailableUnits(eq) <= 0) { toastError("가용 장비가 없습니다."); return; }
     setSaving(true);
     try {
       const [saved] = await sb.post("equipment_logs", {
@@ -53,7 +54,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
       setLogs(p => [...p, saved]);
       setShowLogForm(false);
       setLogForm({ equipment_id: "", unit_number: 1, activity_id: "", note: "" });
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 
@@ -65,7 +66,7 @@ function EquipmentManager({ activities, equipment, setEquipment, logs, setLogs }
         ended_at: new Date().toISOString()
       });
       setLogs(p => p.filter(l => l.id !== log.id));
-    } catch (err) { alert("반납 실패: " + err.message); }
+    } catch (err) { toastError("반납 실패: " + err.message); }
   };
 
   const statusColor = (available, total) => {

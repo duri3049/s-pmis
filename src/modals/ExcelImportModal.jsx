@@ -4,6 +4,9 @@ import { sb } from '../lib/supabase';
 import { diffDays } from '../lib/utils';
 import { calcAct } from '../lib/cpm';
 import { downloadTemplate } from '../lib/api';
+import { ensureXLSX } from '../lib/xlsx';
+import { toastError } from '../components/Feedback';
+import { useModalA11y } from '../lib/hooks';
 
 export default
 function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
@@ -30,9 +33,9 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
     if (!file) return;
     setError("");
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
-        const XLSX = window.XLSX;
+        const XLSX = await ensureXLSX();
         const wb = XLSX.read(evt.target.result, { type: "array" });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
@@ -156,9 +159,12 @@ function ExcelImportModal({ onClose, onSave, totalBudget, activities }) {
     onSave(saved);
   };
 
+  const modalRef = useModalA11y(onClose);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div className="modal-enter" style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="공정표 업로드"
+        className="modal-enter" style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto" }}>
         {/* 헤더 */}
         <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "18px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>

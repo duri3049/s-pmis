@@ -1,7 +1,8 @@
-import { TODAY, T } from '../../lib/constants';
+﻿import { TODAY, T } from '../../lib/constants';
 import { fmtM, pct, cpiColor, statusColor, dayStr } from '../../lib/utils';
 import { sb } from '../../lib/supabase';
 import { calcTodayTarget } from '../../lib/cpm';
+import { useModalA11y } from '../../lib/hooks';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
 const rTdStyle = { padding: "6px 10px", border: `1px solid ${T.border}`, verticalAlign: "top" };
@@ -9,6 +10,7 @@ const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft:
 
 export default
 function DailyReport({ activities, progressReports, issues, equipment, equipmentLogs, weather, onClose }) {
+  const modalRef = useModalA11y(onClose);
   const today = new Date();
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
   const fmtDate = d => `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}요일`;
@@ -104,7 +106,7 @@ function DailyReport({ activities, progressReports, issues, equipment, equipment
   const secTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, margin: "14px 0 6px" };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: 20 }}>
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label="일일 보고서" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: 20 }}>
       <style>{`
         @media print {
           body * { visibility: hidden; }

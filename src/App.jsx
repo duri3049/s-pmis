@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 
-import { TODAY, T } from './lib/constants';
+import { TODAY, T, refreshTheme } from './lib/constants';
 import { supabase, sb, SB_URL, SB_KEY, VAPID_PUBLIC_KEY, HOLIDAY_KEY } from './lib/supabase';
 import { calcAct } from './lib/cpm';
 
 import InAppNotifications, { useInAppNotifications } from './components/InAppNotifications';
+import FeedbackHost, { toastError } from './components/Feedback';
+import OfflineBanner from './components/OfflineBanner';
 import SplashScreen from './components/SplashScreen';
 import AuthScreen from './features/auth/AuthScreen';
-import MobileView from './views/MobileView';
-import DesktopView from './views/DesktopView';
+
+// 현장 화면과 관리자 화면은 서로 쓰지 않는다 —
+// 현장 작업자가 관리자 대시보드 코드까지 내려받을 이유가 없어 따로 분리한다.
+const MobileView = lazy(() => import('./views/MobileView'));
+const DesktopView = lazy(() => import('./views/DesktopView'));
 
 export default function App() {
   const [siteEquipment, setSiteEquipment] = useState([]);
@@ -19,16 +24,36 @@ export default function App() {
   const [weather, setWeather] = useState(null);
   const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem("splashSeen"));
   const [themeKey, setThemeKey] = useState(0);
-  const onThemeChange = () => setThemeKey(k => k + 1);
+  const onThemeChange = () => { refreshTheme(); setThemeKey(k => k + 1); };
   const [user, setUser] = useState(null);
 
-  const [view, setView] = useState("mobile");
+  // OS 다크모드 변경(수동 설정이 없을 때)도 즉시 반영
+  useEffect(() => {
+    const h = () => setThemeKey(k => k + 1);
+    window.addEventListener("pmis-theme-change", h);
+    return () => window.removeEventListener("pmis-theme-change", h);
+  }, []);
+
+  // 초기 화면은 URL 에서 복원 — 새로고침해도 보던 화면이 유지된다
+  const initialNav = (() => {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      view: p.get("view") === "desktop" ? "desktop" : "mobile",
+      tab: p.get("tab") || "report",
+      menu: p.get("menu") || "dashboard",
+      roomId: p.get("room") ? Number(p.get("room")) : null,
+    };
+  })();
+
+  const [view, setView] = useState(initialNav.view);
   const [activities, setActivities] = useState([]);
   const [progressReports, setProgressReports] = useState([]);
   const [issues, setIssues] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [project, setProject] = useState(null);
   const [rooms, setRooms] = useState([]);
+  const roomsRef = useRef([]);
+  useEffect(() => { roomsRef.current = rooms; }, [rooms]);
   const [profiles, setProfiles] = useState([]);
   const onProfileSaved = ({ name, role }) => {
     setUser(u => u ? { ...u, name, role } : u);
@@ -39,9 +64,44 @@ export default function App() {
   const [dbError, setDbError] = useState(null);
   const [dataReady, setDataReady] = useState(false);
   const [activeRoom, setActiveRoom] = useState(null);
-  const [mobileTab, setMobileTab] = useState("report");
-  const [desktopMenu, setDesktopMenu] = useState("dashboard");
+  const [mobileTab, setMobileTab] = useState(initialNav.tab);
+  const [desktopMenu, setDesktopMenu] = useState(initialNav.menu);
   const { notifications, addNotification, dismiss, history: notifHistory, markAllSeen } = useInAppNotifications();
+
+  // ── 화면 상태 ↔ URL 동기화 ─────────────────────────────────────
+  // 라우팅이 없어서 안드로이드 뒤로가기가 곧 앱 종료였다.
+  // 이제 탭/메뉴/채팅방 이동이 히스토리에 쌓여 뒤로가기로 되돌아간다.
+  const skipPush = useRef(true);
+
+  useEffect(() => {
+    const p = new URLSearchParams();
+    p.set("view", view);
+    if (view === "mobile") p.set("tab", mobileTab); else p.set("menu", desktopMenu);
+    if (activeRoom?.id) p.set("room", String(activeRoom.id));
+    const url = `${window.location.pathname}?${p.toString()}`;
+
+    if (skipPush.current) {
+      skipPush.current = false;
+      window.history.replaceState({ view, mobileTab, desktopMenu, roomId: activeRoom?.id ?? null }, "", url);
+      return;
+    }
+    if (url === `${window.location.pathname}${window.location.search}`) return;
+    window.history.pushState({ view, mobileTab, desktopMenu, roomId: activeRoom?.id ?? null }, "", url);
+  }, [view, mobileTab, desktopMenu, activeRoom]);
+
+  useEffect(() => {
+    const onPop = (e) => {
+      const s = e.state;
+      if (!s) return;
+      skipPush.current = true; // 뒤로가기로 인한 상태 변경은 다시 push 하지 않는다
+      setView(s.view || "mobile");
+      setMobileTab(s.mobileTab || "report");
+      setDesktopMenu(s.desktopMenu || "dashboard");
+      setActiveRoom(s.roomId ? (roomsRef.current.find(r => r.id === s.roomId) || null) : null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const handleRoomClick = (roomId) => {
     const room = rooms.find(r => r.id === roomId);
@@ -82,13 +142,13 @@ export default function App() {
         // 계정에 저장된 테마 복원
         if (profile?.theme_color && profile.theme_color !== localStorage.getItem("pmis_color")) {
           localStorage.setItem("pmis_color", profile.theme_color);
-          setThemeKey(k => k + 1);
+          onThemeChange();
         }
         if (profile?.dark_mode !== undefined && profile?.dark_mode !== null) {
           const dv = profile.dark_mode ? "1" : "0";
           if (dv !== (localStorage.getItem("pmis_dark") || "0")) {
             localStorage.setItem("pmis_dark", dv);
-            setThemeKey(k => k + 1);
+            onThemeChange();
           }
         }
         setUser({ ...session.user, name: profile?.name || session.user.email?.split("@")[0] || "사용자", role: profile?.role || "기타" });
@@ -106,6 +166,9 @@ export default function App() {
     const setupPush = async () => {
       try {
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+        // VAPID 키가 없으면 구독 자체가 불가능하다 — 조용히 건너뛴다
+        // (예전에는 키가 없을 때 매 로그인마다 콘솔에 TypeError 가 쌓였다)
+        if (!VAPID_PUBLIC_KEY) return;
         const reg = await navigator.serviceWorker.register("/sw.js");
         const permission = await Notification.requestPermission();
         if (permission !== "granted") return;
@@ -200,6 +263,8 @@ export default function App() {
       try {
         const saved = await sb.get("calendars");
         const savedDates = saved || [];
+        // 공휴일 API 키가 없으면 저장된 캘린더만 사용한다
+        if (!HOLIDAY_KEY) { setCalendarDates(savedDates); return; }
         const year = new Date().getFullYear();
         const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo?serviceKey=${HOLIDAY_KEY}&solYear=${year}&numOfRows=50&_type=json`;
         const r = await fetch(url);
@@ -225,21 +290,28 @@ export default function App() {
     fetchCalendar();
   }, []);
 
-  useEffect(() => {
+  /**
+   * 현장 데이터 전체 로드.
+   * silent=true 면 스켈레톤을 띄우지 않고 조용히 갱신한다 (당겨서 새로고침용).
+   * 예전에는 새로고침이 window.location.reload() 라 진행 중이던 대화 내역이 통째로 날아갔다.
+   */
+  const loadData = useCallback(async ({ silent = false } = {}) => {
     if (!user) return;
-    setDbLoading(true);
-    Promise.all([
-      sb.get("activities"),
-      sb.get("progress_reports"),
-      sb.get("issues"),
-      sb.get("milestones"),
-      sb.get("site_equipment"),
-      sb.get("equipment_logs", "status=eq.active"),
-      sb.get("projects"),
-      sb.get("sub_activities"),
-      supabase.from("rooms").select("*").order("id", { ascending: true }),
-      supabase.from("profiles").select("*"),
-    ]).then(([acts, reports, iss, ms, siteEq, eqLogs, projects, subActs, { data: roomData }, { data: profileData }]) => {
+    if (!silent) setDbLoading(true);
+    try {
+      const [acts, reports, iss, ms, siteEq, eqLogs, projects, subActs, { data: roomData }, { data: profileData }] =
+        await Promise.all([
+          sb.get("activities"),
+          sb.get("progress_reports"),
+          sb.get("issues"),
+          sb.get("milestones"),
+          sb.get("site_equipment"),
+          sb.get("equipment_logs", "status=eq.active"),
+          sb.get("projects"),
+          sb.get("sub_activities"),
+          supabase.from("rooms").select("*").order("id", { ascending: true }),
+          supabase.from("profiles").select("*"),
+        ]);
       setSiteEquipment(siteEq || []);
       setSubActivities(subActs || []);
       setEquipmentLogs(eqLogs || []);
@@ -250,10 +322,26 @@ export default function App() {
       setMilestones(ms || []);
       setRooms(roomData || []);
       setProfiles(profileData || []);
+      setDbError(null);
       setDataReady(true);
+    } catch (err) {
+      if (silent) toastError("새로고침에 실패했어요. 네트워크를 확인해주세요.");
+      else setDbError(err.message);
+    } finally {
       setDbLoading(false);
-    }).catch(err => { setDbError(err.message); setDbLoading(false); });
+    }
   }, [user]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // URL 에 채팅방이 지정돼 있으면 방 목록 로드 후 복원
+  const roomRestored = useRef(false);
+  useEffect(() => {
+    if (roomRestored.current || !initialNav.roomId || rooms.length === 0) return;
+    roomRestored.current = true;
+    const room = rooms.find(r => r.id === initialNav.roomId);
+    if (room) setActiveRoom(room);
+  }, [rooms]);
 
   const handleLogout = async () => { await supabase.auth.signOut(); setUser(null); setDataReady(false); };
 
@@ -262,7 +350,8 @@ export default function App() {
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   if (dbLoading || !dataReady) return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, padding: 16, maxWidth: 560, margin: "0 auto" }}>
+    <div role="status" aria-live="polite" aria-label="데이터를 불러오는 중"
+      style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100dvh", background: T.bg, padding: 16, maxWidth: 560, margin: "0 auto" }}>
       {/* 스켈레톤 — 홈 레이아웃 미리보기 */}
       <div className="skeleton" style={{ height: 110, borderRadius: 16, marginBottom: 10 }} />
       <div className="skeleton" style={{ height: 72, borderRadius: 16, marginBottom: 10 }} />
@@ -278,18 +367,29 @@ export default function App() {
   );
 
   if (dbError) return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, background: "#FFF0F0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>!</div>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100dvh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, padding: 24 }}>
+      <div style={{ width: 44, height: 44, borderRadius: 14, background: T.dangerBg, color: T.danger, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800 }}>!</div>
       <div style={{ fontWeight: 700, fontSize: 18, color: T.text }}>연결에 실패했어요</div>
-      <div style={{ fontSize: 13, color: T.sub, maxWidth: 440, textAlign: "center", background: T.card, padding: "14px 18px", borderRadius: 12, wordBreak: "break-all", lineHeight: 1.6 }}>{dbError}</div>
+      <div style={{ fontSize: 14, color: T.sub, maxWidth: 440, textAlign: "center", lineHeight: 1.6 }}>
+        네트워크 상태를 확인한 뒤 다시 시도해주세요.
+      </div>
+      <button onClick={() => loadData()} style={{ background: T.blue, color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 48, marginTop: 4 }}>
+        다시 시도
+      </button>
+      <details style={{ maxWidth: 440, width: "100%" }}>
+        <summary style={{ fontSize: 12, color: T.sub, cursor: "pointer", textAlign: "center" }}>오류 상세</summary>
+        <div style={{ fontSize: 12, color: T.sub, textAlign: "center", background: T.card, padding: "14px 18px", borderRadius: 12, wordBreak: "break-all", lineHeight: 1.6, marginTop: 8 }}>{dbError}</div>
+      </details>
     </div>
   );
 
   const pendingCount = (progressReports || []).filter(r => r.status === "pending").length;
 
   return (
-    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100dvh", background: "#FAFAFA" }}>
+    <div style={{ fontFamily: "'Noto Sans KR','Apple SD Gothic Neo',sans-serif", minHeight: "100dvh", background: T.bg }}>
 
+      <FeedbackHost />
+      <OfflineBanner />
       <InAppNotifications notifications={notifications} dismiss={dismiss} onClickRoom={handleRoomClick} />
       {view === "desktop" && (
         <div style={{ background: T.card, borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: 56, flexShrink: 0 }}>
@@ -308,9 +408,16 @@ export default function App() {
           </div>
         </div>
       )}
+      <Suspense fallback={
+        <div style={{ padding: 16, maxWidth: 560, margin: "0 auto" }} role="status" aria-live="polite" aria-label="화면을 불러오는 중">
+          <div className="skeleton" style={{ height: 110, borderRadius: 16, marginBottom: 10 }} />
+          <div className="skeleton" style={{ height: 180, borderRadius: 16 }} />
+        </div>
+      }>
       {view === "mobile"
-        ? <MobileView activities={activities} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} notifHistory={notifHistory} markAllSeen={markAllSeen} />
+        ? <MobileView activities={activities} setActivities={setActivities} onRefresh={loadData} progressReports={progressReports} setProgressReports={setProgressReports} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} tab={mobileTab} setTab={setMobileTab} activeRoom={activeRoom} setActiveRoom={setActiveRoom} view={view} setView={setView} weather={weather} siteEquipment={siteEquipment} issues={issues} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} equipmentLogs={equipmentLogs} sendPush={sendPushNotification} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} /> : <DesktopView activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} milestones={milestones} setMilestones={setMilestones} user={user} onLogout={handleLogout} onNotify={addNotification} rooms={rooms} setRooms={setRooms} profiles={profiles} activeMenu={desktopMenu} setActiveMenu={setDesktopMenu} activeRoom={activeRoom} setActiveRoom={setActiveRoom} weather={weather} siteEquipment={siteEquipment} setSiteEquipment={setSiteEquipment} equipmentLogs={equipmentLogs} setEquipmentLogs={setEquipmentLogs} calendarDates={calendarDates} setCalendarDates={setCalendarDates} sendPush={sendPushNotification} project={project} setProject={setProject} subActivities={subActivities} setSubActivities={setSubActivities} dataReady={dataReady} onThemeChange={onThemeChange} onProfileSaved={onProfileSaved} notifHistory={notifHistory} markAllSeen={markAllSeen} />
       }
+      </Suspense>
     </div>
   );
 }

@@ -1,11 +1,13 @@
-import { TODAY, T } from '../../lib/constants';
+﻿import { TODAY, T } from '../../lib/constants';
 import { fmtM, pct, cpiColor, statusColor } from '../../lib/utils';
+import { useModalA11y } from '../../lib/hooks';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
 const rTdStyle = { padding: "6px 10px", border: `1px solid ${T.border}`, verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
 export default function WeeklyReport({ activities, issues, progressReports, onClose }) {
+  const modalRef = useModalA11y(onClose);
   const reportDate = new Date();
   const weekAgo = new Date(reportDate); weekAgo.setDate(weekAgo.getDate() - 7);
   const nextWeek = new Date(reportDate); nextWeek.setDate(nextWeek.getDate() + 7);
@@ -30,7 +32,7 @@ export default function WeeklyReport({ activities, issues, progressReports, onCl
   const thisWeekDone = activities.filter(a => a.af && new Date(a.af) >= weekAgo && new Date(a.af) <= reportDate);
   const nextWeekPlan = activities.filter(a => a.phys < 100 && new Date(a.ps) <= nextWeek && new Date(a.pf) >= reportDate);
   const openIssues = (issues || []).filter(i => i.status !== "closed"); return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label="주간 보고서" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #wr-content, #wr-content * { visibility: visible; } #wr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
         <button onClick={() => {

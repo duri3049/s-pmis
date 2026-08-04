@@ -1,7 +1,7 @@
-import { ANTHROPIC_KEY } from './supabase';
+import { ensureXLSX } from './xlsx';
 
-export const downloadTemplate = () => {
-  const XLSX = window.XLSX;
+export const downloadTemplate = async () => {
+  const XLSX = await ensureXLSX();
   const headers = [
     "대공종(건축/토목/기계/전기)",
     "대분류",
@@ -38,18 +38,5 @@ export const downloadTemplate = () => {
   XLSX.writeFile(wb, "FIELD LOG_공정표_템플릿.xlsx");
 };
 
-export const claudeComplete = async (prompt) => {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-    body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
-  });
-  const data = await r.json();
-  if (!r.ok) {
-    if (r.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
-    throw new Error(`AI 오류: ${r.status}`);
-  }
-  if (!data.content?.[0]?.text) throw new Error("AI 응답이 비어있습니다.");
-  console.log("AI 응답 원본:", data.content[0].text);
-  return data.content[0].text;
-};
+// AI 호출은 src/lib/ai.js 로 일원화했다. 기존 import 경로 호환을 위해 재수출한다.
+export { claudeComplete } from './ai';

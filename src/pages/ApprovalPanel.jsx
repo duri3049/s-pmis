@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { T, TODAY, CHAIN_ROLES, CHAIN_NAMES } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
 import { calcAct, calcTodayTarget, recalcCPM } from '../lib/cpm';
 import { pct, dayStr, fmtM } from '../lib/utils';
+import { toastError } from '../components/Feedback';
 
 export default
 function ApprovalPanel({ activities, setActivities, progressReports, setProgressReports, issues, setIssues, setToast, sendPush, subActivities, setSubActivities }) {
@@ -121,9 +122,9 @@ function ApprovalPanel({ activities, setActivities, progressReports, setProgress
         setActivities(updated);
       }
       setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "approved" } : r));
-    } catch (err) { alert("승인 실패: " + err.message); }
+    } catch (err) { toastError("승인 실패: " + err.message); }
   };
-  const handleReject = async (report) => { try { await sb.patch("progress_reports", report.id, { status: "rejected" }); setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "rejected" } : r)); setToast("반려되었습니다"); } catch (err) { alert("반려 실패: " + err.message); } };
+  const handleReject = async (report) => { try { await sb.patch("progress_reports", report.id, { status: "rejected" }); setProgressReports(p => p.map(r => r.id === report.id ? { ...r, status: "rejected" } : r)); setToast("반려되었습니다"); } catch (err) { toastError("반려 실패: " + err.message); } };
   return (
     <div className="pad-m" style={{ padding: 20, overflowY: "auto", height: "100%" }}>
       <div style={{ fontWeight: 700, fontSize: 17, color: T.text, marginBottom: 12 }}>결재 라인</div>

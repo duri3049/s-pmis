@@ -1,23 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { Home, ClipboardList, MessageCircle, Mic } from 'lucide-react';
 import { TODAY, T } from '../lib/constants';
-import { sb, supabase, ANTHROPIC_KEY, uploadPhoto } from '../lib/supabase';
-import { pct, cpiColor, statusColor, dayStr, fmtM, fmtTime, diffDays } from '../lib/utils';
-import { calcAct, calcTodayTarget } from '../lib/cpm';
-import { claudeComplete } from '../lib/api';
-import KPI from '../components/KPI';
-import Badge from '../components/Badge';
-import Toast from '../components/Toast';
+import { sb, supabase, uploadPhoto } from '../lib/supabase';
+import { callClaude } from '../lib/ai';
+import { dayStr } from '../lib/utils';
+import { calcTodayTarget } from '../lib/cpm';
+import { toast, toastError, toastSuccess } from '../components/Feedback';
 import MobileHome from './MobileHome';
 import RoomList from '../features/chat/RoomList';
 import ChatRoom from '../features/chat/ChatRoom';
-import ThreeWeekView from '../features/schedule/ThreeWeekView';
 import QuickReportCard from '../modals/QuickReportCard';
+import ReportEditSheet from '../modals/ReportEditSheet';
 import DailyWorkerCard from '../modals/DailyWorkerCard';
 import InvoiceCard from '../modals/InvoiceCard';
 import ProfileSettings from '../modals/ProfileSettings';
-import EquipmentManager from '../features/equipment/EquipmentManager';
-import DailyReport from '../features/reports/DailyReport';
 
 const sheetStyle = document.createElement("style");
 sheetStyle.textContent = `
@@ -30,7 +26,7 @@ if (!document.head.querySelector("[data-mobile-anim]")) {
 }
 
 export default
-function MobileView({ activities, progressReports, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush, onThemeChange, onProfileSaved }) {
+function MobileView({ activities, setActivities, onRefresh, setProgressReports, chatMessages, setChatMessages, user, onNotify, rooms, setRooms, profiles, tab, setTab, activeRoom, setActiveRoom, view, setView, weather, siteEquipment, issues, subActivities, setSubActivities, setEquipmentLogs, equipmentLogs, sendPush, onThemeChange, onProfileSaved }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -40,10 +36,12 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const [listening, setListening] = useState(false);
   const recogRef = useRef(null);
 
-  // 음성 입력 (Web Speech API)
+  // 음성 입력 (Web Speech API) — 미지원 브라우저에서는 버튼 자체를 숨긴다.
+  // 예전에는 버튼이 보이는데 누르면 alert 만 떠서, iOS 사용자는 매번 헛손질을 했다.
+  const voiceSupported = typeof window !== "undefined" && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   const toggleVoice = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("이 브라우저는 음성 인식을 지원하지 않아요. 크롬을 사용해주세요."); return; }
+    if (!SR) return;
     if (listening) { recogRef.current?.stop(); return; }
     const recog = new SR();
     recog.lang = "ko-KR";
@@ -65,6 +63,7 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
     setListening(true);
   };
   const [pendingReport, setPendingReport] = useState(null);
+  const [editingReport, setEditingReport] = useState(false);
   const [pendingStart, setPendingStart] = useState(null);
   const [showInvoice, setShowInvoice] = useState(false);
   const [pendingEquipment, setPendingEquipment] = useState(null);
@@ -75,7 +74,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
   const reportBottom = useRef(null);
   useEffect(() => { reportBottom.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages, pendingReport]);
 
-  const CHIPS = [];
   const [showWorker, setShowWorker] = useState(false);
 
   const notifyApprovers = (reporterName, summary) => {
@@ -91,11 +89,6 @@ function MobileView({ activities, progressReports, setProgressReports, chatMessa
 
 
   const callAI = async (userMsg, history) => {
-    console.log("시스템 프롬프트 공정현황:", activities.map(a => {
-      const subs = subActivities.filter(s => s.activity_id === a.id && s.status === "active");
-      return `공종ID ${a.id}: ${a.name} | 세부공정 ${subs.length}개: ${subs.map(s => `[ID:${s.id}] ${s.name}`).join(", ")}`;
-    }).join("\n"));
-
     const systemPrompt = `너는 건설현장 AI 어시스턴트야. 현장 반장들이랑 친근하게 대화해.
 
 
@@ -164,24 +157,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 일반 대화의 경우에만 텍스트로 답해. `;
 
     const messages = [...history, { role: "user", content: userMsg }];
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: systemPrompt, messages })
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      if (r.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
-      throw new Error(`AI 오류: ${r.status}`);
-    }
-    if (!data.content?.[0]?.text) throw new Error("AI 응답이 비어있습니다.");
-    console.log("AI 응답 원본:", data.content[0].text);
-    return data.content[0].text;
+    return callClaude({ system: systemPrompt, messages, max_tokens: 1000 });
   };
 
   const handleReportSubmit = async () => {
@@ -264,9 +240,6 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 order_warning: res.order_warning || false,
                 order_warning_message: res.order_warning_message || "",
                 complete_all_subs: res.complete_all_subs || false,
-                photo_folder: res.photo_folder || "etc",
-                order_warning: res.order_warning || false,
-                order_warning_message: res.order_warning_message || "",
                 raw: msg,
                 sent: false
               });
@@ -399,7 +372,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
           setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: `ℹ️ ${activity.name}은 이미 ${activity.as_}에 착수됐습니다.` }]);
         }
       }
-    } catch (err) { alert("착수 처리 실패: " + err.message); }
+    } catch (err) { toastError("착수 처리 실패: " + err.message); }
     setPendingStart(null);
   };
 
@@ -478,7 +451,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
       setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: "관리자에게 전달되었습니다" }]);
       notifyApprovers(user.name, pendingReport.summary || pendingReport.activity?.name || "작업보고");
       // 결재권자(현장소장, 공무과장)에게 푸시 알림
-    } catch (err) { alert("전송 실패: " + err.message); }
+      toastSuccess("보고를 전달했어요");
+    } catch (err) { toastError("전송 실패: " + err.message); }
   };
 
   const handleSendEquipment = async () => {
@@ -496,7 +470,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
           });
           setEquipmentLogs(p => p.filter(l => l.id !== activeLog.id));
         } else {
-          alert("반납할 장비 투입 기록이 없습니다.");
+          toastError("반납할 장비 투입 기록이 없습니다.");
           return;
         }
       } else {
@@ -519,7 +493,8 @@ JSON 없이 자연스럽게 한국어로만 답해.
       }
       setPendingEquipment(p => ({ ...p, sent: true }));
       setChatMessages(p => [...p, { id: Date.now() + Math.random(), role: "system", content: pendingEquipment.type === "return" ? "장비 반납이 기록되었습니다" : "장비 투입이 기록되었습니다" }]);
-    } catch (err) { alert("전송 실패: " + err.message); }
+      toastSuccess(pendingEquipment.type === "return" ? "장비 반납을 기록했어요" : "장비 투입을 기록했어요");
+    } catch (err) { toastError("전송 실패: " + err.message); }
   };
 
   // 당겨서 새로고침
@@ -533,20 +508,43 @@ JSON 없이 자연스럽게 한국어로만 답해.
     const d = e.touches[0].clientY - pullRef.current.y;
     if (d > 10) setPullDist(Math.min((d - 10) * 0.4, 76));
   };
-  const onPullEnd = () => {
-    if (pullDist > 54) { setPullDist(60); window.location.reload(); return; }
+  const onPullEnd = async () => {
+    // 예전에는 window.location.reload() 라 진행 중이던 대화 내역이 통째로 날아갔다.
+    // 이제 데이터만 조용히 다시 불러온다.
+    if (pullDist > 54) {
+      setPullDist(60);
+      pullRef.current.active = false;
+      try { await onRefresh?.({ silent: true }); toast("최신 정보로 갱신했어요"); }
+      finally { setPullDist(0); }
+      return;
+    }
     setPullDist(0);
     pullRef.current.active = false;
   };
 
   return (
-    <div onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd}
+    <div onTouchStart={onPullStart} onTouchMove={onPullMove} onTouchEnd={onPullEnd} className="field-ui"
       style={{ maxWidth: 420, margin: "0 auto", display: "flex", flexDirection: "column", height: "100dvh", background: T.bg, position: "relative" }}>
       {/* 당겨서 새로고침 인디케이터 */}
       {pullDist > 0 && (
         <div style={{ position: "absolute", top: pullDist - 40, left: "50%", transform: "translateX(-50%)", zIndex: 500, width: 34, height: 34, borderRadius: "50%", background: T.card, boxShadow: T.shadow, display: "flex", alignItems: "center", justifyContent: "center", transition: pullDist === 60 ? "none" : "top 0.05s" }}>
           <span style={{ fontSize: 16, color: pullDist > 54 ? T.blue : T.sub, display: "inline-block", transform: `rotate(${pullDist * 4}deg)`, transition: "color 0.15s" }}>↻</span>
         </div>
+      )}
+
+      {/* AI 파싱 결과 수정 시트 */}
+      {editingReport && pendingReport && (
+        <ReportEditSheet
+          report={pendingReport}
+          activities={activities}
+          subActivities={subActivities}
+          onCancel={() => setEditingReport(false)}
+          onSave={(updated) => {
+            setPendingReport(updated);
+            setEditingReport(false);
+            toast("보고 내용을 수정했어요");
+          }}
+        />
       )}
 
       {/* 개인설정 전체화면 */}
@@ -591,7 +589,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 <button key={item.label} onClick={item.onClick} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: item.active ? T.blue : T.text }}>{item.label}</div>
-                    <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>{item.desc}</div>
+                    <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>{item.desc}</div>
                   </div>
                   {item.active && <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.blue }} />}
                 </button>
@@ -616,19 +614,9 @@ JSON 없이 자연스럽게 한국어로만 답해.
           <div style={{ width: 34, height: 34, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14, color: "#fff", flexShrink: 0 }}>{user.name[0]}</div>
           <div style={{ textAlign: "left" }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{user.name}</div>
-            <div style={{ fontSize: 11, color: T.sub }}>{user.role}</div>
+            <div style={{ fontSize: 13, color: T.sub }}>{user.role}</div>
           </div>
         </button>
-      </div>
-
-      {/* 탭 */}
-      <div style={{ display: "flex", background: T.card, borderBottom: `1px solid ${T.border}`, flexShrink: 0 }}>
-        {[{ id: "home", label: "홈", Icon: Home }, { id: "report", label: "작업보고", Icon: ClipboardList }, { id: "chat", label: "채팅", Icon: MessageCircle }].map(t => (
-          <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }} style={{ flex: 1, padding: "12px 0 10px", border: "none", background: "none", fontWeight: tab === t.id ? 700 : 500, fontSize: 13, color: tab === t.id ? T.blue : T.sub, borderBottom: tab === t.id ? `2px solid ${T.blue}` : "2px solid transparent", cursor: "pointer", transition: "all 0.15s", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-            <t.Icon size={18} strokeWidth={tab === t.id ? 2.4 : 1.8} />
-            {t.label}
-          </button>
-        ))}
       </div>
 
       {/* 콘텐츠 영역 */}
@@ -641,15 +629,15 @@ JSON 없이 자연스럽게 한국어로만 답해.
               {/* 오늘 목표 현황 */}
               {activities.filter(a => a.phys < 100 && a.as_).length > 0 && (
                 <div style={{ background: T.card, borderRadius: T.radius, padding: "16px 18px", boxShadow: T.shadow }}>
-                  <div style={{ fontSize: 12, color: T.sub, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>오늘 목표 현황</div>
+                  <div style={{ fontSize: 13, color: T.sub, marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>오늘 목표 현황</div>
                   <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
                     {activities.filter(a => a.phys < 100 && a.as_).map(a => {
                       const { daily_target, rem_days } = calcTodayTarget(a);
                       return (
                         <div key={a.id} style={{ background: T.bg, borderRadius: 12, padding: "10px 14px", minWidth: 120, flexShrink: 0 }}>
-                          <div style={{ fontSize: 11, color: T.sub, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{a.name}</div>
-                          <div style={{ fontSize: 20, fontWeight: 800, color: T.blue, letterSpacing: "-0.5px" }}>{daily_target}<span style={{ fontSize: 11, fontWeight: 400, color: T.sub }}> {a.unit}</span></div>
-                          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>잔여 {rem_days}일</div>
+                          <div style={{ fontSize: 13, color: T.sub, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 100 }}>{a.name}</div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: T.blue, letterSpacing: "-0.5px" }}>{daily_target}<span style={{ fontSize: 13, fontWeight: 400, color: T.sub }}> {a.unit}</span></div>
+                          <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>잔여 {rem_days}일</div>
                         </div>
                       );
                     })}
@@ -660,7 +648,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
               {chatMessages.map(m => {
                 if (m.role === "system") return (
                   <div key={m.id} style={{ textAlign: "center" }}>
-                    <span style={{ background: T.border, color: T.sub, fontSize: 12, borderRadius: 20, padding: "4px 14px", display: "inline-block" }}>{m.content}</span>
+                    <span style={{ background: T.border, color: T.sub, fontSize: 13, borderRadius: 20, padding: "4px 14px", display: "inline-block" }}>{m.content}</span>
                   </div>
                 );
                 if (m.role === "user") return (
@@ -670,7 +658,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 );
                 if (m.role === "loading") return (
                   <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
                     <div style={{ background: T.card, color: T.sub, borderRadius: "18px 18px 18px 4px", padding: "11px 16px", fontSize: 13, fontStyle: "italic", boxShadow: T.shadow }}>
                       <span style={{ display: "inline-flex", gap: 3 }}>
                         <span style={{ animation: "pulse 1s infinite" }}>●</span>
@@ -682,7 +670,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                 );
                 if (m.role === "ai") return (
                   <div key={m.id} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: T.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>AI</div>
                     <div style={{ background: T.card, color: T.text, borderRadius: "18px 18px 18px 4px", padding: "11px 16px", maxWidth: "78%", fontSize: 14, lineHeight: 1.6, boxShadow: T.shadow }}>{m.content}</div>
                   </div>
                 );
@@ -691,7 +679,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 
               {pendingReport && (
                 <div style={{ background: T.card, border: `1.5px solid ${T.blue}30`, borderRadius: T.radius, padding: "18px 18px", boxShadow: T.shadow }}>
-                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 파싱 결과</div>
+                  <div style={{ fontSize: 13, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 파싱 결과</div>
                   <div style={{ fontWeight: 700, fontSize: 16, color: T.text }}>{pendingReport.activity.name}</div>
                   <div style={{ background: T.bg, borderRadius: 12, padding: "12px 14px", margin: "12px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -719,22 +707,22 @@ JSON 없이 자연스럽게 한국어로만 답해.
                     </div>
                   </div>
                   {pendingReport.delay_days > 0 && (
-                    <div style={{ background: "#FFF0F0", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                    <div style={{ background: T.dangerBg, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.danger }}>공기 지연 +{pendingReport.delay_days}일</div>
                     </div>
                   )}
                   {pendingReport.order_warning && (
-                    <div style={{ background: "#FFF8EC", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+                    <div style={{ background: T.warnBg, borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: T.warn, marginBottom: 4 }}>작업 순서 확인 필요</div>
-                      <div style={{ fontSize: 12, color: T.text }}>{pendingReport.order_warning_message}</div>
-                      <div style={{ fontSize: 11, color: T.sub, marginTop: 6 }}>맞으면 이대로 보내기를 눌러주세요.</div>
+                      <div style={{ fontSize: 13, color: T.text }}>{pendingReport.order_warning_message}</div>
+                      <div style={{ fontSize: 13, color: T.sub, marginTop: 6 }}>맞으면 이대로 보내기를 눌러주세요.</div>
                     </div>
                   )}
                   {pendingReport.special_note && <div style={{ fontSize: 13, color: T.danger, marginBottom: 10, fontWeight: 600 }}>{pendingReport.special_note}</div>}
                   <div style={{ fontSize: 13, color: T.sub, marginBottom: 12 }}>{pendingReport.summary}</div>
                   {pendingReport.worker_details && pendingReport.worker_details.length > 0 && (
                     <div style={{ background: T.bg, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: T.sub, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>투입 인원</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.sub, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>투입 인원</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {pendingReport.worker_details.map((w, i) => (
                           <div key={i} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "4px 12px", fontSize: 12 }}>
@@ -742,7 +730,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                             <span style={{ fontWeight: 700, color: T.text, marginLeft: 6 }}>{w.count}명</span>
                           </div>
                         ))}
-                        <div style={{ background: T.blue, borderRadius: 8, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: "#fff" }}>
+                        <div style={{ background: T.blue, borderRadius: 8, padding: "4px 12px", fontSize: 13, fontWeight: 700, color: "#fff" }}>
                           총 {pendingReport.workers}명
                         </div>
                       </div>
@@ -751,19 +739,19 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   {pendingReport.matching_reason && (
                     <div style={{ background: `${T.success}12`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
-                        <span style={{ fontSize: 10, background: pendingReport.matching_confidence === "high" ? `${T.success}20` : pendingReport.matching_confidence === "medium" ? "#FFF0D0" : "#FFF0F0", color: pendingReport.matching_confidence === "high" ? T.success : pendingReport.matching_confidence === "medium" ? T.warn : T.danger, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
+                        <span style={{ fontSize: 13, background: pendingReport.matching_confidence === "high" ? `${T.success}20` : pendingReport.matching_confidence === "medium" ? T.warnBg : T.dangerBg, color: pendingReport.matching_confidence === "high" ? T.success : pendingReport.matching_confidence === "medium" ? T.warn : T.danger, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
                           {pendingReport.matching_confidence === "high" ? "높음" : pendingReport.matching_confidence === "medium" ? "보통" : "낮음"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: T.text }}>{pendingReport.matching_reason}</div>
+                      <div style={{ fontSize: 13, color: T.text }}>{pendingReport.matching_reason}</div>
                     </div>
                   )}
 
                   {/* 사진 첨부 요청 */}
                   {!pendingReport.sent && pendingReport.photo_required !== "none" && (
                     <div style={{
-                      background: pendingReport.photo_required === "required" ? "#FFF0F0" : `${T.success}10`,
+                      background: pendingReport.photo_required === "required" ? T.dangerBg : `${T.success}10`,
                       border: `1px solid ${pendingReport.photo_required === "required" ? `${T.danger}30` : `${T.success}30`}`,
                       borderRadius: 10, padding: "12px 14px", marginBottom: 12
                     }}>
@@ -774,7 +762,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                         ? <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <img src={cardPhoto.url} style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8 }} />
                           <span style={{ fontSize: 13, color: T.success, flex: 1, fontWeight: 600 }}>사진 첨부됨</span>
-                          <button onClick={() => setCardPhoto(null)} style={{ background: T.bg, border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 12, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
+                          <button onClick={() => setCardPhoto(null)} style={{ background: T.bg, border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 13, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
                         </div>
                         : <div>
                           <input id="card-photo-input" type="file" accept="image/*" capture="environment" onChange={e => {
@@ -790,23 +778,57 @@ JSON 없이 자연스럽게 한국어로만 답해.
                     </div>
                   )}
                   {!pendingReport.sent
-                    ? <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => {
-                        if (pendingReport.photo_required === "required" && !attachedPhoto) {
-                          alert("사진을 첨부해주세요.");
+                    ? (() => {
+                      // 매핑 신뢰도가 낮으면 '수정'을 주 버튼으로 올린다.
+                      // 확신 없는 매핑을 한 번의 탭으로 그대로 승인 큐에 넘기지 않기 위함.
+                      const lowConfidence = pendingReport.matching_confidence === "low" && !pendingReport.edited;
+                      const send = () => {
+                        // 사진은 카드/입력창 어느 쪽에 붙였든 유효하다.
+                        // 예전에는 입력창(attachedPhoto)만 확인해서, 카드에서 첨부한 사용자는 계속 막혔다.
+                        if (pendingReport.photo_required === "required" && !attachedPhoto && !cardPhoto) {
+                          toastError("사진을 첨부해주세요.");
                           return;
                         }
                         handleSendReport();
-                      }} style={{ flex: 1, background: T.blue, color: "#fff", border: "none", borderRadius: 12, padding: "14px 0", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>이대로 보내기</button>
-                      <button style={{ background: T.bg, color: T.sub, border: "none", borderRadius: 12, padding: "14px 16px", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>수정</button>
-                    </div>
+                      };
+                      const sendBtn = (
+                        <button key="send" onClick={send} style={{
+                          flex: lowConfidence ? "0 0 auto" : 1,
+                          background: lowConfidence ? T.bg : T.blue,
+                          color: lowConfidence ? T.sub : "#fff",
+                          border: "none", borderRadius: 12, padding: lowConfidence ? "15px 18px" : "15px 0",
+                          fontWeight: 700, fontSize: 15, cursor: "pointer", minHeight: 52,
+                        }}>이대로 보내기</button>
+                      );
+                      const editBtn = (
+                        <button key="edit" onClick={() => setEditingReport(true)} style={{
+                          flex: lowConfidence ? 1 : "0 0 auto",
+                          background: lowConfidence ? T.blue : T.bg,
+                          color: lowConfidence ? "#fff" : T.text,
+                          border: "none", borderRadius: 12, padding: lowConfidence ? "15px 0" : "15px 22px",
+                          fontWeight: lowConfidence ? 700 : 600, fontSize: 15, cursor: "pointer", minHeight: 52,
+                        }}>수정</button>
+                      );
+                      return (
+                        <>
+                          {lowConfidence && (
+                            <div style={{ background: T.warnBg, borderRadius: 10, padding: "10px 14px", marginBottom: 10, fontSize: 13, color: T.warn, fontWeight: 600, lineHeight: 1.5 }}>
+                              공종 매핑이 확실하지 않아요. 내용을 확인하고 필요하면 수정해주세요.
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: 8 }}>
+                            {lowConfidence ? [editBtn, sendBtn] : [sendBtn, editBtn]}
+                          </div>
+                        </>
+                      );
+                    })()
                     : <div style={{ textAlign: "center", color: T.success, fontWeight: 700, fontSize: 14 }}>전송 완료</div>}
                 </div>
               )}
 
               {pendingStart && (
                 <div style={{ background: T.card, border: `1.5px solid ${T.success}30`, borderRadius: T.radius, padding: "18px", boxShadow: T.shadow }}>
-                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>착수 확인</div>
+                  <div style={{ fontSize: 13, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>착수 확인</div>
                   <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 4 }}>
                     {pendingStart.sub ? pendingStart.sub.name : pendingStart.activity?.name || "공종"}
                   </div>
@@ -816,12 +838,12 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   {pendingStart.matching_reason && (
                     <div style={{ background: `${T.success}10`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
-                        <span style={{ fontSize: 10, background: pendingStart.matching_confidence === "high" ? `${T.success}20` : "#FFF0D0", color: pendingStart.matching_confidence === "high" ? T.success : T.warn, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.success }}>AI 매핑 근거</span>
+                        <span style={{ fontSize: 13, background: pendingStart.matching_confidence === "high" ? `${T.success}20` : T.warnBg, color: pendingStart.matching_confidence === "high" ? T.success : T.warn, borderRadius: 6, padding: "2px 8px", fontWeight: 700 }}>
                           {pendingStart.matching_confidence === "high" ? "높음" : "보통"}
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: T.text }}>{pendingStart.matching_reason}</div>
+                      <div style={{ fontSize: 13, color: T.text }}>{pendingStart.matching_reason}</div>
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
@@ -833,7 +855,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
 
               {pendingEquipment && (
                 <div style={{ background: T.card, border: `1.5px solid ${T.success}30`, borderRadius: T.radius, padding: "18px", boxShadow: T.shadow }}>
-                  <div style={{ fontSize: 11, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 장비 파싱 결과</div>
+                  <div style={{ fontSize: 13, color: T.sub, marginBottom: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>AI 장비 파싱 결과</div>
                   <div style={{ fontWeight: 700, fontSize: 16, color: T.text, marginBottom: 12 }}>
                     {pendingEquipment.type === "return" ? "반납" : "투입"} — {pendingEquipment.equipment_name} {pendingEquipment.unit_count}대
                   </div>
@@ -845,7 +867,7 @@ JSON 없이 자연스럽게 한국어로만 답해.
                       공종: {pendingEquipment.activity ? pendingEquipment.activity.name : <span style={{ color: T.warn }}>미지정</span>}
                     </div>
                     {pendingEquipment.note && (
-                      <div style={{ fontSize: 12, color: T.sub }}>비고: {pendingEquipment.note}</div>
+                      <div style={{ fontSize: 13, color: T.sub }}>비고: {pendingEquipment.note}</div>
                     )}
                   </div>
                   {!pendingEquipment.sent
@@ -910,19 +932,19 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   { key: "invoice", label: "기성청구", color: T.warn, active: showInvoice, onClick: () => { setShowInvoice(v => !v); setShowWorker(false); setQuickType(null); } },
                   { key: "worker", label: "인원보고", color: T.blue, active: showWorker, onClick: () => { setShowWorker(v => !v); setShowInvoice(false); setQuickType(null); } },
                 ].map(btn => (
-                  <button key={btn.key} onClick={btn.onClick} style={{ whiteSpace: "nowrap", background: btn.active ? btn.color : T.bg, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, color: btn.active ? "#fff" : btn.color, cursor: "pointer", fontWeight: 700, transition: "all 0.15s" }}>
+                  <button key={btn.key} onClick={btn.onClick} style={{ whiteSpace: "nowrap", background: btn.active ? btn.color : T.bg, border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 13, color: btn.active ? "#fff" : btn.color, cursor: "pointer", fontWeight: 700, transition: "all 0.15s" }}>
                     {btn.label}
                   </button>
                 ))}
-                <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: T.bg, border: "none", borderRadius: 20, padding: "6px 12px", fontSize: 12, color: T.sub, cursor: "pointer", marginLeft: "auto" }}>초기화</button>
+                <button onClick={handleReset} style={{ whiteSpace: "nowrap", background: T.bg, border: "none", borderRadius: 20, padding: "6px 12px", fontSize: 13, color: T.sub, cursor: "pointer", marginLeft: "auto" }}>초기화</button>
               </div>
 
               {attachedPhoto && (
                 <div style={{ padding: "6px 14px 0", display: "flex", alignItems: "center", gap: 10 }}>
                   <img src={attachedPhoto.url} alt="첨부" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} />
-                  <div style={{ flex: 1, fontSize: 12, color: T.sub }}>{attachedPhoto.file.name}</div>
+                  <div style={{ flex: 1, fontSize: 13, color: T.sub }}>{attachedPhoto.file.name}</div>
                   <button onClick={() => setAttachedPhoto(null)}
-                    style={{ background: T.bg, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
+                    style={{ background: T.bg, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 13, color: T.danger, cursor: "pointer", fontWeight: 700 }}>✕</button>
                 </div>
               )}
               <div style={{ padding: "8px 14px 16px", display: "flex", gap: 8, alignItems: "center" }}>
@@ -930,14 +952,24 @@ JSON 없이 자연스럽게 한국어로만 답해.
                   const file = e.target.files[0];
                   if (file) setAttachedPhoto({ file, url: URL.createObjectURL(file) });
                 }} style={{ display: "none" }} />
-                <button onClick={() => photoRef.current?.click()} style={{ background: T.bg, border: `1.5px solid ${T.border}`, borderRadius: 10, width: 42, height: 42, fontSize: 11, fontWeight: 700, color: T.sub, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>사진</button>
-                <button onClick={toggleVoice}
-                  style={{ background: listening ? T.danger : T.bg, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 10, width: 42, height: 42, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", animation: listening ? "micPulse 1.2s ease infinite" : "none" }}>
-                  <Mic size={17} color={listening ? "#fff" : T.sub} />
-                </button>
+                <button onClick={() => photoRef.current?.click()} aria-label="사진 첨부"
+                  style={{ background: T.bg, border: `1.5px solid ${T.border}`, borderRadius: 12, width: 46, height: 46, fontSize: 13, fontWeight: 700, color: T.sub, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>사진</button>
+                {/* 음성 인식 미지원 브라우저(iOS Safari 등)에서는 버튼을 아예 노출하지 않는다 */}
+                {voiceSupported && (
+                  <button onClick={toggleVoice} aria-label={listening ? "음성 입력 중지" : "음성으로 입력"} aria-pressed={listening}
+                    style={{ background: listening ? T.danger : T.bg, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 12, width: 46, height: 46, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", animation: listening ? "micPulse 1.2s ease infinite" : "none" }}>
+                    <Mic size={18} color={listening ? "#fff" : T.sub} />
+                  </button>
+                )}
                 {listening && <style>{`@keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 ${T.danger}50; } 50% { box-shadow: 0 0 0 7px ${T.danger}00; } }`}</style>}
-                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()} placeholder={listening ? "듣고 있어요... 말씀하세요" : "작업 물량, 인력, 특이사항 자유 입력"} style={{ flex: 1, minWidth: 0, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 22, padding: "11px 16px", fontSize: 15, outline: "none", background: T.bg, color: T.text }} />
-                <button onClick={handleReportSubmit} disabled={loading} style={{ background: T.blue, border: "none", borderRadius: 22, padding: "11px 18px", fontWeight: 700, fontSize: 14, color: "#fff", cursor: loading ? "default" : "pointer", flexShrink: 0, opacity: loading ? 0.6 : 1 }}>전송</button>
+                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleReportSubmit()}
+                  aria-label="작업 보고 입력"
+                  placeholder={listening ? "듣고 있어요... 말씀하세요" : "작업 물량, 인력, 특이사항 자유 입력"}
+                  style={{ flex: 1, minWidth: 0, border: `1.5px solid ${listening ? T.danger : T.border}`, borderRadius: 23, padding: "13px 16px", fontSize: 16, outline: "none", background: T.bg, color: T.text, minHeight: 46 }} />
+                <button onClick={handleReportSubmit} disabled={loading}
+                  style={{ background: T.blue, border: "none", borderRadius: 23, padding: "13px 20px", fontWeight: 700, fontSize: 15, color: "#fff", cursor: loading ? "default" : "pointer", flexShrink: 0, opacity: loading ? 0.6 : 1, minHeight: 46 }}>
+                  {loading ? "분석 중" : "전송"}
+                </button>
               </div>
             </div>
           </div>
@@ -947,6 +979,31 @@ JSON 없이 자연스럽게 한국어로만 답해.
             : <RoomList rooms={rooms} setRooms={setRooms} user={user} onEnterRoom={setActiveRoom} profiles={profiles} />
         )}
       </div>
+
+      {/* ── 하단 탭바 ──
+          예전에는 헤더 바로 아래(화면 최상단)에 있어서 엄지가 닿지 않았다.
+          한 손 조작 / 장갑 낀 손을 고려해 하단으로 내리고 터치 영역을 키웠다. */}
+      <nav aria-label="주요 메뉴" style={{
+        display: "flex", background: T.card, borderTop: `1px solid ${T.border}`, flexShrink: 0,
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}>
+        {[{ id: "home", label: "홈", Icon: Home }, { id: "report", label: "작업보고", Icon: ClipboardList }, { id: "chat", label: "채팅", Icon: MessageCircle }].map(t => {
+          const active = tab === t.id;
+          return (
+            <button key={t.id} onClick={() => { setTab(t.id); setActiveRoom(null); }}
+              aria-current={active ? "page" : undefined} aria-label={t.label}
+              style={{
+                flex: 1, padding: "10px 0 8px", border: "none", background: "none",
+                fontWeight: active ? 700 : 500, fontSize: 13, color: active ? T.blue : T.sub,
+                cursor: "pointer", transition: "color 0.15s", display: "flex", flexDirection: "column",
+                alignItems: "center", gap: 4, minHeight: 56,
+              }}>
+              <t.Icon size={22} strokeWidth={active ? 2.4 : 1.8} />
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }

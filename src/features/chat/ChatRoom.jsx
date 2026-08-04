@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { T } from '../../lib/constants';
-import { supabase, sb, ANTHROPIC_KEY as SK_ANTHROPIC_KEY } from '../../lib/supabase';
+import { supabase, sb } from '../../lib/supabase';
+import { claudeComplete } from '../../lib/ai';
 import { fmtTime, dayStr } from '../../lib/utils';
 
 export default function ChatRoom({ room, user, onBack, onNotify, profiles, activities, subActivities, sendPush }) {
@@ -42,22 +43,7 @@ ${(activities || []).map(a => {
 - 작업 보고가 아니면 그냥 텍스트로만 답해
 - JSON 앞뒤에 마크다운 붙이지 마. 순수 JSON만.`;
 
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": SK_ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 500,
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-      const data = await r.json();
-      const rawText = data.content[0].text;
+      const rawText = await claudeComplete(prompt, 500);
       const cleaned = rawText.replace(/```json\n?|```/g, "").trim();
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
 

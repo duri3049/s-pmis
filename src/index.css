@@ -103,6 +103,43 @@ html, body, #root {
   .pad-m { padding: 12px !important; }
 }
 
+/* ── iOS Safari 입력 확대 방지 ──
+   폰트가 16px 미만인 입력에 포커스하면 iOS 가 화면을 강제로 확대한다.
+   보고를 칠 때마다 레이아웃이 튀던 원인. 날짜 입력과 .dense(공정표 그리드)는 제외. */
+@media (max-width: 768px) {
+  input:not([type="date"]):not([type="checkbox"]):not([type="radio"]):not(.dense),
+  textarea:not(.dense),
+  select:not(.dense) {
+    font-size: 16px !important;
+  }
+}
+
+/* ── 키보드 포커스 표시 ──
+   클릭으로는 안 보이고 Tab 이동 시에만 나타난다. */
+:focus-visible {
+  outline: 2px solid #0064FF;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── 최소 터치 타깃 ──
+   장갑 낀 손 / 흔들리는 현장을 고려해 44px 미만 버튼이 없도록 보정.
+   밀집 레이아웃(공정표 그리드)이 깨지지 않도록 현장 화면(.field-ui) 안으로만 한정하고,
+   .compact 를 붙인 버튼은 예외로 둔다. */
+.field-ui button:not(.compact),
+.field-ui [role="button"]:not(.compact) {
+  min-height: 44px;
+}
+
+/* ── 모션 최소화 설정 존중 ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── 스크롤바 커스텀 ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

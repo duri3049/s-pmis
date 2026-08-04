@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { T } from '../lib/constants';
 import { sb, supabase, uploadPhoto } from '../lib/supabase';
+import { toastError, confirmDialog } from '../components/Feedback';
 
 export default
 function DocumentVault() {
@@ -59,11 +60,11 @@ function DocumentVault() {
   const getFolderIcon = (folderId) => FOLDERS.find(f => f.id === folderId)?.icon || "📄";
 
   const handleDelete = async (file) => {
-    if (!window.confirm(`"${file.name}" 파일을 삭제할까요?`)) return;
+    if (!await confirmDialog(`"${file.name}" 파일을 삭제할까요?`)) return;
     try {
       await supabase.storage.from("fieldlog-photos").remove([`${file.folder}/${file.name}`]);
       setFiles(p => p.filter(f => f.name !== file.name || f.folder !== file.folder));
-    } catch (err) { alert("삭제 실패: " + err.message); }
+    } catch (err) { toastError("삭제 실패: " + err.message); }
   };
 
   const isImage = (name) => /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(name);

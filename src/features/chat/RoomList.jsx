@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { T } from '../../lib/constants';
 import { supabase } from '../../lib/supabase';
 import { fmtTime } from '../../lib/utils';
+import { toastError } from '../../components/Feedback';
 
 export default function RoomList({ rooms, setRooms, user, onEnterRoom, profiles }) {
   const [lastMsgs, setLastMsgs] = useState({});
@@ -51,13 +52,13 @@ export default function RoomList({ rooms, setRooms, user, onEnterRoom, profiles 
       setRooms(p => [...p, data]);
       onEnterRoom(data);
       setShowNewChat(false);
-    } catch (err) { alert("채팅방 생성 실패: " + err.message); }
+    } catch (err) { toastError("채팅방 생성 실패: " + err.message); }
     setCreating(false);
   };
 
   // 그룹 채팅방 생성
   const handleGroupChat = async () => {
-    if (!groupName.trim()) { alert("그룹명을 입력해주세요."); return; }
+    if (!groupName.trim()) { toastError("그룹명을 입력해주세요."); return; }
     setCreating(true);
     try {
       const memberIds = [user.id, ...selectedUsers.map(u => u.id)];
@@ -73,7 +74,7 @@ export default function RoomList({ rooms, setRooms, user, onEnterRoom, profiles 
       setShowGroupForm(false);
       setGroupName("");
       setSelectedUsers([]);
-    } catch (err) { alert("그룹 생성 실패: " + err.message); }
+    } catch (err) { toastError("그룹 생성 실패: " + err.message); }
     setCreating(false);
   };
 

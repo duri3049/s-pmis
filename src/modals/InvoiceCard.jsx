@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { T, TODAY, SUBCONS } from '../lib/constants';
 import { sb, uploadPhoto } from '../lib/supabase';
 import { dayStr, fmtM } from '../lib/utils';
+import { toastError } from '../components/Feedback';
 
 export default
 function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, onSubmit }) {
@@ -35,9 +36,9 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
   const selectedCount = Object.keys(selected).length;
 
   const handleSubmit = async () => {
-    if (selectedCount === 0) { alert("청구할 공종을 선택해주세요."); return; }
+    if (selectedCount === 0) { toastError("청구할 공종을 선택해주세요."); return; }
     const hasEmpty = Object.entries(selected).some(([_, v]) => !v || Number(v) <= 0);
-    if (hasEmpty) { alert("선택된 공종의 청구금액을 모두 입력해주세요."); return; }
+    if (hasEmpty) { toastError("선택된 공종의 청구금액을 모두 입력해주세요."); return; }
     setSaving(true);
     try {
       // 공종별로 각각 progress_report 생성
@@ -77,7 +78,7 @@ function InvoiceCard({ user, activities, profiles, setProgressReports, onClose, 
         setProgressReports(p => [...p, saved]);
       }
       onSubmit();
-    } catch (err) { alert("제출 실패: " + err.message); }
+    } catch (err) { toastError("제출 실패: " + err.message); }
     setSaving(false);
   };
 

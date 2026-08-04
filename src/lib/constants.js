@@ -3,8 +3,11 @@ export const YELLOW = "#FFB800";    // 포인트 옐로우 (legacy)
 export const ACCENT = "#0069b4";    // HG Blue 서브 (legacy)
 export const BTN_TEXT = "#fff";
 
-// ── Toss Design Tokens (Proxy — 매 렌더마다 localStorage 최신값 반영) ──
-const _T = () => {
+// ── Toss Design Tokens ──
+// 값은 캐시해두고 테마가 바뀔 때만 다시 계산한다.
+// (예전에는 속성 하나 읽을 때마다 localStorage/matchMedia를 호출했다 —
+//  인라인 스타일이 수천 개라 렌더 1회에 동기 스토리지 읽기가 수천 번 발생했음)
+const _build = () => {
   const saved = localStorage.getItem("pmis_dark");
   // 수동 설정이 없으면 OS 다크모드 따라감
   const dark = saved === null
@@ -21,12 +24,33 @@ const _T = () => {
     success: "#0CC981",
     warn:    "#FF7B00",
     danger:  "#F04452",
+    // 상태 배경 — 하드코딩된 #FFF0F0 / #FFF8EC 대체용 (다크모드 대응)
+    dangerBg:  dark ? "#3A1F23" : "#FFF0F0",
+    warnBg:    dark ? "#3A2A15" : "#FFF8EC",
+    successBg: dark ? "#12332A" : "#EAFBF4",
+    blueBg:    dark ? "#16263D" : "#EDF4FF",
     radius:  16,
     shadow:  dark ? "0 2px 12px rgba(0,0,0,0.4)" : "0 2px 12px rgba(0,0,0,0.08)",
     dark,
   };
 };
-export const T = new Proxy({}, { get: (_, key) => _T()[key] });
+
+let _cache = _build();
+/** 테마 설정(다크모드/포인트 컬러)이 바뀐 뒤 호출 — 캐시를 다시 만든다. */
+export const refreshTheme = () => { _cache = _build(); };
+export const T = new Proxy({}, { get: (_, key) => _cache[key] });
+
+// OS 다크모드를 따라가는 상태(수동 설정 없음)에서 시스템 테마가 바뀌면 즉시 반영
+if (typeof window !== "undefined" && window.matchMedia) {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => {
+    if (localStorage.getItem("pmis_dark") === null) {
+      refreshTheme();
+      window.dispatchEvent(new Event("pmis-theme-change"));
+    }
+  };
+  mq.addEventListener?.("change", onChange);
+}
 export const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
 
 export const ROLES = ["공무과장", "현장소장", "안전관리자", "협력사 반장", "기사", "대리", "기타"];

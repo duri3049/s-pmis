@@ -1,30 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { TODAY, getTier, ALL_SIDEBAR_ITEMS, T } from '../lib/constants';
-import { sb } from '../lib/supabase';
-import { pct, cpiColor, statusColor, dayStr, fmtM } from '../lib/utils';
-import { calcAct } from '../lib/cpm';
-import KPI from '../components/KPI';
-import Badge from '../components/Badge';
-import Toast from '../components/Toast';
-import Dashboard from '../pages/Dashboard';
-import GanttPanel from '../pages/GanttPanel';
-import DocumentVault from '../pages/DocumentVault';
-import ProjectSettings from '../pages/ProjectSettings';
-import IssueTracker from '../pages/IssueTracker';
-import ApprovalPanel from '../pages/ApprovalPanel';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { getTier, ALL_SIDEBAR_ITEMS, T } from '../lib/constants';
+import { toast as showToast } from '../components/Feedback';
 import RoomList from '../features/chat/RoomList';
 import ChatRoom from '../features/chat/ChatRoom';
-import WeeklyReport from '../features/reports/WeeklyReport';
-import MonthlyReport from '../features/reports/MonthlyReport';
-import DailyReport from '../features/reports/DailyReport';
-import ThreeWeekView from '../features/schedule/ThreeWeekView';
-import ExcelImportModal from '../modals/ExcelImportModal';
-import ActivityFormModal from '../modals/ActivityFormModal';
-import CalendarManager from '../features/calendar/CalendarManager';
-import LiftingReport from '../features/equipment/LiftingReport';
-import EquipmentManager from '../features/equipment/EquipmentManager';
 import ProfileSettings from '../modals/ProfileSettings';
 import CommandPalette from '../components/CommandPalette';
+
+// ── 무거운 화면은 실제로 열 때 내려받는다 ──
+// 공정표(ThreeWeekView)와 공정 현황(GanttPanel)만 합쳐 170KB 가까이 되는데,
+// 예전에는 첫 진입에 전부 번들로 들어갔다.
+const Dashboard        = lazy(() => import('../pages/Dashboard'));
+const GanttPanel       = lazy(() => import('../pages/GanttPanel'));
+const DocumentVault    = lazy(() => import('../pages/DocumentVault'));
+const ProjectSettings  = lazy(() => import('../pages/ProjectSettings'));
+const IssueTracker     = lazy(() => import('../pages/IssueTracker'));
+const ApprovalPanel    = lazy(() => import('../pages/ApprovalPanel'));
+const WeeklyReport     = lazy(() => import('../features/reports/WeeklyReport'));
+const MonthlyReport    = lazy(() => import('../features/reports/MonthlyReport'));
+const DailyReport      = lazy(() => import('../features/reports/DailyReport'));
+const ThreeWeekView    = lazy(() => import('../features/schedule/ThreeWeekView'));
+const ExcelImportModal = lazy(() => import('../modals/ExcelImportModal'));
+const ActivityFormModal = lazy(() => import('../modals/ActivityFormModal'));
+const CalendarManager  = lazy(() => import('../features/calendar/CalendarManager'));
+const EquipmentManager = lazy(() => import('../features/equipment/EquipmentManager'));
+
+/** 지연 로딩 중 표시할 자리 */
+function PanelFallback() {
+  return (
+    <div style={{ padding: 24 }} role="status" aria-live="polite" aria-label="화면을 불러오는 중">
+      <div className="skeleton" style={{ height: 72, borderRadius: 14, marginBottom: 12 }} />
+      <div className="skeleton" style={{ height: 220, borderRadius: 14, marginBottom: 12 }} />
+      <div className="skeleton" style={{ height: 160, borderRadius: 14 }} />
+    </div>
+  );
+}
 import { LayoutDashboard, ListChecks, CalendarRange, Truck, MessageCircle, CalendarDays, AlertTriangle, ClipboardCheck, Settings, FolderOpen, Search, RotateCw, Bell } from 'lucide-react';
 
 const MENU_ICONS = {
@@ -43,7 +52,15 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
   const [showMonthly, setShowMonthly] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [toast, setToast] = useState(null);
+  // 하위 화면들이 쓰던 setToast(msg) 인터페이스는 그대로 두고 전역 토스트로 넘긴다.
+  // 토스트 구현이 두 벌 있어 같은 상황이 화면마다 다르게 보이던 문제를 없앤다.
+  const setToast = useCallback((msg) => {
+    if (!msg) return;
+    const text = String(msg);
+    const type = /실패|반려|오류|에러/.test(text) ? "error"
+      : /완료|승인|반영|저장|등록/.test(text) ? "success" : "info";
+    showToast(text.replace(/^(?:✅|⚠️|❌|🔔|📋|\s)+/u, ""), type);
+  }, []);
   const [showProfile, setShowProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -68,9 +85,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
 
   return (
     <div style={{ display: "flex", height: "calc(100vh - 56px)", background: T.bg, overflow: "hidden", position: "relative" }}>
-      {toast && <Toast msg={toast} onDone={() => setToast(null)} />}
       <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} activities={activities} issues={issues} user={user}
         onNavigate={(menu) => { setActiveMenu(menu); setActiveRoom(null); }} />
+      <Suspense fallback={null}>
       {showModal && <ActivityFormModal onClose={() => setShowModal(false)} onSave={act => { setActivities(p => [...p, act]); setShowModal(false); setToast(`"${act.name}" 공정 등록 완료`); }} activities={activities} existingGroups={existingGroups} />}
       {showReport && <WeeklyReport activities={activities} issues={issues} progressReports={progressReports} onClose={() => setShowReport(false)} />}
       {showMonthly && <MonthlyReport activities={activities} issues={issues} progressReports={progressReports} onClose={() => setShowMonthly(false)} />}
@@ -97,6 +114,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           }}
         />
       )}
+      </Suspense>
       {isMobileScreen && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 998 }} />
       )}
@@ -230,6 +248,7 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           </div>
         )}
         <div key={activeMenu} className="page-enter" style={{ flex: 1, overflow: "hidden" }}>
+          <Suspense fallback={<PanelFallback />}>
           {activeMenu === "dashboard" && <Dashboard key={refreshKey} activities={activities} progressReports={progressReports} issues={issues} weather={weather} project={project} />}         {activeMenu === "settings" && (
             <ProjectSettings project={project} setProject={setProject} activities={activities} setActivities={setActivities} onImport={() => setShowImport(true)} />
           )}
@@ -250,7 +269,9 @@ function DesktopView({ activities, setActivities, progressReports, setProgressRe
           {activeMenu === "3w" && <ThreeWeekView activities={activities} milestones={milestones} setMilestones={setMilestones} progressReports={progressReports} subActivities={subActivities} setSubActivities={setSubActivities} isMobile={isMobileScreen} />}
           {activeMenu === "issues" && <IssueTracker issues={issues} setIssues={setIssues} activities={activities} setActivities={setActivities} setToast={setToast} />}
           {activeMenu === "docs" && <DocumentVault />}
-          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}        </div>
+          {activeMenu === "approval" && <ApprovalPanel activities={activities} setActivities={setActivities} progressReports={progressReports} setProgressReports={setProgressReports} issues={issues} setIssues={setIssues} setToast={setToast} sendPush={sendPush} subActivities={subActivities} setSubActivities={setSubActivities} setEquipmentLogs={setEquipmentLogs} />}
+          </Suspense>
+        </div>
       </div>
     </div>
   );

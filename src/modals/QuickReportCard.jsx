@@ -1,8 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { T, TODAY } from '../lib/constants';
 import { sb, supabase, uploadPhoto } from '../lib/supabase';
 import { dayStr } from '../lib/utils';
 import { claudeComplete } from '../lib/api';
+import { toastError } from '../components/Feedback';
 
 export default
 function QuickReportCard({ type, user, activities, subActivities, onClose, onSubmit }) {
@@ -18,7 +19,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
   const actSubs = subActivities.filter(s => s.activity_id === selectedActId && s.status === "active" && s.phys < 100);
 
   const handleSubmit = async () => {
-    if (!selectedActId) { alert("공종을 선택해주세요."); return; }
+    if (!selectedActId) { toastError("공종을 선택해주세요."); return; }
     setSaving(true);
     try {
       const isDone = type === "done";
@@ -49,7 +50,7 @@ function QuickReportCard({ type, user, activities, subActivities, onClose, onSub
         report_type: isDone ? "work_report" : "delay_report",
       });
       onSubmit(msg);
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 

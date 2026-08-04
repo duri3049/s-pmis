@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { TODAY, T } from '../lib/constants';
-import { sb, ANTHROPIC_KEY } from '../lib/supabase';
+import { sb } from '../lib/supabase';
+import { claudeComplete } from '../lib/ai';
 import { diffDays, pct, cpiColor, statusColor, dayStr, fmtM, riskBg, riskColor, sevColor, msIcon, msColor } from '../lib/utils';
 import { calcAct, calcTodayTarget, rollup, recalcCPM } from '../lib/cpm';
 import Badge from '../components/Badge';
 import KPI from '../components/KPI';
+import { toastError, confirmDialog } from '../components/Feedback';
+import { ensureXLSX } from '../lib/xlsx';
 
 export default
 function GanttPanel({ activities, setActivities, progressReports, milestones, setMilestones, onRegister, onReport, onMonthlyReport, onDailyReport, onImport, onDelete, subActivities, setSubActivities, user, project, setToast, isMobile }) {
@@ -48,13 +51,8 @@ ${g.acts.map(a => `- [ID:${a.id}] ${a.name} | 기간: ${a.ps}~${a.pf} (${a.orig_
 
 JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 마크다운 금지, JSON 배열만`;
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
-      });
-      const data = await r.json();
-      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      const text = await claudeComplete(prompt, 1000);
+      const match = text.match(/\[[\s\S]*\]/);
       if (!match) throw new Error("파싱 실패");
       const recs = JSON.parse(match[0]);
       // AI 반환값 합계로 정규화 → 대분류 총 예산(g.total_budget) 보존
@@ -72,7 +70,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget, ac: newAc }) : a));
       }
       setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
-    } catch (err) { alert("AI 배분 실패: " + err.message); }
+    } catch (err) { toastError("AI 배분 실패: " + err.message); }
     setWeightLoading(null);
   };
 
@@ -89,36 +87,18 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget, ac: newAc }) : a));
       }
       setToast?.(`✅ ${g.group} 균등 분배 완료`);
-    } catch (err) { alert("균등 분배 실패: " + err.message); }
+    } catch (err) { toastError("균등 분배 실패: " + err.message); }
   };
 
   const handleAISuggest = async (act) => {
     setAiLoading(true);
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 500,
-          messages: [{
-            role: "user",
-            content: `한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계와 가중치를 추천해줘.
+      const text = await claudeComplete(`한국 건설현장에서 "${act.name}" 공종의 세부 작업 단계와 가중치를 추천해줘.
 ${act.floor_start !== null && act.floor_end !== null ? `이 공종은 ${act.floor_start < 0 ? `B${Math.abs(act.floor_start)}` : `${act.floor_start}F`}~${act.floor_end < 0 ? `B${Math.abs(act.floor_end)}` : `${act.floor_end}F`} 구간이야. 각 층별로 세부공정을 나눠줘.` : ""}
 가중치는 각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 배분해줘.
 JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]
 예시 (층별): [{"name":"2F 철근 배근","weight":20},{"name":"2F 거푸집 설치","weight":15},{"name":"2F 콘크리트 타설","weight":10},{"name":"3F 철근 배근","weight":20},{"name":"3F 거푸집 설치","weight":15},{"name":"3F 콘크리트 타설","weight":10},{"name":"양생","weight":10}]
-예시 (층 없을 때): [{"name":"철근 배근","weight":35},{"name":"거푸집 설치","weight":25},{"name":"콘크리트 타설","weight":20},{"name":"양생","weight":20}]`
-          }]
-        })
-      });
-      const data = await r.json();
-      const text = data.content[0].text;
+예시 (층 없을 때): [{"name":"철근 배근","weight":35},{"name":"거푸집 설치","weight":25},{"name":"콘크리트 타설","weight":20},{"name":"양생","weight":20}]`, 500);
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
@@ -143,7 +123,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           setSubActivities(p => [...p, saved]);
         }
       }
-    } catch (err) { alert("AI 추천 실패: " + err.message); }
+    } catch (err) { toastError("AI 추천 실패: " + err.message); }
     setAiLoading(false);
   };
 
@@ -160,7 +140,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
       });
       setSubActivities(p => [...p, saved]);
       setSubInput("");
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
   };
 
   const handleApproveSub = async (sub) => {
@@ -170,44 +150,26 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
         approved_by: user.id,
       });
       setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, status: "active", approved_by: user.id } : s));
-    } catch (err) { alert("승인 실패: " + err.message); }
+    } catch (err) { toastError("승인 실패: " + err.message); }
   };
 
   const handleDeleteSub = async (sub) => {
-    if (!window.confirm(`"${sub.name}" 세부공정을 삭제할까요?`)) return;
+    if (!await confirmDialog(`"${sub.name}" 세부공정을 삭제할까요?`)) return;
     try {
       await sb.delete("sub_activities", sub.id);
       setSubActivities(p => p.filter(s => s.id !== sub.id));
-    } catch (err) { alert("삭제 실패: " + err.message); }
+    } catch (err) { toastError("삭제 실패: " + err.message); }
   };
 
   const handleAIReweight = async (act) => {
     const actSubs = subActivities.filter(s => s.activity_id === act.id && s.status === "active");
-    if (actSubs.length === 0) { alert("세부공정이 없습니다."); return; }
+    if (actSubs.length === 0) { toastError("세부공정이 없습니다."); return; }
     setAiLoading(true);
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": ANTHROPIC_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 500,
-          messages: [{
-            role: "user",
-            content: `한국 건설현장에서 "${act.name}" 공종의 아래 세부공정들에 가중치를 배분해줘.
+      const text = await claudeComplete(`한국 건설현장에서 "${act.name}" 공종의 아래 세부공정들에 가중치를 배분해줘.
 각 작업의 난이도, 공수, 중요도를 고려해서 합계가 반드시 100이 되도록 해줘.
 세부공정 목록: ${actSubs.map(s => s.name).join(", ")}
-JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]`
-          }]
-        })
-      });
-      const data = await r.json();
-      const text = data.content[0].text;
+JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}, ...]`, 500);
       const match = text.match(/\[[\s\S]*\]/);
       if (match) {
         const suggestions = JSON.parse(match[0]);
@@ -219,7 +181,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
           }
         }
       }
-    } catch (err) { alert("가중치 계산 실패: " + err.message); }
+    } catch (err) { toastError("가중치 계산 실패: " + err.message); }
     setAiLoading(false);
   };
   const handleEditSub = async (sub) => {
@@ -230,12 +192,13 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
       setEditingSubId(null);
       setEditingSubName("");
       setEditingSubWeight(0);
-    } catch (err) { alert("수정 실패: " + err.message); }
+    } catch (err) { toastError("수정 실패: " + err.message); }
   };
 
-  const exportToP6Excel = () => {
-    if (!window.XLSX) { alert("잠시 후 다시 시도해주세요."); return; }
-    const XLSX = window.XLSX;
+  const exportToP6Excel = async () => {
+    let XLSX;
+    try { XLSX = await ensureXLSX(); }
+    catch (err) { toastError(err.message); return; }
     const rows = activities.map(a => ({
       "Activity ID": a.wbs || `ACT-${a.id}`,
       "Activity Name": a.name,
@@ -457,11 +420,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                   {!a.as_ && a.ps <= todayStr && (
                                     <button onClick={async (e) => {
                                       e.stopPropagation();
-                                      if (!window.confirm(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
+                                      if (!await confirmDialog(`"${a.name}" 공종을 오늘 착수 처리할까요?`)) return;
                                       try {
                                         await sb.patch("activities", a.id, { as_: dayStr(TODAY) });
                                         setActivities(p => p.map(x => x.id === a.id ? calcAct({ ...x, as_: dayStr(TODAY) }) : x));
-                                      } catch (err) { alert("착수 처리 실패: " + err.message); }
+                                      } catch (err) { toastError("착수 처리 실패: " + err.message); }
                                     }}
                                       style={{ background: `${T.blue}14`, border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: T.blue, cursor: "pointer", fontWeight: 700 }}>
                                       착수
@@ -487,11 +450,11 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                 {a.done_qty === 0 && onDelete && (
                                   <button onClick={async (e) => {
                                     e.stopPropagation();
-                                    if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                                    if (!await confirmDialog(`"${a.name}" 공정을 삭제할까요?`)) return;
                                     try {
                                       await sb.delete("activities", a.id);
                                       onDelete(a.id);
-                                    } catch (err) { alert("삭제 실패: " + err.message); }
+                                    } catch (err) { toastError("삭제 실패: " + err.message); }
                                   }}
                                     style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 10px", fontSize: 11, color: T.danger, cursor: "pointer", fontWeight: 600, marginLeft: "auto" }}>
                                     삭제
@@ -608,7 +571,7 @@ JSON 배열만 반환해: [{"name":"세부공정명","weight":<가중치숫자>}
                                               🔨 착수
                                             </button>
                                             : <button onClick={async () => {
-                                              if (!window.confirm(`${sub.name} 완료 처리하시겠습니까?`)) return;
+                                              if (!await confirmDialog(`${sub.name} 완료 처리하시겠습니까?`)) return;
                                               const today = dayStr(TODAY);
                                               await sb.patch("sub_activities", sub.id, { phys: 100, end_date: today });
                                               const updatedSubs = subActivities.map(s => s.id === sub.id ? { ...s, phys: 100, end_date: today } : s);

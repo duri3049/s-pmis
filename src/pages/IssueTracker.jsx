@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { T, TODAY, ISSUE_TYPES, SEVERITIES, RESPS } from '../lib/constants';
 import { sb } from '../lib/supabase';
 import { riskBg, riskColor, sevColor, dayStr } from '../lib/utils';
 import { recalcCPM, calcAct } from '../lib/cpm';
 import Badge from '../components/Badge';
+import { toastError } from '../components/Feedback';
 
 export default
 function IssueTracker({ issues, setIssues, activities, setActivities, setToast }) {
@@ -106,7 +107,7 @@ function IssueTracker({ issues, setIssues, activities, setActivities, setToast }
       if (Number(form.delay_days) > 0) { const recalced = recalcCPM(activities, Number(form.activity_id), Number(form.delay_days)); for (const act of recalced) { const orig = activities.find(a => a.id === act.id); if (orig && (orig.ps !== act.ps || orig.pf !== act.pf)) await sb.patch("activities", act.id, { ps: act.ps, pf: act.pf, delay_days: act.delay_days }); } setActivities(recalced); setToast("⚠️ CPM 재계산 완료"); }
       else setToast("✅ 이슈가 등록되었습니다");
       setShowForm(false); setForm({ title: "", activity_id: "", issue_type: "공기지연", severity: "보통", cause: "", action_plan: "", delay_days: 0, assignee: "", created_by: "관리자" });
-    } catch (err) { alert("저장 실패: " + err.message); } setSaving(false);
+    } catch (err) { toastError("저장 실패: " + err.message); } setSaving(false);
   };
   const handleClose = async (issue) => { await sb.patch("issues", issue.id, { status: "closed" }); setIssues(p => p.map(i => i.id === issue.id ? { ...i, status: "closed" } : i)); setToast("이슈가 종결되었습니다"); };
   const is = { width: "100%", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 16, outline: "none", boxSizing: "border-box" };

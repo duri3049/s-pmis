@@ -1,7 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { T, TODAY, SUBCONS, RESPS } from '../lib/constants';
 import { sb, uploadPhoto } from '../lib/supabase';
 import { dayStr } from '../lib/utils';
+import { toastError } from '../components/Feedback';
 
 export default
 function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
@@ -19,7 +20,7 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
 
   const handleSubmit = async () => {
     const toSave = rows.filter(r => r.details.some(d => Number(d.count) > 0));
-    if (toSave.length === 0) { alert("투입 인원을 입력해주세요."); return; }
+    if (toSave.length === 0) { toastError("투입 인원을 입력해주세요."); return; }
     setSaving(true);
     try {
       for (const r of toSave) {
@@ -49,7 +50,7 @@ function DailyWorkerCard({ user, activities, onClose, onSubmit }) {
         });
       }
       onSubmit();
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { T, TODAY } from '../lib/constants';
-import { sb } from '../lib/supabase';
+import { sb, SB_URL, SB_KEY } from '../lib/supabase';
 import { calcAct } from '../lib/cpm';
 import { dayStr } from '../lib/utils';
+import { confirmDialog, toastError, toastSuccess } from '../components/Feedback';
 
 export default
 function ProjectSettings({ project, setProject, activities, setActivities, onImport }) {
@@ -114,7 +115,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
       setToast("✅ 저장되었습니다");
       setTimeout(() => setToast(""), 3000);
     } catch (err) {
-      alert("저장 실패: " + err.message);
+      toastError("저장 실패: " + err.message);
     }
     setSaving(false);
   };
@@ -172,12 +173,18 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
                         W/F {weight.toFixed(1)}% = <strong style={{ color: T.text }}>{(newBudget / 100000000).toFixed(2)}억</strong>
                       </span>
                       <button onClick={async () => {
-                        if (!window.confirm(`"${a.name}" 공정을 삭제할까요?`)) return;
+                        const ok = await confirmDialog({
+                          title: "공정을 삭제할까요?",
+                          message: `"${a.name}"\n삭제하면 되돌릴 수 없어요.`,
+                          confirmText: "삭제",
+                        });
+                        if (!ok) return;
                         try {
                           await sb.delete("activities", a.id);
                           setActivities(p => p.filter(x => x.id !== a.id));
+                          toastSuccess("공정을 삭제했어요");
                         } catch (err) {
-                          alert("삭제 실패: " + err.message);
+                          toastError("삭제 실패: " + err.message);
                         }
                       }}
                         style={{ background: "#FEE2E2", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "#991B1B", cursor: "pointer", fontWeight: 600 }}>
@@ -195,7 +202,19 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
           {toast && <span style={{ fontSize: 13, color: T.success, fontWeight: 600 }}>{toast}</span>}
           <button
             onClick={async () => {
-              if (!window.confirm("모든 공정 데이터를 초기화합니다.\n등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n정말 초기화하시겠습니까?")) return;
+              // 앱에서 가장 파괴적인 동작 — 되돌릴 수 없어 2단계로 확인한다
+              const ok = await confirmDialog({
+                title: "모든 공정 데이터를 초기화할까요?",
+                message: "등록된 공종, 세부공정, 작업보고, 이슈가 모두 삭제됩니다.\n삭제된 데이터는 복구할 수 없어요.",
+                confirmText: "계속",
+              });
+              if (!ok) return;
+              const reallyOk = await confirmDialog({
+                title: "정말 초기화합니다",
+                message: "마지막 확인입니다. 현장의 모든 기록이 사라집니다.",
+                confirmText: "초기화",
+              });
+              if (!reallyOk) return;
               try {
                 const headers = { "Content-Type": "application/json", "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Prefer": "return=minimal" };
                 await fetch(`${SB_URL}/rest/v1/progress_reports?id=gt.0`, { method: "DELETE", headers });
@@ -207,7 +226,7 @@ function ProjectSettings({ project, setProject, activities, setActivities, onImp
                 await fetch(`${SB_URL}/rest/v1/activities?id=gt.0`, { method: "DELETE", headers });
                 setActivities([]);
                 setToast("데이터 초기화 완료");
-              } catch (err) { alert("초기화 실패: " + err.message); }
+              } catch (err) { toastError("초기화 실패: " + err.message); }
             }}
             style={{ background: "#FEE2E2", border: "1px solid #FECACA", borderRadius: 10, padding: "11px 20px", fontWeight: 700, fontSize: 13, color: "#991B1B", cursor: "pointer" }}>
             데이터 초기화

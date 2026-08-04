@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { T, TODAY } from '../../lib/constants';
-import { ANTHROPIC_KEY, sb } from '../../lib/supabase';
+import { sb } from '../../lib/supabase';
+import { claudeComplete } from '../../lib/ai';
 import { diffDays, dayStr, statusColor } from '../../lib/utils';
 import { calcAct } from '../../lib/cpm';
+import { toastError, confirmDialog } from '../../components/Feedback';
 
 export default
 function ThreeWeekView({ activities, setActivities, milestones, setMilestones, progressReports, subActivities, setSubActivities, isMobile, project, setToast }) {
@@ -168,7 +170,7 @@ function ThreeWeekView({ activities, setActivities, milestones, setMilestones, p
     } else {
       const allPs = activities.map(a => a.ps).filter(Boolean).sort()[0];
       const allPf = activities.map(a => a.pf).filter(Boolean).sort().reverse()[0];
-      if (!allPs || !allPf) { alert("공정 데이터가 없습니다."); return; }
+      if (!allPs || !allPf) { toastError("공정 데이터가 없습니다."); return; }
       const totalDays = diffDays(allPf, allPs) + 1;
       if (totalDays > 365 * 3) {
         let cur = new Date(allPs.slice(0, 7) + "-01"); const end = new Date(allPf.slice(0, 7) + "-01");
@@ -405,11 +407,11 @@ function ThreeWeekView({ activities, setActivities, milestones, setMilestones, p
         });
         setWeeklyPlans(p => [...p, saved]);
       }
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
   };
 
   const handleAIRecommend = async () => {
-    if (active.length === 0) { alert("이 기간에 진행 중인 공종이 없습니다."); return; }
+    if (active.length === 0) { toastError("이 기간에 진행 중인 공종이 없습니다."); return; }
     setAiLoading(true);
     try {
       const nextWeek = weeks[2];
@@ -449,13 +451,8 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
 - note는 20자 이내, 없으면 ""
 - JSON 배열만 반환, 마크다운 금지`;
 
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
-      });
-      const data = await r.json();
-      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      const text = await claudeComplete(prompt, 1000);
+      const match = text.match(/\[[\s\S]*\]/);
       if (!match) throw new Error("AI 응답 파싱 실패");
       const recs = JSON.parse(match[0]);
       const saved = [];
@@ -475,13 +472,13 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         const filtered = p.filter(x => !(x.week_start === nextWeek.startStr && saved.some(s => s.activity_id === x.activity_id)));
         return [...filtered, ...saved];
       });
-      alert(`✅ AI 추천 완료 — ${recs.length}개 공종 다음 주 계획이 업데이트됐습니다.`);
-    } catch (err) { alert("AI 추천 실패: " + err.message); }
+      toastError(`✅ AI 추천 완료 — ${recs.length}개 공종 다음 주 계획이 업데이트됐습니다.`);
+    } catch (err) { toastError("AI 추천 실패: " + err.message); }
     setAiLoading(false);
   };
 
   const handleConfirm = async () => {
-    if (active.length === 0) { alert("공종 데이터가 없습니다."); return; }
+    if (active.length === 0) { toastError("공종 데이터가 없습니다."); return; }
     setConfirming(true);
     try {
       const snapshot = active.map(a => {
@@ -516,7 +513,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
         status: "confirmed",
       });
       setShowPdfPreview(true);
-    } catch (err) { alert("확정 실패: " + err.message); }
+    } catch (err) { toastError("확정 실패: " + err.message); }
     setConfirming(false);
   };
 
@@ -528,7 +525,7 @@ ${actCtx.map(a => `- [ID:${a.id}] ${a.name} (${a.subcon})
       setMilestones(p => [...p, saved].sort((a, b) => a.milestone_date.localeCompare(b.milestone_date)));
       setShowMilestoneForm(false);
       setMsForm({ title: "", milestone_date: "", type: "complete", status: "planned" });
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
   const msIcon = t => ({ complete: "★", gate: "🔷", inspection: "🔍", equipment: "🏗" }[t] || "★");
@@ -558,13 +555,8 @@ ${g.acts.map(a => `- [ID:${a.id}] ${a.name} | 기간: ${a.ps}~${a.pf} (${a.orig_
 JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
 마크다운 금지, JSON 배열만`;
 
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, messages: [{ role: "user", content: prompt }] })
-      });
-      const data = await r.json();
-      const match = data.content[0].text.match(/\[[\s\S]*\]/);
+      const text = await claudeComplete(prompt, 1000);
+      const match = text.match(/\[[\s\S]*\]/);
       if (!match) throw new Error("파싱 실패");
       const recs = JSON.parse(match[0]);
       const totalBudgetAll = activities.reduce((s, a) => s + a.pv_budget, 0);
@@ -577,7 +569,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         setActivities(p => p.map(a => a.id === rec.id ? calcAct({ ...a, pv_budget: newBudget }) : a));
       }
       setToast?.(`✅ ${g.group} 가중치 AI 배분 완료`);
-    } catch (err) { alert("AI 배분 실패: " + err.message); }
+    } catch (err) { toastError("AI 배분 실패: " + err.message); }
     setWeightLoading(null);
   };
 
@@ -595,7 +587,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
         setActivities(p => p.map(a => a.id === act.id ? calcAct({ ...a, pv_budget: perBudget }) : a));
       }
       setToast?.(`✅ ${g.group} 균등 분배 완료`);
-    } catch (err) { alert("균등 분배 실패: " + err.message); }
+    } catch (err) { toastError("균등 분배 실패: " + err.message); }
   };
 
   return (
@@ -852,11 +844,11 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                         {msIcon(m.type)} {m.title}
                       </span>
                       <span onClick={async () => {
-                        if (!window.confirm(`"${m.title}" 마일스톤을 삭제할까요?`)) return;
+                        if (!await confirmDialog(`"${m.title}" 마일스톤을 삭제할까요?`)) return;
                         try {
                           await sb.delete("milestones", m.id);
                           setMilestones(p => p.filter(x => x.id !== m.id));
-                        } catch (err) { alert("삭제 실패: " + err.message); }
+                        } catch (err) { toastError("삭제 실패: " + err.message); }
                       }} style={{ fontSize: 10, color: m.status === "achieved" ? "#6B7280" : "#fff", cursor: "pointer", opacity: 0.7, fontWeight: 700, lineHeight: 1 }}>✕</span>
                     </span>
                   ))}
@@ -1642,7 +1634,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                         if (!val) return;
                                         const parentAct = activities.find(x => x.id === sub.activity_id);
                                         if (parentAct && (val < parentAct.ps || val > parentAct.pf)) {
-                                          const ok = window.confirm(`⚠️ 입력한 시작일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
+                                          const ok = await confirmDialog(`⚠️ 입력한 시작일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
                                           if (!ok) return;
                                         }
                                         setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, start_date: val } : s));
@@ -1658,7 +1650,7 @@ JSON만 반환: [{"id":<공종ID>,"weight":<가중치숫자>}]
                                         if (!val) return;
                                         const parentAct = activities.find(x => x.id === sub.activity_id);
                                         if (parentAct && (val < parentAct.ps || val > parentAct.pf)) {
-                                          const ok = window.confirm(`⚠️ 입력한 종료일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
+                                          const ok = await confirmDialog(`⚠️ 입력한 종료일(${val})이 상위 공종 계획 기간(${parentAct.ps} ~ ${parentAct.pf})을 벗어납니다.\n저장하시겠습니까?`);
                                           if (!ok) return;
                                         }
                                         setSubActivities(p => p.map(s => s.id === sub.id ? { ...s, planned_end_date: val } : s));

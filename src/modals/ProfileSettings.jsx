@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { T, ROLES, SUBCONS } from '../lib/constants';
 import { sb, supabase } from '../lib/supabase';
+import { toastError } from '../components/Feedback';
 
 const THEME_COLORS = [
   { label: "블루",    value: "#0064FF" },
@@ -63,7 +64,7 @@ export default function ProfileSettings({ user, profiles, onClose, onThemeChange
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert("저장 실패: " + err.message);
+      toastError("저장 실패: " + err.message);
     }
     setSaving(false);
   };
@@ -71,7 +72,7 @@ export default function ProfileSettings({ user, profiles, onClose, onThemeChange
   const notifEnabled = Notification?.permission === "granted";
 
   const requestNotif = async () => {
-    if (!("Notification" in window)) return alert("이 브라우저는 알림을 지원하지 않아요.");
+    if (!("Notification" in window)) return toastError("이 브라우저는 알림을 지원하지 않아요.");
     const perm = await Notification.requestPermission();
     if (perm === "granted") onThemeChange?.();
   };

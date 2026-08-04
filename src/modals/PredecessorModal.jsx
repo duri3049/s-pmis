@@ -1,5 +1,7 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { T } from '../lib/constants';
+import { toastError } from '../components/Feedback';
+import { useModalA11y } from '../lib/hooks';
 
 export default
 function PredecessorModal({ act, activities, onClose, onSave }) {
@@ -8,6 +10,7 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
   );
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const modalRef = useModalA11y(onClose);
 
   const toggle = (id) => {
     const exists = preds.find(p => p.id === id);
@@ -28,7 +31,7 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
         original_pf: act.pf,
       });
       onSave(preds);
-    } catch (err) { alert("저장 실패: " + err.message); }
+    } catch (err) { toastError("저장 실패: " + err.message); }
     setSaving(false);
   };
 
@@ -38,7 +41,8 @@ function PredecessorModal({ act, activities, onClose, onSave }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div className="modal-enter" style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="선행공정 설정"
+        className="modal-enter" style={{ background: T.card, borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <div style={{ background: T.blue, borderRadius: "16px 16px 0 0", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>🔗 선행공정 설정</div>

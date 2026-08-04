@@ -1,11 +1,13 @@
-import { TODAY, T } from '../../lib/constants';
+﻿import { TODAY, T } from '../../lib/constants';
 import { fmtM, pct, cpiColor, dayStr, diffDays } from '../../lib/utils';
+import { useModalA11y } from '../../lib/hooks';
 
 const rThStyle = { background: "#1A2332", color: "#fff", padding: "6px 10px", border: "1px solid #374151", fontWeight: 600, textAlign: "left" };
 const rTdStyle = { padding: "6px 10px", border: `1px solid ${T.border}`, verticalAlign: "top" };
 const rSecTitle = { fontWeight: 700, fontSize: 12, color: "#1A2332", borderLeft: "4px solid #FFB800", paddingLeft: 8, marginBottom: 8, marginTop: 4 };
 
 export default function MonthlyReport({ activities, issues, progressReports, onClose }) {
+  const modalRef = useModalA11y(onClose);
   const reportDate = new Date();
   const monthAgo = new Date(reportDate); monthAgo.setMonth(monthAgo.getMonth() - 1);
   const nextMonth = new Date(reportDate); nextMonth.setMonth(nextMonth.getMonth() + 1);
@@ -65,7 +67,7 @@ export default function MonthlyReport({ activities, issues, progressReports, onC
   const nextMonthPlan = activities.filter(a => a.phys < 100 && new Date(a.ps) <= nextMonth && new Date(a.pf) >= reportDate);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
+    <div ref={modalRef} role="dialog" aria-modal="true" aria-label="월간 보고서" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, overflowY: "auto", padding: "20px" }}>
       <style>{`@media print { body * { visibility: hidden; } #mr-content, #mr-content * { visibility: visible; } #mr-content { position: fixed; top: 0; left: 0; width: 100%; } .no-print { display: none !important; } } @page { size: A4; margin: 15mm; }`}</style>
       <div className="no-print" style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 16 }}>
         <button onClick={() => {
